@@ -33,21 +33,21 @@ OUTPUT = "../output/"
 
 
 
-FILE_FORMATS = {
+VEL_FILE_FORMATS = {
     'ItsLive': [
-         "../input/ITS_LIVE_velocity_120m_RGI19A_{0}_v02.nc"
+         "../src/input/velocities/ITS_LIVE_velocity_120m_RGI19A_{0}_v02.nc"
     ],
 
     'Measures': [
-        "../input/Antarctica_ice_velocity_{0}_{1}_1km_v01.1.nc",
-        "../input/Antarctica_ice_velocity_{0}_{1}_1km_v01.nc",
+        "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.1.nc",
+        "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.nc",
     ]
 
 }
 
 SOURCE_SAMPLE_FILES = {
-    'ItsLive': FILE_FORMATS['ItsLive'][0].format(2000),
-    'Measures': FILE_FORMATS['Measures'][0].format(2000, 2001),
+    'ItsLive': VEL_FILE_FORMATS['ItsLive'][0].format(2000),
+    'Measures': VEL_FILE_FORMATS['Measures'][0].format(2000, 2001),
 }
 
 
