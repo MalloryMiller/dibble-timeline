@@ -1,6 +1,6 @@
 from flags import *
 import time as t
-from numpy import abs
+from numpy import abs # type: ignore
 
 AREAS = {
 
@@ -30,6 +30,17 @@ MINIMUM_COVERAGE = 2
 STREAM_PLOT_STEPS = 1/12
 
 OUTPUT = "../output/"
+
+TIF_LOCATION = OUTPUT + "velocities"
+
+
+
+SHAPEFILES = {
+    'iceshelf': "shapefiles/coastline_EPS.shp",
+    'grounding': "shapefiles/grounding_line.shp",
+    'oceanmask': "shapefiles/maskfile.shp",
+    'basins': "shapefiles/a_lot_of_basins.shp",
+}
 
 
 

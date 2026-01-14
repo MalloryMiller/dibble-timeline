@@ -16,12 +16,14 @@ class FileManager:
                                     'mapping', 'landice', 
                                     'vx_error', 'vy_error', #'v_error',
                                     'coord_system'],
-                                    source_override = False):
+                                    source_override = False, label=''):
         
         self.minlat =  minlat
         self.maxlat =  maxlat
         self.minlon =  minlon
         self.maxlon =  maxlon
+
+        self.label = label
 
         self.fname_format = fname_formats
         self.sources = sources
@@ -148,22 +150,22 @@ class FileManager:
 
 
             if len(found.keys()) != 0:
-                to_add = [self.get_data()]
+                to_add = self.get_data()
                 has_data = True
 
                 if "ItsLive" in found and "ItsLive" != self.sample_source:
 
-                    ygrid, xgrid = np.meshgrid(to_add[0].y.values, to_add[0].x.values)
+                    ygrid, xgrid = np.meshgrid(to_add.y.values, to_add.x.values)
                     vel = RegularGridInterpolator((found['ItsLive'].y.values, found['ItsLive'].x.values), 
                                                   found['ItsLive'].velocity.values, method='linear')
                     
-                    #print(len(to_add[0].y.values), len(to_add[0].x.values))
+                    #print(len(to_add.y.values), len(to_add.x.values))
                     #print(len(found['ItsLive'].y.values), len(found['ItsLive'].x.values))
                     
                     
                     vel = vel((ygrid, xgrid))
                     vel = xr.DataArray(vel, 
-                                        coords={'x': to_add[0].x.values, 'y': to_add[0].y.values},
+                                        coords={'x': to_add.x.values, 'y': to_add.y.values},
                                         dims=['x', 'y'])
 
 
@@ -171,7 +173,7 @@ class FileManager:
                                                 found['ItsLive'].v_error.values, method='linear')
                     c = c((ygrid, xgrid))
                     c = xr.DataArray(c, 
-                                    coords={'x': to_add[0].x.values, 'y': to_add[0].y.values},
+                                    coords={'x': to_add.x.values, 'y': to_add.y.values},
                                     dims=['x', 'y'])
                         
                     
@@ -179,46 +181,41 @@ class FileManager:
 
                         if self.combo_mode == "weighted":
 
-                            to_add[0]['velocity'] = ((found["Measures"].velocity * found["Measures"].v_error) + (vel * c)) / (found["Measures"].v_error + c)
-                            to_add[0]['v_error'] = found["Measures"].v_error + c
+                            to_add['velocity'] = ((found["Measures"].velocity * found["Measures"].v_error) + (vel * c)) / (found["Measures"].v_error + c)
+                            to_add['v_error'] = found["Measures"].v_error + c
 
 
                         elif self.combo_mode == "average":
 
-                            to_add[0]['velocity'] = (found["Measures"].velocity + vel) / 2
-                            to_add[0]['v_error'] = found["Measures"].v_error + c
-
-
-                        elif self.combo_mode == 'offset':
-
-                            to_add[0]['velocity'] = found["Measures"].velocity
-                            to_add[0]['v_error'] = found["Measures"].v_error
-
-                            to_add.append(self.get_data())
-
-                            to_add[1]['velocity'] = vel
-                            to_add[1]['v_error'] = c
+                            to_add['velocity'] = (found["Measures"].velocity + vel) / 2
+                            to_add['v_error'] = found["Measures"].v_error + c
 
 
 
 
                     elif "Measures" in found and "ItsLive" not in found and not has_data:
-                        to_add[0]['velocity'] = found["Measures"].velocity
-                        to_add[0]['v_error'] = found["Measures"].v_error
+                        to_add['velocity'] = found["Measures"].velocity
+                        to_add['v_error'] = found["Measures"].v_error
                     elif not has_data:
                         continue
                     else:
-                        to_add[0]['velocity'] = vel
-                        to_add[0]['v_error'] = c
+                        to_add['velocity'] = vel
+                        to_add['v_error'] = c
 
                 elif "ItsLive" != self.sample_source:
-                    to_add = [found["Measures"]]
+                    to_add = found["Measures"]
                 else: 
-                    to_add = [found["ItsLive"]]
+                    to_add  = found["ItsLive"]
 
 
 
-                self.file.extend(to_add)
+                self.file.extend([to_add])
+
+                print(to_add)
+                tif_to_save = to_add.velocity
+                tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
+                tif_to_save.rio.to_raster(TIF_LOCATION + str(x) + self.label + "_v.tif")
+
 
                 if self.combo_mode == 'offset':
                     cur_years = []
