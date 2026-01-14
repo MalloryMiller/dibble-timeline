@@ -82,7 +82,8 @@ class main():
         
 
 
-        self.get_files('x').file
+        self.get_files('x')
+        self.get_files('y')
 
 
         
@@ -143,7 +144,7 @@ class main():
                             base_drop_vars = ['STDX', 'STDY', #'ERRY', 'ERRX', 
                                         'mapping', 'landice', 
                                         'vy_error', 'v_error',
-                                        'coord_system', 'velocity'], label='_y')
+                                        'coord_system', 'velocity'], label='_x')
             elif dim == 'y':
                 fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
                             sources=sources,combo_mode=combo_mode, 

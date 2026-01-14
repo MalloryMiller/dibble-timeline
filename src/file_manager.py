@@ -1,11 +1,14 @@
 from utils import *
 from pathlib import Path
+import os
 import numpy as np
 
+from plotting import plot_geotiff
 
 from scipy.interpolate import RegularGridInterpolator
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
+import matplotlib.pyplot as plt
 
 
 class FileManager:
@@ -95,6 +98,10 @@ class FileManager:
         
 
         return self.special_prep(sample_file, source)
+    
+
+    def get_fname(self, year):
+        return TIF_LOCATION + str(year) + self.label + "_v.tif"
         
         
 
@@ -118,12 +125,15 @@ class FileManager:
         
         self.close()
 
-        years_found = []
+        #years_found = []
         progress = LoadingBar()
         print("Opening " + ", ".join(self.sources) + " data.")
         self.get_data(base=True)
 
         for x in list(range(self.yearStart, self.yearEnd+1)):
+            '''if os.path.exists(self.get_fname(x)):
+                print(self.get_fname(x) + " exists already.")
+                continue'''
 
             found = {}
 
@@ -209,14 +219,22 @@ class FileManager:
 
 
 
-                self.file.extend([to_add])
+                #self.file.extend([to_add])
 
                 print(to_add)
                 tif_to_save = to_add.velocity
                 tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
-                tif_to_save.rio.to_raster(TIF_LOCATION + str(x) + self.label + "_v.tif")
+                tif_to_save.rio.to_raster(self.get_fname(x))
+
+                fig, ax = plt.subplots()
+                plot_geotiff(self.get_fname(x), fig, ax)
+                print("Saving image...")
+                plt.savefig("test.png", dpi=200)
+                
+                plt.close('all')
 
 
+                '''
                 if self.combo_mode == 'offset':
                     cur_years = []
                     if "Measures" in found:
@@ -226,13 +244,13 @@ class FileManager:
                 else:
                     cur_years = [x]
                 years_found.extend(cur_years)
-                
+            '''   
             progress.load_bar(x - self.yearStart, self.yearEnd - self.yearStart)
-            
+            '''
         self.file = xr.concat(self.file, dim=years_found)
         self.file = self.file.rename({'concat_dim': 'year'})
 
-        return self.file
+        return self.file'''
 
 
 

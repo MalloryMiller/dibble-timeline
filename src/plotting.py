@@ -6,7 +6,7 @@ import matplotlib.colors as colors
 from matplotlib.lines import Line2D
 import rasterio as rs
 
-from utils import SHAPEFILES
+from utils import *
 
 
 gpgk_folder_name = 'gpkg_progress'
@@ -16,12 +16,16 @@ velocity_trends_tif = "shapefiles/velocities_measures.tif"#"shapefiles/velocity_
 extent = [1.78e6, 1.92e6, -1.91e6,  -1.75e6]
 basin_extent = [1, 2.1e6, -2.1e6, -0.75]
 
+'''
+class Plotting:
+    def __init__(self, extent) 
 
 
+'''
 
 print("Reading trend file...")
 
-gdf = gpd.read_file('to_save/ATL11_trends_APS.gpkg')#'ATL11_trends_APS.gpkg')
+gdf = gpd.read_file(ELEVATION_LOCATION)#'ATL11_trends_APS.gpkg')
 ##print(gdf.columns.tolist())
 
 

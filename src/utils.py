@@ -29,11 +29,13 @@ MINIMUM_COVERAGE = 2
 
 STREAM_PLOT_STEPS = 1/12
 
-OUTPUT = "../output/"
+OUTPUT = "output/"
+INPUT = "input/"
 
-TIF_LOCATION = OUTPUT + "velocities"
+TIF_LOCATION = OUTPUT + "velocities/"
 
 
+ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",
@@ -41,6 +43,8 @@ SHAPEFILES = {
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
 }
+
+VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
 
 
