@@ -348,18 +348,18 @@ class FileManager:
             cur_track += 1
             progress.load_bar(cur_track, max)
 
-        for c in range(self.yearStart, self.yearEnd):
+        for c in range(self.yearStart, self.yearEnd+1):
 
 
 
             try:
-                self.file[year].to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
+                self.file[c].to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
             except ValueError:
                 print("Value Error")
                 pass
 
             try:
-                gdf_final = gpd.GeoDataFrame(self.file[year], geometry='geometry', crs='EPSG:4326')
+                gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
                 
                 to_tif = make_geocube(
                     vector_data=gdf_final,
