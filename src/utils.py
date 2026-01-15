@@ -34,6 +34,8 @@ INPUT = "input/"
 
 TIF_LOCATION = OUTPUT + "velocities/"
 
+ELEVATION_H5_LOCATION = INPUT + "elevation/"
+
 
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 
@@ -58,6 +60,24 @@ VEL_FILE_FORMATS = {
         "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.nc",
     ]
 
+}
+
+VELOCITY_DROP_VARS = {
+    None: None,
+    'x': ['STDX', 'STDY', #'ERRY', 'ERRX', 
+                                        'mapping', 'landice', 
+                                        'vy_error', 'v_error',
+                                        'coord_system', 'velocity'],
+    'y': ['STDX', 'STDY', #'ERRX', #'ERRY', 
+                                        'mapping', 'landice', 
+                                        'vx_error', 'v_error',
+                                        'coord_system', 'velocity'],
+}
+
+VELOCITY_DIM_LABELS = {
+    None: '',
+    'x': '_x',
+    'y': '_y',
 }
 
 SOURCE_SAMPLE_FILES = {
@@ -209,6 +229,12 @@ FORMAT_PARSE = {
     'Measures': measures_parse
 }
 
+
+VELOCITY_SPECIAL_PREP = {
+    None: drop_unnecessary_for_v,
+    'x': x_only_parse,
+    'y': y_only_parse,
+}
 
 
 class LoadingBar():

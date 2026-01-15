@@ -165,7 +165,7 @@ def plot_col(gdf, colm, vmax, vmin, cmap, color_label, grounding_color='black', 
     
     plt.close('all')
 
-
+'''
 
 #plot_col(gdf, 'trend', 1, -1, 'bwr_r', "Elevation Trend", velocities='trend')
 #plot_col(gdf, 'uncert', 2, 0, 'Reds', "Elevation Trend", velocities='trend')
@@ -183,7 +183,7 @@ plot_only_vel_trend_geotiff(cmap='RdBu')
 #plot_only_vel_trend_geotiff()
 #plot_only_vel_geotiff()
 
-
+'''
 
 
 

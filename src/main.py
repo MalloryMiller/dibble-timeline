@@ -82,8 +82,10 @@ class main():
         
 
 
-        self.get_files('x')
-        self.get_files('y')
+        #print(self.get_files(dim='x').file)
+        #print(self.get_files(dim='y').file)
+        #print(self.get_files().file)
+        print(self.get_files(data='elev').file)
 
 
         
@@ -116,7 +118,7 @@ class main():
         
 
 
-    def get_files(self, dim=None, type='vel'):
+    def get_files(self, data='vel', dim=None):
         '''
         Generates a single file of the type specified by the dimension if any.
 
@@ -133,36 +135,27 @@ class main():
 
         sources = self.flags.sources()
         combo_mode = self.flags.combo_method()
-
-        if type == 'vel':
-
-            if dim == 'x':
-                fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
-                            sources=sources,combo_mode=combo_mode, 
-                            yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART,
-                            further_processing=x_only_parse, 
-                            base_drop_vars = ['STDX', 'STDY', #'ERRY', 'ERRX', 
-                                        'mapping', 'landice', 
-                                        'vy_error', 'v_error',
-                                        'coord_system', 'velocity'], label='_x')
-            elif dim == 'y':
-                fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
-                            sources=sources,combo_mode=combo_mode, 
-                            yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART,
-                            further_processing=y_only_parse, 
-                            base_drop_vars = ['STDX', 'STDY', #'ERRX', #'ERRY', 
-                                        'mapping', 'landice', 
-                                        'vx_error', 'v_error',
-                                        'coord_system', 'velocity'], label='_y')
+        if data == 'vel':
+            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
+                        sources=sources,combo_mode=combo_mode, 
+                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART,
+                        further_processing=VELOCITY_SPECIAL_PREP[dim], 
+                        base_drop_vars = VELOCITY_DROP_VARS[dim], label=VELOCITY_DIM_LABELS[dim])
                 
-            else:
-                fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
-                            sources=sources,combo_mode=combo_mode, 
-                            yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
-                
-            fm.open()
+            fm.build_velocity_files()
 
             return fm
+        
+        elif data == 'elev':
+            
+            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
+                        sources=sources,combo_mode=combo_mode, 
+                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
+                
+            fm.build_elevation_files()
+
+            return fm
+
 
 
     
