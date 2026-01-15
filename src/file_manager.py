@@ -130,6 +130,10 @@ class FileManager:
 
     def get_elevation_fname(self, year):
         return TIF_LOCATION + str(year) + "_e.tif"
+    
+
+    def get_elevation_gpkg_fname(self, year):
+        return TIF_LOCATION + str(year) + "_e.gpkg"
         
         
 
@@ -326,37 +330,48 @@ class FileManager:
         progress.load_bar(cur_track, max)
         for track in D11:
             
-            for v in range(len(track['h_corr'])):
+            for v in range(len(track['h_corr'])-1):
                 dates = ((track['delta_time'][v]).astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00"))
-                print(dates)
-                if str(dates[v]) =='NaT':
-                    print('continue')
-                    continue
-                year = dates[v].astype('M8[Y]')
-                print(year)
-                try:
-                    self.file[year]
-                except:
-                    continue
-                #uncert = np.sqrt(np.nansum(track['h_corr_sigma'][v] ** 2.0, axis=1) / np.sum(~np.isnan(track['h_corr_sigma'][v]), axis=1))
-                df = pd.DataFrame({'latitude': track['latitude'][v], 'longitude': track['longitude'][v], 'velocity': track['h_corr'][v], })#'uncert': uncert})
-                df['geometry'] = df.apply(self.pointify, axis=1)
-                self.file[year] = pd.concat([self.file[year], df])
+                for x in range(len(dates)):
+                    if str(dates[x]) =='NaT':
+                        continue
+                    year = dates[x].astype('M8[Y]')
+
+                    try:
+                        self.file[year]
+                    except:
+                        continue
+                    #uncert = np.sqrt(np.nansum(track['h_corr_sigma'][v] ** 2.0, axis=1) / np.sum(~np.isnan(track['h_corr_sigma'][v]), axis=1))
+                    df = pd.DataFrame({'latitude': track['latitude'][v], 'longitude': track['longitude'][v], 'velocity': [track['h_corr'][v][x]], })#'uncert': uncert})
+                    df['geometry'] = df.apply(self.pointify, axis=1)
+                    self.file[year] = pd.concat([self.file[year]])
             cur_track += 1
             progress.load_bar(cur_track, max)
 
         for c in range(self.yearStart, self.yearEnd):
-            gdf_final = gpd.GeoDataFrame(self.file[year], geometry='geometry', crs='EPSG:4326')
-            print(gdf_final)
-            to_tif = make_geocube(
-                vector_data=gdf_final,
-                measurements=["velocity"],
-                resolution=(-0.1, 0.1),
-            )
-            
-            self.generate_image(to_tif["velocity"], self.get_elevation_fname(cur_track))
 
-            print(gdf_final)
+
+
+            try:
+                self.file[year].to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
+            except ValueError:
+                print("Value Error")
+                pass
+
+            try:
+                gdf_final = gpd.GeoDataFrame(self.file[year], geometry='geometry', crs='EPSG:4326')
+                
+                to_tif = make_geocube(
+                    vector_data=gdf_final,
+                    measurements=["velocity"],
+                    resolution=(-0.1, 0.1),
+                )
+                
+                self.generate_image(to_tif["velocity"], self.get_elevation_fname(cur_track))
+            except:
+                print('image failed')
+
+
         #print(D11)
 
 
