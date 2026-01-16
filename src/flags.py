@@ -42,7 +42,6 @@ class Flags():
         ]
         self.combo_flags = [
             '-weighted',
-            '-offset',
             '-average',
 
         ]
@@ -53,8 +52,8 @@ class Flags():
         self.all_flags = []
         self.all_flags.extend(self.source_flags)
         self.all_flags.extend(self.combo_flags)
-        self.YEARSTART = 2010
-        self.YEAREND = 2020
+        self.YEARSTART = 2000
+        self.YEAREND = 2025
         
 
 
@@ -101,7 +100,7 @@ class Flags():
         Returns
         -------
         List[String]
-            String that reflects one or mre of the flags selected in the sourcese category.
+            String that reflects one or more of the flags selected in the sources category.
         '''
         
         SOURCES = [

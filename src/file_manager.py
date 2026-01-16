@@ -68,14 +68,26 @@ class FileManager:
         self.file = {}
 
 
-    def generate_image(self, data, name):
-        data.rio.to_raster(name)
-                    
+    def get_velocity_fname(self, year, ftype=''):
+        return 'velocities/' + str(year) + self.label + "_v" + ftype
+        
+        
 
+    def get_elevation_fname(self, year, ftype=''):
+        return  'elevation/' + str(year) + "_e" + ftype
+    
+        
+
+    def generate_image(self, data, data_name, img_name='test'):
+        data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
+        
         fig, ax = plt.subplots()
-        plot_geotiff(name, fig, ax)
-        print("Saving image...")
-        plt.savefig("test.png", dpi=200)
+        plt.title(data_name)
+        plot_geotiff(TIF_LOCATION + data_name + '.tif', fig, ax)
+        
+        #print("Saving image...")
+        plt.savefig(TEST_PNG_LOCATION + 'test.png', dpi=200)
+        plt.savefig(TEST_PNG_LOCATION + data_name + '.png', dpi=200)
         
         plt.close('all')
 
@@ -123,20 +135,6 @@ class FileManager:
         return self.special_prep(sample_file, source)
     
 
-    def get_velocity_fname(self, year):
-        return TIF_LOCATION + str(year) + self.label + "_v.tif"
-        
-        
-
-    def get_elevation_fname(self, year):
-        return TIF_LOCATION + str(year) + "_e.tif"
-    
-
-    def get_elevation_gpkg_fname(self, year):
-        return TIF_LOCATION + str(year) + "_e.gpkg"
-        
-        
-
     def build_velocity_files(self, dim=None):
         '''
         Opens all files from all sources in a range of years (self.yearStart through self.yearEnd inclusively)
@@ -162,7 +160,7 @@ class FileManager:
         self.get_data(base=True)
 
         for x in list(range(self.yearStart, self.yearEnd+1)):
-            if not os.path.exists(self.get_velocity_fname(x)):
+            if not os.path.exists(self.get_velocity_fname(x, ftype='.tif')):
 
                 found = {}
 
@@ -253,7 +251,7 @@ class FileManager:
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
                     self.generate_image(tif_to_save, self.get_velocity_fname(x))
 
-                self.file[x] = self.get_velocity_fname(x)
+                self.file[x] = self.get_velocity_fname(x, ftype='.tif')
 
 
                 '''
@@ -268,7 +266,7 @@ class FileManager:
                 years_found.extend(cur_years)
             '''   
             else :
-                self.file[x] = self.get_velocity_fname(x)
+                self.file[x] = self.get_velocity_fname(x, ftype='.tif')
 
             progress.load_bar(x - self.yearStart, self.yearEnd - self.yearStart)
             '''
@@ -279,13 +277,14 @@ class FileManager:
 
 
     def pointify(self, row):
+        #Dr. Lilien code
         return Point(row['longitude'],row['latitude'])
     
     def build_elevation_files(self):
         progress = LoadingBar()
         progress2 = LoadingBar()
 
-        #Dr. Lilien code
+        #adapted from Dr. Lilien code
 
         attrs = ['h_corr', 'latitude', 'longitude', 'delta_time', 'h_corr_sigma'] 
 
@@ -347,25 +346,23 @@ class FileManager:
             cur_track += 1
             progress.load_bar(cur_track, max)
 
-            
+
         for c in self.file.keys():
-            #print(gpd.GeoDataFrame(self.file[np.datetime64(str(c))]))
             if not len(self.file[c]):
                 continue
 
-            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-            gdf_final.to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
+            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:3031')
+            gdf_final.to_file(ELEVATION_GPKG_LOCATION + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
 
             to_tif = make_geocube(
                 vector_data=gdf_final,
                 measurements=["elevation"],
-                resolution=(-0.1, 0.1),
+                resolution=(-0.05, 0.05),
             )
             
             self.generate_image(to_tif["elevation"], self.get_elevation_fname(cur_track))
 
 
-        #print(D11)
 
 
 
