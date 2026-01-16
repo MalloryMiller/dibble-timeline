@@ -283,6 +283,7 @@ class FileManager:
     
     def build_elevation_files(self):
         progress = LoadingBar()
+        progress2 = LoadingBar()
 
         #Dr. Lilien code
 
@@ -290,7 +291,7 @@ class FileManager:
 
         D11=[]
         pairs=[1, 2, 3]
-        files = sorted(glob.glob(self.h5_location + '/*.h5'))
+        files = sorted(glob.glob(self.h5_location + '/*.h5')) #ONLY ONE RIGHT NOW
 
         for f in files:
             with h5py.File(f) as h5f:
@@ -323,53 +324,45 @@ class FileManager:
 
 
         for c in range(self.yearStart, self.yearEnd+1):
-            self.file[np.datetime64(str(c))] = pd.DataFrame(columns=['latitude', 'longitude', 'velocity', 'date'])
+            self.file[np.datetime64(str(c))] = pd.DataFrame(columns=['latitude', 'longitude', 'velocity', 'date', 'geometry'])
 
         cur_track = 0
         max = len(D11)
         progress.load_bar(cur_track, max)
         for track in D11:
-            
-            for v in range(len(track['h_corr'])-1):
-                dates = ((track['delta_time'][v]).astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00"))
-                for x in range(len(dates)):
-                    if str(dates[x]) =='NaT':
-                        continue
-                    year = dates[x].astype('M8[Y]')
+        
+            dates = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype('M8[Y]')
+            track['latitude'] = np.transpose([track['latitude']] * len(track['h_corr'][0]))
+            track['longitude'] = np.transpose([track['longitude']] * len(track['h_corr'][0]))
+            track['datetime'] = track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")
 
-                    try:
-                        self.file[year]
-                    except:
-                        continue
-                    #uncert = np.sqrt(np.nansum(track['h_corr_sigma'][v] ** 2.0, axis=1) / np.sum(~np.isnan(track['h_corr_sigma'][v]), axis=1))
-                    df = pd.DataFrame({'latitude': track['latitude'][v], 'longitude': track['longitude'][v], 'velocity': [track['h_corr'][v][x]], })#'uncert': uncert})
-                    df['geometry'] = df.apply(self.pointify, axis=1)
-                    self.file[year] = pd.concat([self.file[year]])
+            for c in self.file.keys():
+                df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
+                                    'longitude': track['longitude'][dates == c].flatten(), 
+                                    'elevation': track['h_corr'][dates == c].flatten(),
+                                    'date': track['datetime'][dates == c].flatten()})
+                df['geometry'] = df.apply(self.pointify, axis=1)
+                self.file[c] = pd.concat([self.file[c], df])
+            
             cur_track += 1
             progress.load_bar(cur_track, max)
 
-        for c in range(self.yearStart, self.yearEnd+1):
+            
+        for c in self.file.keys():
+            #print(gpd.GeoDataFrame(self.file[np.datetime64(str(c))]))
+            if not len(self.file[c]):
+                continue
 
+            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+            gdf_final.to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
 
-
-            try:
-                self.file[c].to_file(self.get_elevation_gpkg_fname(c), driver='GPKG')
-            except ValueError:
-                print("Value Error")
-                pass
-
-            try:
-                gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-                
-                to_tif = make_geocube(
-                    vector_data=gdf_final,
-                    measurements=["velocity"],
-                    resolution=(-0.1, 0.1),
-                )
-                
-                self.generate_image(to_tif["velocity"], self.get_elevation_fname(cur_track))
-            except:
-                print('image failed')
+            to_tif = make_geocube(
+                vector_data=gdf_final,
+                measurements=["elevation"],
+                resolution=(-0.1, 0.1),
+            )
+            
+            self.generate_image(to_tif["elevation"], self.get_elevation_fname(cur_track))
 
 
         #print(D11)
