@@ -136,7 +136,8 @@ def plot_col(gdf, colm, vmax, vmin, cmap, color_label, grounding_color='black', 
     plt.title(' '.join(color_label.split(' ')[:-2] + ["(2010-2020)"]))
     
     gdf.to_crs("EPSG:3031")
-    gdf.plot(column=colm, vmax=vmax, vmin=vmin, cmap=cmap, markersize=3, ax=ax)
+    
+    
     if velocities == 'trend':
        print("Plotting velocity trends...")
        plot_geotiff("shapefiles/velocity_trends.tif", fig, ax, vmax=10, vmin=-10,  label = "Velocity Trend Slope (m/yr²)", cmap=cmap)

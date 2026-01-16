@@ -86,7 +86,7 @@ class FileManager:
         plot_geotiff(TIF_LOCATION + data_name + '.tif', fig, ax)
         
         #print("Saving image...")
-        plt.savefig(TEST_PNG_LOCATION + 'test.png', dpi=200)
+        plt.savefig('test.png', dpi=200)
         plt.savefig(TEST_PNG_LOCATION + data_name + '.png', dpi=200)
         
         plt.close('all')
@@ -346,13 +346,13 @@ class FileManager:
             cur_track += 1
             progress.load_bar(cur_track, max)
 
-
+        i = 0
         for c in self.file.keys():
             if not len(self.file[c]):
+                i+= 1
                 continue
-
             gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:3031')
-            gdf_final.to_file(ELEVATION_GPKG_LOCATION + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
+            gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
 
             to_tif = make_geocube(
                 vector_data=gdf_final,
@@ -360,11 +360,22 @@ class FileManager:
                 resolution=(-0.05, 0.05),
             )
             
-            self.generate_image(to_tif["elevation"], self.get_elevation_fname(cur_track))
+            self.generate_image(to_tif["elevation"], self.get_elevation_fname(c))
+            i += 1
+            progress2.load_bar(i, len(list(self.file.keys())))
 
 
 
+    def build_gravimetry_files(self):
+        data = xr.open_rasterio(GRAV_LOCATION)
 
+
+        relevant_data = data
+        relevant_data = data.loc[start_time:end_time]
+        relevant_data = relevant_data.where((relevant_data.x > self.minlat) & (relevant_data.x < self.maxlat), drop=True)
+        relevant_data = relevant_data.where((relevant_data.y > self.minlon) & (relevant_data.y < self.maxlon), drop=True)
+
+        self.file = data
 
 
 

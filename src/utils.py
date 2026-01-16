@@ -32,13 +32,15 @@ STREAM_PLOT_STEPS = 1/12
 OUTPUT = "output/"
 INPUT = "input/"
 
-TIF_LOCATION = OUTPUT
-
 ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
-ELEVATION_GPKG_LOCATION = OUTPUT
+GRAV_LOCATION = INPUT + "grav/AIS_GMB_grid.tif"
 
+ELEVATION_GPKG_LOCATION = OUTPUT
+TIF_LOCATION = OUTPUT
 TEST_PNG_LOCATION = OUTPUT +"images/"
+
+
 
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",
