@@ -1,0 +1,56 @@
+
+.settings {
+    bottom: 0px;
+    position: fixed;
+    height: fit-content;
+    padding: 10px;
+
+    backdrop-filter: blur(20px);
+    background-color: rgba(234, 234, 234, 0.492);
+
+}
+
+
+#year-s {
+    width: calc(100% - 40px);
+    margin-left: 20px;
+    margin-right: 20px;;
+}
+
+#holder {
+    margin-bottom: calc(10vh + 40px);
+}
+
+.option {
+    width: calc(100vw - 80px);
+}
+
+
+.missing {
+    background-color: rgba(255, 255, 255, 0) !important;
+    border-color: rgba(240, 248, 255, 0) !important;
+}
+
+
+#elevation-files div {
+    background-color: rgb(235, 66, 66);
+}
+
+#velocities-files div {
+    background-color: rgb(39, 108, 219)
+}
+
+.file-bar div {
+    border-width: 00px 2px 0px 2px;
+    border-style: solid;
+    border-color: rgba(240, 248, 255, 0.589);
+}
+
+.file-bar {
+    border-radius: 50%;
+    width: calc(100%);
+    height: 10px;
+    position: relative;
+    display: flex;
+    flex-direction: row;
+}

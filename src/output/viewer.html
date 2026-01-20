@@ -3,7 +3,7 @@
 <meta charset="UTF-8">
 <title>Fabric Evolution Viewer</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="view.css">
+<link rel="stylesheet" href="viewer.css">
 <style>
 </style>
 <script src="viewer.js"></script>
@@ -12,14 +12,20 @@
 
 <div id="holder">
 
-    <div id="settings">
+    <div class="settings">
 
         <div class = "option">
-            <div class="setting-title">Year <span id="year"></span>: <input type="number" id="year-t" class="number-select" onchange="update_from_text()"> </input> </div>
+            <div class="setting-title">Year 
+                <span id="year"></span> 
+                <input type="number" id="year-t" class="number-select" onchange="update_from_text()"> </input> 
+            </div>
             <input class="slider parallel" type = "range" id="year-s" oninput="update()"/>
             <br />
+
         </div>
 
+        <div class="file-bar" id="velocities-files"></div>
+        <div class="file-bar" id="elevation-files"></div>
     </div>
 
     <div class="image">

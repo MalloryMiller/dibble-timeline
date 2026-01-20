@@ -67,6 +67,8 @@ class FileManager:
 
         self.file = {}
 
+        
+
 
     def get_velocity_fname(self, year, ftype=''):
         return 'velocities/' + str(year) + self.label + "_v" + ftype
@@ -181,6 +183,7 @@ class FileManager:
 
                     if not done:
                         print("No", sources, "file found at the year", x, "                                          ")
+                        continue
 
                     
 
@@ -246,7 +249,6 @@ class FileManager:
 
 
 
-                    #self.file.extend([to_add])
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
                     self.generate_image(tif_to_save, self.get_velocity_fname(x))

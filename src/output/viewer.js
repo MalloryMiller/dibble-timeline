@@ -1,6 +1,30 @@
 let YEAR_RANGE = [2000, 2025];
 let YEAR_STEPS = 1
 
+function exists(src, indicator) {
+    var img = new Image();
+    img.onerror = function() {document.getElementById(indicator).classList.add('missing')};
+    img.src = src;
+}
+
+function file_indicator_setup(ftype) {
+    let yearbar = document.getElementById(ftype + "-files");
+
+    cur = YEAR_RANGE[0]
+    var total_years = YEAR_RANGE[1] - YEAR_RANGE[0] / YEAR_STEPS
+    while (cur <= YEAR_RANGE[1]) {
+
+        var box = document.createElement('div')
+        box.id = cur + "_" + ftype[0]
+        box.style = "width: " + 100 / total_years + "%;"
+        exists('images/' + ftype + '/' + cur + '_' + ftype[0] +".png", box.id);
+        
+        yearbar.appendChild(box)
+
+        cur += YEAR_STEPS
+    }
+
+}
 
 
 function set_ranges() {
@@ -20,7 +44,11 @@ function set_ranges() {
 
     update()
 
+    file_indicator_setup('velocities')
+    file_indicator_setup('elevation')
+
 }
+
 
 
 
