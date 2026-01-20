@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="UTF-8">
+<title>Fabric Evolution Viewer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="view.css">
+<style>
+</style>
+<script src="viewer.js"></script>
+<body  onload="set_ranges()">
+
+
+<div id="holder">
+
+    <div id="settings">
+
+        <div class = "option">
+            <div class="setting-title">Year <span id="year"></span>: <input type="number" id="year-t" class="number-select" onchange="update_from_text()"> </input> </div>
+            <input class="slider parallel" type = "range" id="year-s" oninput="update()"/>
+            <br />
+        </div>
+
+    </div>
+
+    <div class="image">
+        <img id="velocity" />
+    </div>
+    <div class="image">
+        <img id="elevation" />
+    </div>
+    <div class="image">
+        <img id="gravimetry" />
+    </div>
+</div>
+
+</body>
+</html>
