@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-from plotting import plot_geotiff
+from plotting import plot_velocity, plot_elevation
 
 from scipy.interpolate import RegularGridInterpolator
 import rioxarray # used by xarray for some reason, must be first
@@ -80,12 +80,12 @@ class FileManager:
     
         
 
-    def generate_image(self, data, data_name, img_name='test'):
+    def generate_image(self, data, data_name, chart_function, year, img_name='test'):
         data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
         
         fig, ax = plt.subplots()
         plt.title(data_name)
-        plot_geotiff(TIF_LOCATION + data_name + '.tif', fig, ax)
+        chart_function(TIF_LOCATION + data_name + '.tif', year)
         
         #print("Saving image...")
         plt.savefig('test.png', dpi=200)
@@ -251,7 +251,7 @@ class FileManager:
 
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
-                    self.generate_image(tif_to_save, self.get_velocity_fname(x))
+                    self.generate_image(tif_to_save, self.get_velocity_fname(x), plot_velocity, x)
 
                 self.file[x] = self.get_velocity_fname(x, ftype='.tif')
 
@@ -353,7 +353,8 @@ class FileManager:
             if not len(self.file[c]):
                 i+= 1
                 continue
-            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:3031')
+            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+            gdf_final = gdf_final.to_crs(epsg='3031')
             gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
 
             to_tif = make_geocube(
@@ -362,7 +363,7 @@ class FileManager:
                 resolution=(-0.05, 0.05),
             )
             
-            self.generate_image(to_tif["elevation"], self.get_elevation_fname(c))
+            self.generate_image(to_tif["elevation"], self.get_elevation_fname(c), plot_elevation, c)
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
 

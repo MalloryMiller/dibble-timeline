@@ -29,6 +29,22 @@ gdf = gpd.read_file(ELEVATION_LOCATION)#'ATL11_trends_APS.gpkg')
 ##print(gdf.columns.tolist())
 
 
+def plot_velocity(fname, year):
+    fig, ax = plt.subplots()
+    plt.title("Velocity (" + str(year) + ")")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2],  extent[3])
+    plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity (m/yr)", cmap='viridis')
+    plot_glacier_borders(fig, ax)
+
+def plot_elevation(fname, year):
+    fig, ax = plt.subplots()
+    plt.title("Elevation (" + str(year) + ")")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2],  extent[3])
+    plot_geotiff(fname, fig, ax, vmax=2500, vmin=0, label = "Elevation (m)", cmap='copper')
+    plot_glacier_borders(fig, ax)
+
 def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5):
     with rs.open(fname) as f:
         img = f.read(1)
