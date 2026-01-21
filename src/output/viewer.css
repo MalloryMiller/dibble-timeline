@@ -36,6 +36,10 @@
     background-color: rgb(235, 66, 66);
 }
 
+#rema-files div {
+    background-color: rgb(10, 183, 57)
+}
+
 #velocities-files div {
     background-color: rgb(39, 108, 219)
 }

@@ -59,16 +59,19 @@ def plot_rema_coverage(na, year):
     plt.title("REMA Coverage Preview (" + str(year) + ")")
     plt.xlim(extent[0], extent[1])
     plt.ylim(extent[2],  extent[3])
+    first_item = True
     for s in strips:
-        try:
-            plot_geotiff(s, fig, ax, vmax=600, vmin=0, label = "Hillshade", cmap='copper')
-        except:
-            pass
+        print(s)
+        if s.split('.')[-1] != 'tif':
+            print('continue')
+            continue
+        plot_geotiff(REMA_PREVIEW_LOCATION + str(year) + '/' + s, fig, ax, vmax=600, vmin=0, label = "Hillshade", cmap='copper', legend=first_item)
+        first_item = False
     plot_glacier_borders(fig, ax)
     return True
 
 
-def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5):
+def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5, legend=True):
     with rs.open(fname) as f:
         img = f.read(1)
         minx, miny, maxx, maxy = f.bounds.left, f.bounds.bottom, f.bounds.right, f.bounds.top
@@ -78,8 +81,9 @@ def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope
     vmax = vmax
     cmap = cmap
     
-    colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
-    fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
+    if legend:
+        colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
+        fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
     
     
     plt.imshow(img, cmap=cmap, extent = extent, origin='upper', vmin=vmin, vmax=vmax, alpha=alpha, zorder=-10)
