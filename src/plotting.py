@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib.lines import Line2D
 import rasterio as rs
+import os
 
 from utils import *
 
@@ -36,6 +37,7 @@ def plot_velocity(fname, year):
     plt.ylim(extent[2],  extent[3])
     plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity (m/yr)", cmap='viridis')
     plot_glacier_borders(fig, ax)
+    return True
 
 def plot_elevation(fname, year):
     fig, ax = plt.subplots()
@@ -44,6 +46,27 @@ def plot_elevation(fname, year):
     plt.ylim(extent[2],  extent[3])
     plot_geotiff(fname, fig, ax, vmax=2500, vmin=0, label = "Elevation (m)", cmap='copper')
     plot_glacier_borders(fig, ax)
+    return True
+
+
+def plot_rema_coverage(na, year):
+    try:
+        strips = os.listdir(REMA_PREVIEW_LOCATION + str(year)) 
+    except:
+        return False
+    
+    fig, ax = plt.subplots()
+    plt.title("REMA Coverage Preview (" + str(year) + ")")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2],  extent[3])
+    for s in strips:
+        try:
+            plot_geotiff(s, fig, ax, vmax=600, vmin=0, label = "Hillshade", cmap='copper')
+        except:
+            pass
+    plot_glacier_borders(fig, ax)
+    return True
+
 
 def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5):
     with rs.open(fname) as f:

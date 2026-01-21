@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-from plotting import plot_velocity, plot_elevation
+from plotting import plot_velocity, plot_elevation, plot_rema_coverage
 
 from scipy.interpolate import RegularGridInterpolator
 import rioxarray # used by xarray for some reason, must be first
@@ -77,21 +77,30 @@ class FileManager:
 
     def get_elevation_fname(self, year, ftype=''):
         return  'elevation/' + str(year) + "_e" + ftype
-    
+        
         
 
-    def generate_image(self, data, data_name, chart_function, year, img_name='test'):
-        data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
+    def get_rema_fname(self, year, ftype=''):
+        return  'rema/' + str(year) + "_r" + ftype
+    
+
+
+    def generate_image(self, data, data_name, chart_function, year):
+        if data != None:
+            data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
         
-        fig, ax = plt.subplots()
-        plt.title(data_name)
-        chart_function(TIF_LOCATION + data_name + '.tif', year)
-        
-        #print("Saving image...")
-        plt.savefig('test.png', dpi=200)
-        plt.savefig(TEST_PNG_LOCATION + data_name + '.png', dpi=200)
-        
-        plt.close('all')
+        if chart_function != None:
+            fig, ax = plt.subplots()
+            plt.title(data_name)
+            if not chart_function(TIF_LOCATION + data_name + '.tif', year):
+                plt.close('all')
+                return
+            
+            #print("Saving image...")
+            plt.savefig('test.png', dpi=200)
+            plt.savefig(TEST_PNG_LOCATION + data_name + '.png', dpi=200)
+            
+            plt.close('all')
 
 
     def get_data(self, fname=None, source=None, base=False):
@@ -367,7 +376,9 @@ class FileManager:
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
 
-
+    def build_rema_files(self):
+        for x in list(range(self.yearStart, self.yearEnd+1)):
+            self.generate_image(None, self.get_rema_fname(x), plot_rema_coverage, x, )
 
     def build_gravimetry_files(self):
         data = xr.open_rasterio(GRAV_LOCATION)

@@ -40,7 +40,8 @@ ELEVATION_GPKG_LOCATION = OUTPUT
 TIF_LOCATION = OUTPUT
 TEST_PNG_LOCATION = OUTPUT +"images/"
 
-
+REMA_PREVIEW_LOCATION = INPUT + "rema/"
+REMA_LOCATION = OUTPUT + "rema/"
 
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",

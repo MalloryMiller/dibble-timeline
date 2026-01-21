@@ -46,6 +46,7 @@ function set_ranges() {
 
     file_indicator_setup('velocities')
     file_indicator_setup('elevation')
+    file_indicator_setup('rema')
 
 }
 
@@ -66,5 +67,6 @@ function update_from_text() {
     var year = document.getElementById("year-t").value
     document.getElementById("velocity").src = 'images/velocities/' + year + '_v.png'
     document.getElementById("elevation").src = 'images/elevation/' + year + '_e.png'
+    document.getElementById("rema").src = 'images/rema/' + year + '_r.png'
 
 }

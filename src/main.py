@@ -3,6 +3,7 @@ from utils import *
 
 
 from file_manager import FileManager
+from plotting import plot_rema_coverage
 
 
 class main():
@@ -85,8 +86,8 @@ class main():
         #print(self.get_files(dim='x').file)
         #print(self.get_files(dim='y').file)
         #print(self.get_files().file)
-        print(self.get_files(data='elev').file)
-
+        #print(self.get_files(data='elev').file)
+        print(self.get_files(data='rema').file)
 
         
 
@@ -153,6 +154,26 @@ class main():
                         yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
                 
             fm.build_elevation_files()
+
+            return fm
+        
+        elif data == 'elev':
+            
+            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
+                        sources=sources,combo_mode=combo_mode, 
+                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
+                
+            fm.build_elevation_files()
+
+            return fm
+        
+        elif data == 'rema':
+            
+            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
+                        sources=sources,combo_mode=combo_mode, 
+                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
+                
+            fm.build_rema_files()
 
             return fm
 
