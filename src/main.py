@@ -87,7 +87,7 @@ class main():
         #print(self.get_files(dim='y').file)
         #print(self.get_files().file)
         #print(self.get_files(data='elev').file)
-        print(self.get_files(data='rema').file)
+        print(self.get_files(data='rawrema').file)
 
         
 
@@ -174,6 +174,16 @@ class main():
                         yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
                 
             fm.build_rema_files()
+
+            return fm
+        
+        elif data == 'rawrema':
+            
+            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
+                        sources=sources,combo_mode=combo_mode, 
+                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
+                
+            fm.build_raw_rema_files()
 
             return fm
 

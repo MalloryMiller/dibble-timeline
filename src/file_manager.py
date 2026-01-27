@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-from plotting import plot_velocity, plot_elevation, plot_rema_coverage
+from plotting import plot_velocity, plot_elevation, plot_rema_coverage, plot_raw_rema_data
 
 from scipy.interpolate import RegularGridInterpolator
 import rioxarray # used by xarray for some reason, must be first
@@ -82,6 +82,10 @@ class FileManager:
 
     def get_rema_fname(self, year, ftype=''):
         return  'rema/' + str(year) + "_r" + ftype
+    
+    def get_rema_raw_fname(self, year, ftype=''):
+        return  'rema/' + str(year) + "_r" + ftype
+    
     
 
 
@@ -379,6 +383,10 @@ class FileManager:
     def build_rema_files(self):
         for x in list(range(self.yearStart, self.yearEnd+1)):
             self.generate_image(None, self.get_rema_fname(x), plot_rema_coverage, x, )
+
+    def build_raw_rema_files(self):
+        for x in list(range(self.yearStart, self.yearEnd+1)):
+            self.generate_image(None, self.get_rema_raw_fname(x), plot_raw_rema_data, x, )
 
     def build_gravimetry_files(self):
         data = xr.open_rasterio(GRAV_LOCATION)

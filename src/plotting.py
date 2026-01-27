@@ -8,7 +8,9 @@ import rasterio as rs
 import os
 
 from utils import *
-
+from matplotlib import cm
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+import numpy as np
 
 gpgk_folder_name = 'gpkg_progress'
 
@@ -55,6 +57,12 @@ def plot_rema_coverage(na, year):
     except:
         return False
     
+    copper = cm.get_cmap('copper', 256*8)
+    newcolors = copper(np.linspace(0, 1, 256*8))
+    empty = np.array([0, 0, 0, 0])
+    newcolors[:1, :] = empty
+    newcmp = ListedColormap(newcolors)
+    
     fig, ax = plt.subplots()
     plt.title("REMA Coverage Preview (" + str(year) + ")")
     plt.xlim(extent[0], extent[1])
@@ -65,11 +73,37 @@ def plot_rema_coverage(na, year):
         if s.split('.')[-1] != 'tif':
             print('continue')
             continue
-        plot_geotiff(REMA_PREVIEW_LOCATION + str(year) + '/' + s, fig, ax, vmax=600, vmin=0, label = "Hillshade", cmap='copper', legend=first_item)
+        plot_geotiff(REMA_PREVIEW_LOCATION + str(year) + '/' + s, fig, ax, vmax=300, vmin=0, label = "Hillshade", cmap=newcmp, legend=first_item, alpha=1)
         first_item = False
     plot_glacier_borders(fig, ax)
     return True
 
+def plot_raw_rema_data(na, year):
+    try:
+        strips = os.listdir(REMA_RAW_LOCATION + str(year)) 
+    except:
+        return False
+    
+    copper = cm.get_cmap('copper', 256*8)
+    newcolors = copper(np.linspace(0, 1, 256*8))
+    empty = np.array([0, 0, 0, 0])
+    newcolors[:1, :] = empty
+    newcmp = ListedColormap(newcolors)
+    
+    fig, ax = plt.subplots()
+    plt.title("Raw REMA Elevation Data (" + str(year) + ")")
+    plt.xlim(extent[0], extent[1])
+    plt.ylim(extent[2],  extent[3])
+    first_item = True
+    for s in strips:
+        print(s)
+        if s.split('.')[-1] != 'tif':
+            print('continue')
+            continue
+        plot_geotiff(REMA_RAW_LOCATION + str(year) + '/' + s, fig, ax, vmax=300, vmin=0, label = "Elevation (m)", cmap=newcmp, legend=first_item, alpha=1)
+        first_item = False
+    plot_glacier_borders(fig, ax)
+    return True
 
 def plot_geotiff(fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5, legend=True):
     with rs.open(fname) as f:
