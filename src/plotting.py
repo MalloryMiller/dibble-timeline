@@ -100,7 +100,7 @@ def plot_raw_rema_data(na, year):
         if s.split('.')[-1] != 'tif':
             print('continue')
             continue
-        plot_geotiff(REMA_RAW_LOCATION + str(year) + '/' + s, fig, ax, vmax=300, vmin=0, label = "Elevation (m)", cmap=newcmp, legend=first_item, alpha=1)
+        plot_geotiff(REMA_RAW_LOCATION + str(year) + '/' + s, fig, ax, vmax=600, vmin=0, label = "Elevation (m)", cmap=newcmp, legend=first_item, alpha=1)
         first_item = False
     plot_glacier_borders(fig, ax)
     return True
