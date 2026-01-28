@@ -61,12 +61,19 @@ function update() {
 
 }
 
+function get_cur_selection(year, dataset) {
+    return 'images/' + dataset + "/" + year + "_" + dataset[0] + '.png'
+}
+
 function update_from_text() {
     document.getElementById("year-s").value = document.getElementById("year-t").value
-
     var year = document.getElementById("year-t").value
-    document.getElementById("velocity").src = 'images/velocities/' + year + '_v.png'
-    document.getElementById("elevation").src = 'images/elevation/' + year + '_e.png'
-    document.getElementById("rema").src = 'images/rema/' + year + '_r.png'
+
+
+    console.log(get_cur_selection(year, document.getElementById('dataset-selector').value))
+    document.getElementById("image").src = get_cur_selection(year, document.getElementById('dataset-selector').value)
+    //document.getElementById("velocity").src = 'images/velocities/' + year + '_v.png'
+    //document.getElementById("elevation").src = 'images/elevation/' + year + '_e.png'
+    //document.getElementById("rema").src = 'images/rema/' + year + '_r.png'
 
 }

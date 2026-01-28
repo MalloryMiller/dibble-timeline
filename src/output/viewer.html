@@ -18,22 +18,36 @@
             <div class="setting-title">Year 
                 <span id="year"></span> 
                 <input type="number" id="year-t" class="number-select" onchange="update_from_text()"> </input> 
+                <select name="dataset-selector" id="dataset-selector"  onchange="update_from_text()">
+                    <option value="velocities">ItsLive</option>
+                    <option value="elevation">IceSAT2</option>
+                    <option value="rema">REMA</option>
+                </select>
+
             </div>
             <input class="slider parallel" type = "range" id="year-s" oninput="update()"/>
+            
             <br />
-
         </div>
 
         <div class="file-bar" id="velocities-files"></div>
         <div class="file-bar" id="elevation-files"></div>
         <div class="file-bar" id="rema-files"></div>
     </div>
-    <div class="images">
-        <img id="velocity"  class="image"/>
-        <img id="elevation"  class="image"/>
-        <img id="rema"  class="image"/>
-
+    <div class="image">
+        <img id="image" />
     </div>
+    <!--
+    <div class="image">
+        <img id="velocity" />
+    </div>
+    <div class="image">
+        <img id="elevation" />
+    </div>
+    <div class="image">
+        <img id="rema" />
+    </div>
+    -->
 </div>
 
 </body>
