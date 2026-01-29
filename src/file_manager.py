@@ -89,14 +89,21 @@ class FileManager:
     
 
 
-    def generate_image(self, data, data_name, chart_function, year):
-        if data != None:
-            data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
+    def generate_image(self, data, data_name, chart_function, year, reprojected = False):
+        try:
+            if data != None:
+                data.rio.to_raster(TIF_LOCATION + data_name + '.tif')
+        except:
+            pass
         
         if chart_function != None:
             fig, ax = plt.subplots()
             plt.title(data_name)
-            if not chart_function(TIF_LOCATION + data_name + '.tif', year):
+            location = TIF_LOCATION + data_name + '.tif'
+            if reprojected:
+                location = TIF_LOCATION +'reprojected/' + data_name + '.gpkg'
+
+            if not chart_function(location, year):
                 plt.close('all')
                 return
             
@@ -366,17 +373,14 @@ class FileManager:
             if not len(self.file[c]):
                 i+= 1
                 continue
-            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-            gdf_final = gdf_final.to_crs(epsg='3031')
-            gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
+            try:
 
-            to_tif = make_geocube(
-                vector_data=gdf_final,
-                measurements=["elevation"],
-                resolution=(-0.05, 0.05),
-            )
-            
-            self.generate_image(to_tif["elevation"], self.get_elevation_fname(c), plot_elevation, c)
+                gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+                gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
+            except:
+                print('Saving year ' + str(c) + 'gpkg failed.')
+
+            self.generate_image(None, self.get_elevation_fname(c), plot_elevation, c, reprojected=True)
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
 

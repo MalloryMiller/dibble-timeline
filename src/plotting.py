@@ -42,12 +42,28 @@ def plot_velocity(fname, year):
     return True
 
 def plot_elevation(fname, year):
+    print('here1')
+    gdf = gpd.read_file(fname)
+    print('here2')
+
+
+
     fig, ax = plt.subplots()
+    vmin, vmax = 0, 2000
     plt.title("Elevation (" + str(year) + ")")
+    gdf.plot(column='elevation', vmax=vmax, vmin=vmin, cmap='viridis', markersize=3, ax=ax)
     plt.xlim(extent[0], extent[1])
     plt.ylim(extent[2],  extent[3])
-    plot_geotiff(fname, fig, ax, vmax=2500, vmin=0, label = "Elevation (m)", cmap='copper')
+    
     plot_glacier_borders(fig, ax)
+    
+    colorb = plt.cm.ScalarMappable(cmap='viridis', norm=colors.Normalize(vmin=vmin, vmax=vmax))
+    mask_outside(extent=extent)
+    
+        
+    fig.colorbar(colorb, orientation='vertical', label='Elevation (m)', ax=ax)
+    print('done with this one')
+
     return True
 
 
