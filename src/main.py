@@ -5,6 +5,8 @@ from utils import *
 from file_manager import FileManager
 from plotting import plot_rema_coverage
 
+from elevation_errpr import ElevationError
+
 
 class main():
     '''
@@ -86,10 +88,14 @@ class main():
         #print(self.get_files(dim='x').file)
         #print(self.get_files(dim='y').file)
         #print(self.get_files().file)
-        print(self.get_files(data='elev').file)
+        #print(self.get_files(data='elev').file)
         #print(self.get_files(data='rawrema').file)
 
-        
+        ee = ElevationError('/Users/millemal/Documents/repos/dibble-timeline/src/input/rema/raw/2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
+        print('getting error')
+        print(ee.get_error())
+
+
 
 
 

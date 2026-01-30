@@ -42,9 +42,7 @@ def plot_velocity(fname, year):
     return True
 
 def plot_elevation(fname, year):
-    print('here1')
     gdf = gpd.read_file(fname)
-    print('here2')
 
 
 
@@ -62,7 +60,6 @@ def plot_elevation(fname, year):
     
         
     fig.colorbar(colorb, orientation='vertical', label='Elevation (m)', ax=ax)
-    print('done with this one')
 
     return True
 
@@ -116,7 +113,7 @@ def plot_raw_rema_data(na, year):
         if s.split('.')[-1] != 'tif':
             print('continue')
             continue
-        plot_geotiff(REMA_RAW_LOCATION + str(year) + '/' + s, fig, ax, vmax=600, vmin=0, label = "Elevation (m)", cmap=newcmp, legend=first_item, alpha=1)
+        plot_geotiff(REMA_RAW_LOCATION + str(year) + '/' + s, fig, ax, vmax=REMA_CLOUD_LEVEL, vmin=0, label = "Elevation (m)", cmap=newcmp, legend=first_item, alpha=1)
         first_item = False
     plot_glacier_borders(fig, ax)
     return True
