@@ -8,6 +8,7 @@ import rasterio as rs
 import numpy as np
 
 from geocube.vector import vectorize
+from plotting import Plotting
 
 class ElevationError():
 
@@ -50,7 +51,7 @@ class ElevationError():
 
         combined = gpd.sjoin_nearest(
             self.rema, cur_year,
-            'inner', 2, 
+            'inner', 2, #bc 2 meter dimension, get pixel you're on
             'rema', 'icesat2', 'dist'
         )
 
@@ -60,7 +61,7 @@ class ElevationError():
             x=xs,
             y=ys,
             method="nearest",
-            tolerance=2 #bc 2 meter dimension? maybe?
+            tolerance=2 
         )'''
 
 

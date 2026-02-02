@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import numpy as np
 
-from plotting import plot_velocity, plot_elevation, plot_rema_coverage, plot_raw_rema_data
+from plotting import Plotting
 
 from scipy.interpolate import RegularGridInterpolator
 import rioxarray # used by xarray for some reason, must be first
@@ -25,6 +25,8 @@ class FileManager:
                  fname_formats = VEL_FILE_FORMATS, h5_location = ELEVATION_H5_LOCATION,
                  further_processing = VELOCITY_SPECIAL_PREP[None],
                  base_drop_vars = None, source_override = False, label=''):
+        
+        self.plotter = Plotting()
         
         self.minlat =  minlat
         self.maxlat =  maxlat
@@ -271,7 +273,7 @@ class FileManager:
 
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
-                    self.generate_image(tif_to_save, self.get_velocity_fname(x), plot_velocity, x)
+                    self.generate_image(tif_to_save, self.get_velocity_fname(x), self.plotter.plot_velocity, x)
 
                 self.file[x] = self.get_velocity_fname(x, ftype='.tif')
 
@@ -380,17 +382,17 @@ class FileManager:
             except:
                 print('Saving year ' + str(c) + 'gpkg failed.')
 
-            self.generate_image(None, self.get_elevation_fname(c), plot_elevation, c, reprojected=True)
+            self.generate_image(None, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
 
     def build_rema_files(self):
         for x in list(range(self.yearStart, self.yearEnd+1)):
-            self.generate_image(None, self.get_rema_fname(x), plot_rema_coverage, x, )
+            self.generate_image(None, self.get_rema_fname(x), self.plotter.plot_rema_coverage, x, )
 
     def build_raw_rema_files(self):
         for x in list(range(self.yearStart, self.yearEnd+1)):
-            self.generate_image(None, self.get_rema_raw_fname(x), plot_raw_rema_data, x, )
+            self.generate_image(None, self.get_rema_raw_fname(x), self.plotter.plot_raw_rema_data, x, )
 
     def build_gravimetry_files(self):
         data = xr.open_rasterio(GRAV_LOCATION)
