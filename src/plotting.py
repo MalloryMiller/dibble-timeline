@@ -3,6 +3,7 @@ import geopandas as gpd
 import shapefile as shp
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib as mp
 from matplotlib.lines import Line2D
 import rasterio as rs
 import os
@@ -10,6 +11,7 @@ import os
 from utils import *
 from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib.cm import ScalarMappable
 import numpy as np
 
 gpgk_folder_name = 'gpkg_progress'
@@ -31,6 +33,51 @@ class Plotting:
         else:
             self.gdf = None
         ##print(gdf.columns.tolist())
+
+
+    def error_hist(self, df, color_col = 'dist', hist_col='diff', min_ = None, max_ = None):
+        fig, ax = plt.subplots()
+        datas = []
+        temps = []
+
+        for t in np.sort(df[color_col].unique()):
+            print(t)
+            temps.append(t)
+            datas.append(df[hist_col][df[color_col] == t])
+            
+
+        min_ns = np.min(temps)
+        max_ns = np.max(temps)
+
+        CMAP = mp.cm.plasma
+        norm = colors.Normalize(min_ns, max_ns)
+        c_label = "Temperature (°C)"
+
+
+        bin_range = [np.min(datas), np.max(datas)]
+        if min_ != None:
+            bin_range[0] = min_
+        if max_ != None:
+            bin_range[1] = max_
+        
+        print(datas)
+        h, bins, patches = ax.hist(datas, histtype='bar', rwidth=0.95, stacked = True, range=bin_range)
+        for i, patch in enumerate(patches):
+            for bar in patch:
+                bar.set_facecolor(CMAP(norm(temps[i])))
+
+        #ax.bar(n, bins, histtype='bar', rwidth=0.95, stacked = True)
+        title = "Elevation Error"
+        ax.set_title(title)
+        ax.set_xlabel("IceSAT2 - REMA")
+        ax.set_ylabel("Count")
+
+
+        colorbar_colors = ScalarMappable(norm)
+        colorbar_colors.set_cmap(CMAP)
+        fig.colorbar(colorbar_colors, ax=ax, label = c_label)
+        return fig, ax
+
 
     def plot_velocity(self, fname, year):
         fig, ax = plt.subplots()
