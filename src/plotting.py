@@ -35,7 +35,7 @@ class Plotting:
         ##print(gdf.columns.tolist())
 
 
-    def error_hist(self, df, color_col = 'dist', hist_col='diff', min_ = None, max_ = None):
+    def error_hist(self, df, color_col = 'dist', hist_col='diff', bins=9, min_ = None, max_ = None):
         fig, ax = plt.subplots()
         datas = []
         temps = []
@@ -61,7 +61,7 @@ class Plotting:
             bin_range[1] = max_
         
         print(datas)
-        h, bins, patches = ax.hist(datas, histtype='bar', rwidth=0.95, stacked = True, range=bin_range)
+        h, bins_, patches = ax.hist(datas, bins=bins,  histtype='bar', rwidth=0.95, stacked = True, range=bin_range)
         for i, patch in enumerate(patches):
             for bar in patch:
                 bar.set_facecolor(CMAP(norm(temps[i])))

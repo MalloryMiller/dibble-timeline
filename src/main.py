@@ -1,4 +1,5 @@
 import sys
+import os
 from utils import *
 
 
@@ -90,9 +91,9 @@ class main():
         #print(self.get_files(data='elev').file)
         #print(self.get_files(data='rema').file)
 
-        ee = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
-        print('getting error')
-        print(ee.get_error())
+
+        self.get_elevation_error()
+        
 
 
 
@@ -122,6 +123,17 @@ class main():
             
         return title
         
+    def get_elevation_error(self):
+        for year in range(self.flags.YEARSTART, self.flags.YEAREND):
+            #try:
+            strips = os.listdir(REMA_RAW_LOCATION + str(year)) 
+            for s in strips:
+                if s.split('.')[-1] == 'tif':
+                    ee = ElevationError(str(year) + '/' + s, output_name=s.split('/')[-1].split('.')[0]) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
+                    print('getting error')
+                    print(ee.get_error())
+            #except:
+            #    print("No data " + str(year))
 
 
     def get_files(self, data='vel', dim=None):
