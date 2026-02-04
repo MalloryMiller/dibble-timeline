@@ -99,22 +99,35 @@ class ElevationError():
         )
         #combined.dropna(inplace=True)
 
-        print(combined)
         mixed = combined['elevation_icesat2'] - combined['elevation_rema']
         print(mixed)
         combined.insert(0, 'diff', mixed)
 
-        print(self.start_file['date'].unique())
-        print(combined.columns)
-        try:
-            combined.to_csv('output_.csv')
 
-            fig, ax = self.plotter.error_hist(combined, min_=-5, max_=5)
-            plt.savefig('output/images/histograms/' + self.output_fname + '.png', dpi=200)
-            
-            plt.close('all')
-        except:
-            print('Plotting failed, there may have been no overlapping points.')
+        trends = 'input/elevation/ATL11_trends_APS.gpkg'
+        trends_df = gpd.read_file(trends)
+        combined = gpd.sjoin_nearest(
+            combined, trends_df,
+            'left', self.sample_size,
+            'combined', 'trend'
+        )
+        print(combined)
+
+
+        if len(combined) == 0:
+            print('No overlapping points.')
+            return
+        
+
+        
+
+
+        combined.to_csv('output_.csv')
+
+        fig, ax = self.plotter.error_hist(combined, min_=-5, max_=5, color_col='trend',max_c=1, min_c=-1)
+        plt.savefig('output/images/histograms/' + self.output_fname + '.png', dpi=200)
+        
+        plt.close('all')
 
 
 

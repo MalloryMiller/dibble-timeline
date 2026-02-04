@@ -35,32 +35,34 @@ class Plotting:
         ##print(gdf.columns.tolist())
 
 
-    def error_hist(self, df, color_col = 'dist', hist_col='diff', bins=9, min_ = None, max_ = None):
+    def error_hist(self, df, color_col = 'dist', hist_col='diff', bins=9, min_ = None, max_ = None, min_c=None, max_c=None):
         fig, ax = plt.subplots()
+        df = df.fillna(0)
         datas = []
         temps = []
 
         for t in np.sort(df[color_col].unique()):
-            print(t)
             temps.append(t)
             datas.append(df[hist_col][df[color_col] == t])
             
 
         min_ns = np.min(temps)
         max_ns = np.max(temps)
+        if min_c != None:
+            min_ns = min_c
+        if max_c != None:
+            max_ns = max_c
 
         CMAP = mp.cm.plasma
         norm = colors.Normalize(min_ns, max_ns)
-        c_label = "Temperature (°C)"
+        c_label = "Elevation Trend (m/yr)"
 
-
-        bin_range = [np.min(datas), np.max(datas)]
+        bin_range = [np.min(df[hist_col]), np.max(df[hist_col])]
         if min_ != None:
             bin_range[0] = min_
         if max_ != None:
             bin_range[1] = max_
         
-        print(datas)
         h, bins_, patches = ax.hist(datas, bins=bins,  histtype='bar', rwidth=0.95, stacked = True, range=bin_range)
         for i, patch in enumerate(patches):
             for bar in patch:
