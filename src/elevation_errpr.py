@@ -2,6 +2,8 @@ from utils import *
 import os
 
 
+from pygeotools.lib import malib
+
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
 import rasterio as rs
@@ -16,13 +18,17 @@ from plotting import Plotting, plt
 
 class ElevationError():
 
-    def __init__(self, REMAfname, sample_size=30, mask_type = 'mask', output_name='output'):
+    def __init__(self, REMAfname, sample_size=20, mask_type = 'mask', output_name='output', max_diff = 50):
         default_sample_size = 2
         self.sample_size = sample_size
         sample_factor = default_sample_size/self.sample_size
+        
 
         self.fname = REMAfname
+        self.max_diff = max_diff 
         self.output_fname = output_name
+        if self.fname == "" or self.fname == None:
+            return
 
         self.date = self.fname.split('_')[-1].split('.')[0]
         self.year = self.date.split('-')[0]
@@ -78,6 +84,40 @@ class ElevationError():
             crs=raw_file.rio.crs)
         print('dataframe made')
         self.rema = self.rema.dropna()
+
+
+    def reallign(self, reference=None):
+        from demcoreg import dem_align
+
+        if reference == None:
+            reference = 'output/reprojected/elevation/' + str(self.year)+ "_e.tif"
+
+        dem_align.main([reference, 'input/rema/raw/' + self.fname, '-max_dz', self.max_diff], '-outdir', self.output_fname)
+
+        return self.fname
+
+
+    def stack(self, location):
+        print('geting stuff')
+        fn_list = os.listdir(location) 
+        for x in range(len(fn_list)-1, -1, -1):
+            print(x)
+            if fn_list[x].split('.')[-1] != 'tif':
+                fn_list.pop(x)
+            else:
+                fn_list[x] = os.getcwd() + '/' +  location + '/' +  fn_list[x]
+
+
+        print(fn_list)
+        print('making stack')
+        s = malib.DEMStack(fn_list, res='min', extent='union', stack_fn=None, outdir=location + '/output/', 
+                           srs=None, trend=False, robust=False, med=False, stats=False, save=False, 
+                           sort=False, datestack=False, mask_geom=None, min_dt_ptp=np.nan, n_thresh=2)
+        #Stack standard deviation
+        print(s.compute_stat('mean'))
+        #Stack linear trend
+        print(s.compute_trend())
+        self.write_trend()
         
 
 

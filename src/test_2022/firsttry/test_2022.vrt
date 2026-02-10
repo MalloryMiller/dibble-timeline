@@ -1,0 +1,22 @@
+<VRTDataset rasterXSize="27169" rasterYSize="27943">
+  <SRS dataAxisToSRSAxisMapping="1,2">PROJCS["WGS 84 / Antarctic Polar Stereographic",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Polar_Stereographic"],PARAMETER["latitude_of_origin",-71],PARAMETER["central_meridian",0],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",NORTH],AXIS["Northing",NORTH],AUTHORITY["EPSG","3031"]]</SRS>
+  <GeoTransform>  1.8099840000000000e+06,  2.0000000000000000e+00,  0.0000000000000000e+00, -1.8352380000000000e+06,  0.0000000000000000e+00, -2.0000000000000000e+00</GeoTransform>
+  <VRTRasterBand dataType="Float32" band="1">
+    <Metadata>
+      <MDI key="STATISTICS_APPROXIMATE">YES</MDI>
+      <MDI key="STATISTICS_MINIMUM">-73.3515625</MDI>
+      <MDI key="STATISTICS_MAXIMUM">1293.1640625</MDI>
+      <MDI key="STATISTICS_MEAN">212.92407372935</MDI>
+      <MDI key="STATISTICS_STDDEV">249.71844665384</MDI>
+      <MDI key="STATISTICS_VALID_PERCENT">36.02</MDI>
+    </Metadata>
+    <NoDataValue>-9999</NoDataValue>
+    <SimpleSource>
+      <SourceFilename relativeToVRT="1">test_2022.0.tif</SourceFilename>
+      <SourceBand>1</SourceBand>
+      <SourceProperties RasterXSize="27169" RasterYSize="27943" DataType="Float32" BlockXSize="27169" BlockYSize="1" />
+      <SrcRect xOff="0" yOff="0" xSize="27169" ySize="27943" />
+      <DstRect xOff="0" yOff="0" xSize="27169" ySize="27943" />
+    </SimpleSource>
+  </VRTRasterBand>
+</VRTDataset>

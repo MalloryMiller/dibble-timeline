@@ -91,8 +91,13 @@ class main():
         #print(self.get_files(data='elev').file)
         #print(self.get_files(data='rema').file)
 
-
-        self.get_elevation_error()
+        #self.get_elevation_error()
+        e1 = ElevationError('2021/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif') # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
+        e1.reallign()
+        #e1.get_error()
+        
+        ee = ElevationError(None) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
+        ee.stack('test_2022/01')
         
 
 
