@@ -15,6 +15,7 @@ from shapely.geometry import Point
 import pandas as pd
 import geopandas as gpd
 from geocube.api.core import make_geocube
+from osgeo import gdal
 
 import h5py
 
@@ -376,11 +377,22 @@ class FileManager:
                 i+= 1
                 continue
             try:
-
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
                 gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
             except:
-                print('Saving year ' + str(c) + 'gpkg failed.')
+                print('Saving year ' + str(c) + ' gpkg failed.')
+            
+            out_grid = make_geocube(
+                vector_data=gdf_final,
+                measurements=["elevation"],
+                resolution=(-0.001, 0.001), 
+                output_crs=gdf_final.crs 
+            )
+
+            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_elevation_fname(c) + '.tif')
+            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_elevation_fname(c) + '.tif', 
+                      TIF_LOCATION + self.get_elevation_fname(c) + '.tif',
+                      dstSRS='EPSG:3031')
 
             self.generate_image(None, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
             i += 1

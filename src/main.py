@@ -88,7 +88,7 @@ class main():
         #print(self.get_files(dim='x').file)
         #print(self.get_files(dim='y').file)
         #print(self.get_files().file)
-        #print(self.get_files(data='elev').file)
+        print(self.get_files(data='elev').file)
         #print(self.get_files(data='rema').file)
 
         #self.get_elevation_error()
