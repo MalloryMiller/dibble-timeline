@@ -23,7 +23,7 @@ from shapely.geometry import Point
 
 class ElevationError():
 
-    def __init__(self, REMAfname, sample_size=20, mask_type = 'mask', output_name='output', max_diff = 50):
+    def __init__(self, REMAfname, sample_size=20, mask_type = 'mask', output_name='output', max_diff = 50, get_icesat_match=True):
         default_sample_size = 2
         self.sample_size = sample_size
         sample_factor = default_sample_size/self.sample_size
@@ -40,34 +40,41 @@ class ElevationError():
 
         i = -1
         registered = False
-        while len(self.fname.split('_')[i].split('-')) != 3:
-            print(self.fname.split('_')[i].split('-'))
-            registered = True
-            i -= 1
-        self.date = self.fname.split('_')[i].split('.')[0]
+        try:
+            while len(self.fname.split('_')[i].split('-')) != 3:
+                print(self.fname.split('_')[i].split('-'))
+                registered = True
+                i -= 1
+        
+            self.date = self.fname.split('_')[i].split('.')[0]
+        except:
+            print('the provided fname does not contain a dat in YYYY-MM-DD format.')
+            return
 
         self.year = self.date.split('-')[0]
         self.month = self.date.split('-')[1]
         self.day = self.date.split('-')[2].split('T0')[0]
         self.date = np.datetime64(self.date.split('T')[0])
 
-        cur_year_fname = 'output/reprojected/elevation/' + self.year + "_e.gpkg"
-        if os.path.exists(cur_year_fname):
-            self.start_file = cur_year_fname 
-        else:
-            self.start_file = None
 
-        self.start_file = gpd.read_file(self.start_file)
+        if get_icesat_match:
+            cur_year_fname = 'output/reprojected/elevation/' + self.year + "_e.gpkg"
+            if os.path.exists(cur_year_fname):
+                self.start_file = cur_year_fname 
+            else:
+                self.start_file = None
 
-        self.start_file['date'] = self.start_file['date'].dt.round(freq='D')
-        testing_spots = self.start_file['date'].unique()
+            self.start_file = gpd.read_file(self.start_file)
 
-        if self.date in testing_spots:
-            self.start_file = self.start_file[self.start_file['date'] == self.date]
-        else:
-            print("ICESAT match not found")
-            self.rema = []
-            return # TODO can add support for non-exact days if needed here
+            self.start_file['date'] = self.start_file['date'].dt.round(freq='D')
+            testing_spots = self.start_file['date'].unique()
+
+            if self.date in testing_spots:
+                self.start_file = self.start_file[self.start_file['date'] == self.date]
+            else:
+                print("ICESAT match not found")
+                self.rema = []
+                return # TODO can add support for non-exact days if needed here
 
 
         raw_file = rioxarray.open_rasterio('input/rema/raw/' + self.fname, masked=True)

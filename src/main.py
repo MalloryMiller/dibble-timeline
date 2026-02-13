@@ -93,7 +93,30 @@ class main():
 
         #self.get_elevation_error()
 
-        test_files = [
+        self.coregister_rema(2021)
+        #self.test_coregister_rema()
+
+        
+        '''ee = ElevationError(None) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
+        ee.stack('test_2022/01')'''
+        
+
+    def coregister_rema(self, year):
+        dir = 'input/rema/raw/'
+        test_files = os.listdir(dir + str(year))
+
+        for t in test_files:
+            e1 = ElevationError(str(year) + '/' + t) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
+            try:
+                e1.reallign()
+            except:
+                print('Allignment failed, it looks like this file may be bad.')
+
+
+
+
+    def test_coregister_rema(self):
+        test_files = [ # exact matches to icesat data to compare
             '2020/SETSM_s2s041_WV03_20200202_1040010057310E00_10400100583F6E00_2m_lsf_seg1_dem_2020-02-02T00:00:00Z.tif',
             '2021/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif', 
             '2019/SETSM_s2s041_WV02_20191211_103001009E169600_10300100A061CF00_2m_lsf_seg1_dem_2019-12-11T00:00:00Z.tif',
@@ -108,13 +131,6 @@ class main():
                 if f.split('_')[-1] == 'align.tif':
                     e1 = ElevationError(t.split('.')[0] + "_dem_align/" + f, mask_type = None, output_name=t.split('/')[-1])
                     e1.get_error()
-        
-        '''ee = ElevationError(None) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
-        ee.stack('test_2022/01')'''
-        
-
-
-
 
 
     def get_title(self, dim=None):
