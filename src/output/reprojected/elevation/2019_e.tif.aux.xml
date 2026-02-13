@@ -1,0 +1,13 @@
+<PAMDataset>
+  <PAMRasterBand band="1">
+    <Description>elevation</Description>
+    <Metadata>
+      <MDI key="STATISTICS_APPROXIMATE">YES</MDI>
+      <MDI key="STATISTICS_MINIMUM">-41.87283706665</MDI>
+      <MDI key="STATISTICS_MAXIMUM">3054.3393554688</MDI>
+      <MDI key="STATISTICS_MEAN">2250.9936600182</MDI>
+      <MDI key="STATISTICS_STDDEV">872.01829966862</MDI>
+      <MDI key="STATISTICS_VALID_PERCENT">0.1696</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>
