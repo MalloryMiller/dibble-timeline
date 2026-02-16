@@ -93,7 +93,7 @@ class main():
 
         #self.get_elevation_error()
 
-        self.coregister_rema(2021)
+        self.coregister_rema(2019)
         #self.test_coregister_rema()
 
         
@@ -101,16 +101,21 @@ class main():
         ee.stack('test_2022/01')'''
         
 
-    def coregister_rema(self, year):
+    def coregister_rema(self, year, override=False):
         dir = 'input/rema/raw/'
         test_files = os.listdir(dir + str(year))
 
         for t in test_files:
-            e1 = ElevationError(str(year) + '/' + t) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
-            try:
-                e1.reallign()
-            except:
-                print('Allignment failed, it looks like this file may be bad.')
+            if t.split('_')[-1] == 'align':
+                continue
+            print(t.split('.')[0].split('/')[-1])
+            print("Proceeding:", t.split('.')[0] + '_dem_align' not in test_files or override)
+            if(t.split('.')[0] + '_dem_align' not in test_files or override):
+                e1 = ElevationError(str(year) + '/' + t) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
+                try:
+                    e1.reallign()
+                except:
+                    print('Allignment failed, it looks like this file may be bad.')
 
 
 
