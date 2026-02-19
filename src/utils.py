@@ -19,6 +19,21 @@ AREAS = {
 
 }
 
+
+POINT_LISTS = {
+
+    'Dibble' : [
+        [-1753719.5,1833511.6],
+        [-1776239.8,1844142.8],
+        [-1797670.65,1853021.49],
+        [-1807632.8,1853170.8],
+        [-1811218.2,1864875.7]
+        
+    ],
+
+
+}
+
 DEFAULT_AREA = 'Dibble'
 
 
@@ -93,7 +108,7 @@ SOURCE_SAMPLE_FILES = {
 
 MAX_ERR = 5000
 
-REMA_CLOUD_LEVEL = 1000
+REMA_CLOUD_LEVEL = 10
 REMA_BACKGROUND_LEVEL = 0
 
 

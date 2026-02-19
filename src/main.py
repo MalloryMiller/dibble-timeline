@@ -93,6 +93,9 @@ class main():
 
         #self.get_elevation_error()
 
+
+        e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
+        e.filter_clouds()
         self.coregister_rema(2019)
         #self.test_coregister_rema()
 
@@ -101,21 +104,31 @@ class main():
         ee.stack('test_2022/01')'''
         
 
-    def coregister_rema(self, year, override=False):
+    def coregister_rema(self, year, override=False, clean=True):
         dir = 'input/rema/raw/'
         test_files = os.listdir(dir + str(year))
 
         for t in test_files:
-            if t.split('_')[-1] == 'align':
+            if t.split('_')[-1] == 'align' or t.split('.')[-1] != 'tif':
                 continue
             print(t.split('.')[0].split('/')[-1])
             print("Proceeding:", t.split('.')[0] + '_dem_align' not in test_files or override)
-            if(t.split('.')[0] + '_dem_align' not in test_files or override):
+            if (t.split('.')[0] + '_dem_align' not in test_files or override):
                 e1 = ElevationError(str(year) + '/' + t) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
                 try:
                     e1.reallign()
                 except:
                     print('Allignment failed, it looks like this file may be bad.')
+
+            gend_dir = dir + str(year) + '/' + t.split('.')[0] + '_dem_align'
+            print(os.path.isdir(gend_dir))
+            if clean and os.path.isdir(gend_dir):
+                files = os.listdir(gend_dir)
+                for f in files:
+                    if f.split('_')[-1] == 'align.tif' or f.split('_')[-1] == 'align.png':
+                        continue
+                    os.remove(gend_dir + '/' + f)
+
 
 
 

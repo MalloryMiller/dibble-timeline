@@ -8,6 +8,7 @@ import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
 import rasterio as rs
+from rasterio.mask import mask
 from rasterio.enums import Resampling
 import numpy as np
 import pyogrio
@@ -18,7 +19,9 @@ from geocube.api.core import make_geocube
 
 import pandas as pd
 from shapely.geometry import Point
-
+from pygeotools.lib import malib, geolib, warplib
+from shapely.geometry import box
+from rasterio.merge import merge
 
 
 class ElevationError():
@@ -102,11 +105,49 @@ class ElevationError():
         print('converting to dataframe')
         dataframe = raw_file.to_dataframe(name='elevation').reset_index()
         print('done converting')
+        self.raw_file = raw_file
         self.rema = gpd.GeoDataFrame(dataframe,
             geometry=gpd.points_from_xy(dataframe['x'], dataframe['y']),
             crs=raw_file.rio.crs)
         print('dataframe made')
         self.rema = self.rema.dropna()
+
+
+
+
+    def filter_clouds(self, ref_fname = 'tiles/merged_tiles.tif', threshold = REMA_CLOUD_LEVEL,):
+        thing = rioxarray.open_rasterio('input/rema/raw/' + self.fname).squeeze()
+        ref = rioxarray.open_rasterio('input/rema/raw/' +ref_fname).squeeze()
+        bounds = thing.rio.bounds()
+        
+        ref = ref.rio.clip_box(bounds[0], bounds[1], bounds[2], bounds[3])
+        print(ref.rio.bounds())
+        print(bounds)
+
+        ref = gdal.DEMProcessing('input/rema/raw/' + self.fname, '_CLOUDTEST_gdal.tif', 'slope', format='GTiff')
+
+        #ref.rio.to_raster('_CLOUDTEST.tif')
+
+        
+        arr = thing.copy(deep=True)
+        arr = np.abs(thing - ref)
+
+        too_big = np.where(arr > threshold, np.nan, 1)
+        too_big.rio.write_crs("EPSG:3031", inplace=True)
+
+        too_big.rio.to_raster('_CLOUDTEST.tif') 
+        #ref, thing = warplib.memwarp_multi([ref, thing], extent='intersection', t_srs=thing.rio.crs)
+
+        '''print(ref)
+        print(thing)
+        b = thing.values - ref.values
+        b[b > REMA_CLOUD_LEVEL] = np.nan
+        b[b < -REMA_CLOUD_LEVEL] = np.nan
+        b[not b.isnan()] = 1
+          
+        thing = thing * b'''
+
+        
 
 
     def reallign(self, reference=None):
@@ -187,7 +228,7 @@ class ElevationError():
         return self.fname
 
 
-    def stack(self, location):
+    def stack(self, location, stats=False):
         print('geting stuff')
         fn_list = os.listdir(location) 
         for x in range(len(fn_list)-1, -1, -1):
@@ -197,17 +238,19 @@ class ElevationError():
             else:
                 fn_list[x] = os.getcwd() + '/' +  location + '/' +  fn_list[x]
 
-
+        print(location)
         print(fn_list)
         print('making stack')
         s = malib.DEMStack(fn_list, res='min', extent='union', stack_fn=None, outdir=location + '/output/', 
                            srs=None, trend=False, robust=False, med=False, stats=False, save=False, 
                            sort=False, datestack=False, mask_geom=None, min_dt_ptp=np.nan, n_thresh=2)
-        #Stack standard deviation
-        print(s.compute_stat('mean'))
-        #Stack linear trend
-        print(s.compute_trend())
-        self.write_trend()
+        
+        if stats:
+            #Stack standard deviation
+            print(s.compute_stat('mean'))
+            #Stack linear trend
+            print(s.compute_trend())
+            self.write_trend()
         
 
 
