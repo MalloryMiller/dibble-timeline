@@ -21,12 +21,36 @@ import h5py
 
 
 class FileManager:
-    def __init__(self, minlat, maxlat, minlon, maxlon, sources, combo_mode,
-                 yearStart, yearEnd, 
-                 fname_formats = VEL_FILE_FORMATS, h5_location = ELEVATION_H5_LOCATION,
-                 further_processing = VELOCITY_SPECIAL_PREP[None],
-                 base_drop_vars = None, source_override = False, label=''):
+    def __init__(self, minlat, maxlat, minlon, maxlon,combo_mode,
+                 yearStart, yearEnd, data,
+                 fname_formats = FILE_FORMATS, h5_location = ELEVATION_H5_LOCATION,
+                 source_override = False, label='',  sources = None):
         
+        further_processing = VELOCITY_SPECIAL_PREP[None]
+        ftype='tif'
+        base_drop_vars = []
+
+        if data == 'velx':
+            further_processing = VELOCITY_SPECIAL_PREP['x'], 
+            base_drop_vars = VELOCITY_DROP_VARS['x']
+            label = VELOCITY_DIM_LABELS['x']
+        elif data == 'vely':
+            further_processing = VELOCITY_SPECIAL_PREP['y'], 
+            base_drop_vars = VELOCITY_DROP_VARS['y']
+        elif data == 'vel':
+            base_drop_vars = ['STDX', 'STDY', #'ERRX', 'ERRY',
+                                    'mapping', 'landice', 
+                                    'vx_error', 'vy_error', #'v_error',
+                                    'coord_system']
+        
+        elif data == 'evel':
+            ftype = 'gpkg'
+            sources = ['IceSAT2']
+        elif data == 'rema':
+            sources = ['REMA']
+        elif data == 'remaraw':
+            sources = ['REMA 2m']
+
         self.plotter = Plotting()
         
         self.minlat =  minlat
@@ -35,21 +59,17 @@ class FileManager:
         self.maxlon =  maxlon
 
         self.label = label
+        self.ftype = ftype
+        self.data = data
 
         self.fname_format = fname_formats
         self.h5_location = h5_location
         self.sources = sources
         self.combo_mode = combo_mode
 
-        self.yearStart = yearStart
-        self.yearEnd = yearEnd
-        if base_drop_vars == None:
-            self.drop_variables = ['STDX', 'STDY', #'ERRX', 'ERRY',
-                                    'mapping', 'landice', 
-                                    'vx_error', 'vy_error', #'v_error',
-                                    'coord_system']
-        else:
-            self.drop_variables = base_drop_vars
+        self.yearStart = int(yearStart)
+        self.yearEnd = int(yearEnd)
+        self.drop_variables = base_drop_vars
 
         self.special_prep = further_processing
 
@@ -61,7 +81,7 @@ class FileManager:
             self.sample_source = self.source_override.sample_source
             self.sample_file = self.source_override.sample_file
 
-        else:
+        elif sources != None and sources != []:
             self.sample_source = self.sources[0]
             self.sample_file = SOURCE_SAMPLE_FILES[self.sample_source]
 
@@ -88,6 +108,76 @@ class FileManager:
     
     def get_rema_raw_fname(self, year, ftype=''):
         return  'rema/' + str(year) + "_r" + ftype
+    
+
+    def fnames(self, ftype=None):
+        if self.data == 'elev' and ftype == None:
+            ftype = '.gpkg'
+        elif ftype == None:
+            ftype = '.tif'
+
+        fname_data = {
+            'vel': self.get_velocity_fname,
+            'elev': self.get_elevation_fname,
+            'rema': self.get_rema_fname,
+            'remaraw': self.get_rema_raw_fname
+        }
+        fname_prefix = {
+            'vel': OUTPUT,
+            'elev': OUTPUT,
+            'rema': OUTPUT,
+            'remaraw': OUTPUT
+        }
+
+        fnames = []
+        found_years = []
+        for year in range(self.yearStart, self.yearEnd):
+            f = fname_prefix[self.data] + fname_data[self.data](year, ftype=ftype)
+            if not Path(f).is_file():
+                continue
+            fnames.append(f)
+            found_years.append(year)
+
+        return fnames, found_years
+    
+    def get_ouput_files(self):
+        f, years = self.fnames()
+
+        all_files = []
+
+        for file in f:
+
+            if file.split('.')[-1] == 'gpkg':
+                cur_df = gpd.read_file(file)
+                cur_df = cur_df.to_crs('EPSG:3031')
+
+            elif file.split('.')[-1] == 'tif':
+                cur_df = xr.open_dataset(file)
+            all_files.append(cur_df)
+
+
+        if file.split('.')[-1] == 'gpkg':
+            self.file = pd.concat(all_files)
+
+        elif file.split('.')[-1] == 'tif':
+            self.file = xr.concat(all_files, dim=years)
+            self.file = self.file.rename({'concat_dim': 'year'})
+        return self.file
+
+
+
+    def build_files(self):
+        if self.data == 'vel' or self.data == 'velx' or self.data == 'vely':
+            self.build_velocity_files()
+        
+        elif self.data == 'elev':
+            self.build_elevation_files()
+        
+        elif self.data == 'rema':
+            self.build_rema_files()
+        
+        elif self.data == 'rawrema':
+            self.build_raw_rema_files()
     
     
 
@@ -117,7 +207,8 @@ class FileManager:
             plt.close('all')
 
 
-    def get_data(self, fname=None, source=None, base=False):
+
+    def get_tif_data(self, fname=None, source=None, base=False):
         '''
         Returns an opened file cut to the size that this filemanager has as the min and max lat and long.
         Drops all variable not relevant to the actual calculated velocity.
@@ -137,6 +228,8 @@ class FileManager:
         xarray.Dataset
             Processed dataset with TODO
         '''
+        if self.ftype == 'gpkg':
+            return
 
         if fname == None:
             fname = self.sample_file
@@ -182,7 +275,7 @@ class FileManager:
         #years_found = []
         progress = LoadingBar()
         print("Opening " + ", ".join(self.sources) + " data.")
-        self.get_data(base=True)
+        self.get_tif_data(base=True)
 
         for x in list(range(self.yearStart, self.yearEnd+1)):
             if not os.path.exists(self.get_velocity_fname(x, ftype='.tif')):
@@ -199,7 +292,7 @@ class FileManager:
                             continue
                         
 
-                        f = self.get_data(fname=formats.format(str(x), str(int(x) + 1)), source=sources)
+                        f = self.get_tif_data(fname=formats.format(str(x), str(int(x) + 1)), source=sources)
 
                         found[sources] = f
                         done = True
@@ -213,7 +306,7 @@ class FileManager:
 
 
                 if len(found.keys()) != 0:
-                    to_add = self.get_data()
+                    to_add = self.get_tif_data()
                     has_data = True
 
                     if "ItsLive" in found and "ItsLive" != self.sample_source:
@@ -289,7 +382,7 @@ class FileManager:
                 else:
                     cur_years = [x]
                 years_found.extend(cur_years)
-            '''   
+            '''
             else :
                 self.file[x] = self.get_velocity_fname(x, ftype='.tif')
 
@@ -297,7 +390,7 @@ class FileManager:
             '''
         self.file = xr.concat(self.file, dim=years_found)
         self.file = self.file.rename({'concat_dim': 'year'})
-'''
+        '''
         return self.file
 
 
@@ -407,6 +500,7 @@ class FileManager:
             self.generate_image(None, self.get_rema_raw_fname(x), self.plotter.plot_raw_rema_data, x, )
 
     def build_gravimetry_files(self):
+        return
         data = xr.open_rasterio(GRAV_LOCATION)
 
 

@@ -127,7 +127,7 @@ class Plotting:
         
         fig, ax = plt.subplots()
         plt.title("REMA Coverage Preview (" + str(year) + ")")
-        plt.xlim(self.extent[0], self.xtent[1])
+        plt.xlim(self.extent[0], self.extent[1])
         plt.ylim(self.extent[2],  self.extent[3])
         first_item = True
         for s in strips:

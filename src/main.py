@@ -6,6 +6,7 @@ from utils import *
 from file_manager import FileManager
 
 from elevation_errpr import ElevationError
+from pointwise import Pointwize
 
 
 class main():
@@ -51,6 +52,9 @@ class main():
         for x in to_flag:
             self.flags.add(self.args.pop(x))
 
+
+        self.chart_type = self.flags.chart_type()
+
         if len(self.args) == 2:
             if self.args[1] not in list(AREAS.keys()):
                 print('Preset area ' + self.args[1] + ' not found.')
@@ -84,19 +88,24 @@ class main():
             return 
         
 
+        if self.flags.chart_type() == 'points':
+            self.point_name = self.title
+            self.get_points_timeline()
+            
 
-        #print(self.get_files(dim='x').file)
-        #print(self.get_files(dim='y').file)
-        #print(self.get_files().file)
-        #print(self.get_files(data='elev').file)
-        #print(self.get_files(data='rema').file)
+        #print(self.build_files(dim='x').file)
+        #print(self.build_files(dim='y').file)
+        #print(self.build_files().file)
+        #print(self.build_files(data='elev').file)
+        #print(self.build_files(data='rema').file)
 
         #self.get_elevation_error()
 
 
+
         e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
         e.filter_clouds()
-        self.coregister_rema(2019)
+        #self.coregister_rema(2019)
         #self.test_coregister_rema()
 
         
@@ -187,8 +196,17 @@ class main():
             #except:
             #    print("No data " + str(year))
 
+    
 
-    def get_files(self, data='vel', dim=None):
+    def get_points_timeline(self, data = ['vel', 'elev', 'grav']):
+
+        p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
+                      self.point_name, data = data[1])
+        p.get_data()
+        return
+
+
+    def build_files(self, data='vel', dim=None):
         '''
         Generates a single file of the type specified by the dimension if any.
 
@@ -205,56 +223,11 @@ class main():
 
         sources = self.flags.sources()
         combo_mode = self.flags.combo_method()
-        if data == 'vel':
-            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],
+        fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
                         sources=sources,combo_mode=combo_mode, 
                         yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART,
-                        further_processing=VELOCITY_SPECIAL_PREP[dim], 
-                        base_drop_vars = VELOCITY_DROP_VARS[dim], label=VELOCITY_DIM_LABELS[dim])
-                
-            fm.build_velocity_files()
-
-            return fm
-        
-        elif data == 'elev':
-            
-            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
-                        sources=sources,combo_mode=combo_mode, 
-                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
-                
-            fm.build_elevation_files()
-
-            return fm
-        
-        elif data == 'elev':
-            
-            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
-                        sources=sources,combo_mode=combo_mode, 
-                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
-                
-            fm.build_elevation_files()
-
-            return fm
-        
-        elif data == 'rema':
-            
-            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
-                        sources=sources,combo_mode=combo_mode, 
-                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
-                
-            fm.build_rema_files()
-
-            return fm
-        
-        elif data == 'rawrema':
-            
-            fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
-                        sources=sources,combo_mode=combo_mode, 
-                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART)
-                
-            fm.build_raw_rema_files()
-
-            return fm
+                        data=data)
+        fm.build_files()
 
 
 

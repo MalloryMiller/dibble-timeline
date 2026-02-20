@@ -46,12 +46,14 @@ class Flags():
 
         ]
         self.chart_flags = [
+            '-points'
         ]
 
 
         self.all_flags = []
         self.all_flags.extend(self.source_flags)
         self.all_flags.extend(self.combo_flags)
+        self.all_flags.extend(self.chart_flags)
         self.YEARSTART = 2000
         self.YEAREND = 2025
         
@@ -170,4 +172,7 @@ class Flags():
             String that reflects one of the flags selected in the chart category.
         '''
 
+        if '-points' in FLAGS:
+            return 'points'
+        
         return ''
