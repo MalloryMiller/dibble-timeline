@@ -14,6 +14,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.cm import ScalarMappable
 import numpy as np
 
+
 gpgk_folder_name = 'gpkg_progress'
 
 velocity_trends_tif = "shapefiles/velocities_measures.tif"#"shapefiles/velocity_trends.tif"

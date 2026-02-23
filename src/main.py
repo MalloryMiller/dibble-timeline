@@ -1,12 +1,14 @@
+import datetime
 import sys
 import os
 from utils import *
 
 
-from file_manager import FileManager
+from file_manager import FileManager, plt
 
 from elevation_errpr import ElevationError
 from pointwise import Pointwize
+import matplotlib.pyplot as plt
 
 
 class main():
@@ -103,8 +105,8 @@ class main():
 
 
 
-        e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
-        e.filter_clouds()
+        '''e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
+        e.filter_clouds()'''
         #self.coregister_rema(2019)
         #self.test_coregister_rema()
 
@@ -199,11 +201,30 @@ class main():
     
 
     def get_points_timeline(self, data = ['vel', 'elev', 'grav']):
+        labels = {
+            'vel': "Velocity (m/y)",
+            'elev': 'Elevation Change (m)',
+            'grav': 'Gravimetry Change since 2011 (Gt)'
+        }
+        fig, ax = plt.subplots(len(data), 1)
+        fig.set_figheight(3*len(data))
 
-        p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
-                      self.point_name, data = data[1])
-        p.get_data()
-        return
+        for i, d in enumerate(data):
+            p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
+                        self.point_name, data = d, change=True)
+            p.plot_time_series(fig, ax[i])
+            ax[i].set_ylabel(labels[d])
+
+            ax[i].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
+
+        ax[0].legend()
+        ax[-1].set_xlabel('Year')
+        
+        print("Saving image...")
+        plt.savefig("pointwise.png", dpi=200)
+        print("pointwise.png")
+        
+        plt.close('all')
 
 
     def build_files(self, data='vel', dim=None):

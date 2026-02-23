@@ -119,24 +119,33 @@ class FileManager:
         fname_data = {
             'vel': self.get_velocity_fname,
             'elev': self.get_elevation_fname,
+            'grav': GRAV_LOCATION,
             'rema': self.get_rema_fname,
             'remaraw': self.get_rema_raw_fname
         }
         fname_prefix = {
             'vel': OUTPUT,
             'elev': OUTPUT,
+            'grav': '',
             'rema': OUTPUT,
             'remaraw': OUTPUT
         }
 
         fnames = []
         found_years = []
+
         for year in range(self.yearStart, self.yearEnd):
-            f = fname_prefix[self.data] + fname_data[self.data](year, ftype=ftype)
-            if not Path(f).is_file():
-                continue
-            fnames.append(f)
-            found_years.append(year)
+            location = fname_data[self.data]
+
+            if type(location) == str:
+                fnames = [fname_prefix[self.data] + location]
+
+            else:
+                f = fname_prefix[self.data] + location(year, ftype=ftype)
+                if not Path(f).is_file():
+                    continue
+                fnames.append(f)
+                found_years.append(year)
 
         return fnames, found_years
     
@@ -152,14 +161,19 @@ class FileManager:
                 cur_df = cur_df.to_crs('EPSG:3031')
 
             elif file.split('.')[-1] == 'tif':
-                cur_df = xr.open_dataset(file)
+                cur_df = xr.open_dataset(file).squeeze()
             all_files.append(cur_df)
 
 
         if file.split('.')[-1] == 'gpkg':
+            if len(f) == 1:
+                return all_files[0]
             self.file = pd.concat(all_files)
 
         elif file.split('.')[-1] == 'tif':
+            if len(f) == 1:
+                return all_files[0]
+            
             self.file = xr.concat(all_files, dim=years)
             self.file = self.file.rename({'concat_dim': 'year'})
         return self.file
