@@ -188,32 +188,40 @@ class main():
 
     def get_elevation_error(self):
         for year in range(self.flags.YEARSTART, self.flags.YEAREND):
-            #try:
+            
             strips = os.listdir(REMA_RAW_LOCATION + str(year)) 
             for s in strips:
                 if s.split('.')[-1] == 'tif':
                     ee = ElevationError(str(year) + '/' + s, output_name=s.split('/')[-1].split('.')[0]) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
                     print('getting error')
                     print(ee.get_error())
-            #except:
-            #    print("No data " + str(year))
 
     
 
     def get_points_timeline(self, data = ['vel', 'elev', 'grav']):
+        p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
+                        self.point_name, data = 'vel', change=True)
+        
+        p.save_point_df()
+        plt.close('all')
+
+        
         labels = {
             'vel': "Velocity (m/y)",
             'elev': 'Elevation Change (m)',
-            'grav': 'Gravimetry Change since 2011 (Gt)'
+            'grav': 'Gravimetry Change since 2011 (kg/m²)'
         }
+
         fig, ax = plt.subplots(len(data), 1)
         fig.set_figheight(3*len(data))
+
 
         for i, d in enumerate(data):
             p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
                         self.point_name, data = d, change=True)
             p.plot_time_series(fig, ax[i])
             ax[i].set_ylabel(labels[d])
+            ax[i].grid()
 
             ax[i].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
 

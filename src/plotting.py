@@ -221,7 +221,7 @@ class Plotting:
             extent = self.extent
         fig, ax = plt.subplots()
         
-        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, color="RdYlBu")
+        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="RdYlBu")
         self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
         if extent:
             plt.xlim(extent[0], extent[1])
@@ -232,6 +232,51 @@ class Plotting:
         print("velocity_reading.png")
         
         plt.close('all')
+
+
+    def plot_df_on_borders(self, df, grounding_color='red', glacial_color='slategrey', extent=None):
+        if extent == None:
+            extent = self.extent
+        fig, ax = plt.subplots()
+        
+        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="RdYlBu", label='Velocity from QAntarctica (m/y)')
+        self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
+
+        print(df)
+        if 'geometry' in df.columns:
+            xs = []
+            ys = []
+            for p in df['geometry']:
+                print(p)
+                xs.append(p.x)
+                ys.append(p.y)
+            df['x'] = xs
+            df['y'] = ys
+
+        if 'labels' in df.columns:
+
+            print(df)
+
+            if 'x' in df.columns:
+                for l in df['labels'].unique():
+                    cur = df[df['labels'] == l]
+                    print(cur)
+                    plt.scatter(cur['x'], cur['y'], label=l)
+        else:
+            plt.scatter(df['x'], df['y'])
+
+
+        plt.legend()
+        if extent:
+            plt.xlim(extent[0], extent[1])
+            plt.ylim(extent[2],  extent[3])
+        
+        print("Saving image...")
+        plt.savefig("point_locations.png", dpi=200)
+        print("point_locations.png")
+        
+        plt.close('all')
+
 
 
     def plot_only_vel_trend_geotiff(self, grounding_color='black', glacial_color='slategrey', extent=None, cmap="RdYlGn"):

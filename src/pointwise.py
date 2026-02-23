@@ -9,6 +9,8 @@ from shapely.geometry import Point
 import pandas as pd
 import numpy as np
 
+from plotting import Plotting
+
 class Pointwize():
     def __init__(self, yearStart, yearEnd, xlim, ylim, points, data, change=True):
         self.yearStart = int(yearStart)
@@ -33,7 +35,20 @@ class Pointwize():
         df_ref = pd.DataFrame({'geometry':point_geom})
         df_ref = gpd.GeoDataFrame(df_ref, geometry=point_geom, crs='EPSG:3031')
         return df_ref
+    
+    def get_label(self, index):
+        return str(chr(index + 65))
 
+
+    def save_point_df(self):
+        p = Plotting()
+        df = self.create_point_df()
+        labels = []
+        for x in range(len(self.points)):
+            labels.append(self.get_label(x))
+        df['labels'] = labels
+        p.plot_df_on_borders(df)
+        #df.to_file('points.gpkg', driver='GPKG')
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elevation'):
         p = self.points[index]
@@ -59,13 +74,16 @@ class Pointwize():
         df = out.sel(x=p[1], y=p[0], method='nearest')
         print(df)
 
+
         if 'time' not in df.variables and 'year' in df.variables:
             t = df['year'].values
             new_dates = []
             for x in range(len(t)):
                 print(t[x])
                 new_dates.append(datetime.datetime(t[x], 1, 1))
+            time_dim = 'year'
         else:
+            time_dim = 'time'
             if df['time'].dtype != np.datetime64:
                 new_dates = []
                 t = df['time'].values
@@ -74,7 +92,14 @@ class Pointwize():
             else:
                 new_dates = df['time'].values
 
-
+        df[time_dim] = new_dates
+        '''if self.change:
+            ref_time = df[time_dim].min()
+            data = df.copy(deep=True)
+            print(df)
+            print(df[column_of_interest][df[time_dim] == ref_time])
+            df[column_of_interest] = df[column_of_interest] - data[column_of_interest][data[time_dim] == ref_time]'''
+        
         self.results[index] = pd.DataFrame({'time': new_dates,
                                             self.data: df[column_of_interest]})
 
@@ -85,7 +110,7 @@ class Pointwize():
         
         for p in self.results.keys():
             print(self.results[p]['time'], self.results[p][self.data].values)
-            ax.plot(self.results[p]['time'], self.results[p][self.data].values, label = str(chr(p + 65)))
+            ax.plot(self.results[p]['time'], self.results[p][self.data].values, label = self.get_label(p))
 
 
     def get_data(self):
