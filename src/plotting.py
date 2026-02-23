@@ -234,12 +234,13 @@ class Plotting:
         plt.close('all')
 
 
-    def plot_df_on_borders(self, df, grounding_color='red', glacial_color='slategrey', extent=None):
+    def plot_df_on_borders(self, df, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
         if extent == None:
             extent = self.extent
         fig, ax = plt.subplots()
         
-        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="RdYlBu", label='Velocity from QAntarctica (m/y)')
+        if velocity:
+            self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="pink", label='Velocity from QAntarctica (m/y)')
         self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
 
         print(df)
