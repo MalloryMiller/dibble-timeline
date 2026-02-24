@@ -198,19 +198,22 @@ class main():
 
     
 
-    def get_points_timeline(self, data = ['vel', 'elev', 'grav']):
+    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = False):
         p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
-                        self.point_name, data = 'vel', change=True)
+                        self.point_name, data = 'vel', change=change)
         
         p.save_point_df()
         plt.close('all')
 
-        
+
         labels = {
             'vel': "Velocity (m/y)",
             'elev': 'Elevation Change (m)',
             'grav': 'Gravimetry Change since 2011 (kg/m²)'
         }
+
+        if not change:
+            labels['elev'] = 'Elevation (m)'
 
         fig, ax = plt.subplots(len(data), 1)
         fig.set_figheight(3*len(data))
@@ -218,7 +221,7 @@ class main():
 
         for i, d in enumerate(data):
             p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
-                        self.point_name, data = d, change=True)
+                        self.point_name, data = d, change=change)
             p.plot_time_series(fig, ax[i])
             ax[i].set_ylabel(labels[d])
             ax[i].grid()

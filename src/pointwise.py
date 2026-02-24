@@ -12,7 +12,7 @@ import numpy as np
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, yearStart, yearEnd, xlim, ylim, points, data, change=True):
+    def __init__(self, yearStart, yearEnd, xlim, ylim, points, data, change=False):
         self.yearStart = int(yearStart)
         self.yearEnd = int(yearEnd)
         self.xlim = xlim
@@ -54,32 +54,28 @@ class Pointwize():
         p = self.points[index]
         df_ref = self.create_point_df([p])
 
-        print(p)
         df_ref = gpd.sjoin_nearest(df_ref, out)
         data = df_ref.copy(deep=True)
-        print(data)
+
         if self.change:
+            print(self.change)
             ref_time = df_ref['date'].min()
-            print(data[column_of_interest][df_ref['date'] == ref_time])
             data[column_of_interest] = data[column_of_interest] - data[column_of_interest][df_ref['date'] == ref_time]
-        print(data)
+
         self.results[index] = pd.DataFrame({'time': df_ref['date'],
                                         self.data: data[column_of_interest]})
 
     
     def geotiff_geom_match(self, out, index, column_of_interest = 'band_data'):
         p = self.points[index]
-        print(p)
 
         df = out.sel(x=p[1], y=p[0], method='nearest')
-        print(df)
 
 
         if 'time' not in df.variables and 'year' in df.variables:
             t = df['year'].values
             new_dates = []
             for x in range(len(t)):
-                print(t[x])
                 new_dates.append(datetime.datetime(t[x], 1, 1))
             time_dim = 'year'
         else:
@@ -109,7 +105,6 @@ class Pointwize():
             self.get_data()
         
         for p in self.results.keys():
-            print(self.results[p]['time'], self.results[p][self.data].values)
             ax.plot(self.results[p]['time'], self.results[p][self.data].values, label = self.get_label(p))
 
 
