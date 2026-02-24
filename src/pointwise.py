@@ -1,6 +1,6 @@
 import datetime
 from utils import *
-from file_manager import FileManager
+from file_manager import GravimetryManager, ElevationManager, VelocityManager
 
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
@@ -12,9 +12,10 @@ import numpy as np
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, yearStart, yearEnd, xlim, ylim, points, data, change=False):
-        self.yearStart = int(yearStart)
-        self.yearEnd = int(yearEnd)
+    def __init__(self, flags, xlim, ylim, points, data, change=False):
+        self.flags = flags
+        self.yearStart = int(self.flags.YEARSTART)
+        self.yearEnd = int(self.flags.YEAREND)
         self.xlim = xlim
         self.ylim = ylim
         self.points = POINT_LISTS[points]
@@ -48,7 +49,6 @@ class Pointwize():
             labels.append(self.get_label(x))
         df['labels'] = labels
         p.plot_df_on_borders(df)
-        #df.to_file('points.gpkg', driver='GPKG')
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elevation'):
         p = self.points[index]
@@ -116,10 +116,15 @@ class Pointwize():
             'elev': 'elevation'
         }
         
+        fms = {
+            'vel': VelocityManager,
+            'grav': GravimetryManager,
+            'elev': ElevationManager
+        }
+
         print()
         print()
-        filemanager = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1],'', 
-                                self.yearStart, self.yearEnd, self.data)
+        filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
         print('getting output')
         out = filemanager.get_ouput_files()
         print('comparing points')

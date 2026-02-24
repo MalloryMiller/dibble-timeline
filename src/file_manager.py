@@ -21,42 +21,19 @@ import h5py
 
 
 class FileManager:
-    def __init__(self, minlat, maxlat, minlon, maxlon,combo_mode,
-                 yearStart, yearEnd, data,
+    def __init__(self, xlims, ylims, flags, data, ftype,
                  fname_formats = FILE_FORMATS, h5_location = ELEVATION_H5_LOCATION,
-                 source_override = False, label='',  sources = None):
+                 source_override = False, label='',  sources = None, further_processing = lambda x: x, 
+                 base_drop_vars = []):
         
-        further_processing = VELOCITY_SPECIAL_PREP[None]
-        ftype='tif'
-        base_drop_vars = []
-
-        if data == 'velx':
-            further_processing = VELOCITY_SPECIAL_PREP['x'], 
-            base_drop_vars = VELOCITY_DROP_VARS['x']
-            label = VELOCITY_DIM_LABELS['x']
-        elif data == 'vely':
-            further_processing = VELOCITY_SPECIAL_PREP['y'], 
-            base_drop_vars = VELOCITY_DROP_VARS['y']
-        elif data == 'vel':
-            base_drop_vars = ['STDX', 'STDY', #'ERRX', 'ERRY',
-                                    'mapping', 'landice', 
-                                    'vx_error', 'vy_error', #'v_error',
-                                    'coord_system']
-        
-        elif data == 'evel':
-            ftype = 'gpkg'
-            sources = ['IceSAT2']
-        elif data == 'rema':
-            sources = ['REMA']
-        elif data == 'remaraw':
-            sources = ['REMA 2m']
-
         self.plotter = Plotting()
+
+        self.flags = flags
         
-        self.minlat =  minlat
-        self.maxlat =  maxlat
-        self.minlon =  minlon
-        self.maxlon =  maxlon
+        self.minlat =  xlims[0]
+        self.maxlat =  xlims[1]
+        self.minlon =  ylims[0]
+        self.maxlon =  ylims[1]
 
         self.label = label
         self.ftype = ftype
@@ -65,10 +42,9 @@ class FileManager:
         self.fname_format = fname_formats
         self.h5_location = h5_location
         self.sources = sources
-        self.combo_mode = combo_mode
 
-        self.yearStart = int(yearStart)
-        self.yearEnd = int(yearEnd)
+        self.yearStart = int(flags.YEARSTART)
+        self.yearEnd = int(flags.YEAREND)
         self.drop_variables = base_drop_vars
 
         self.special_prep = further_processing
@@ -89,26 +65,6 @@ class FileManager:
         
 
         self.file = {}
-
-        
-
-
-    def get_velocity_fname(self, year, ftype=''):
-        return 'velocities/' + str(year) + self.label + "_v" + ftype
-        
-        
-
-    def get_elevation_fname(self, year, ftype=''):
-        return  'elevation/' + str(year) + "_e" + ftype
-        
-        
-
-    def get_rema_fname(self, year, ftype=''):
-        return  'rema/' + str(year) + "_r" + ftype
-    
-    def get_rema_raw_fname(self, year, ftype=''):
-        return  'rema/' + str(year) + "_r" + ftype
-    
 
     def fnames(self, ftype=None):
         if self.data == 'elev' and ftype == None:
@@ -178,20 +134,6 @@ class FileManager:
             self.file = self.file.rename({'concat_dim': 'year'})
         return self.file
 
-
-
-    def build_files(self):
-        if self.data == 'vel' or self.data == 'velx' or self.data == 'vely':
-            self.build_velocity_files()
-        
-        elif self.data == 'elev':
-            self.build_elevation_files()
-        
-        elif self.data == 'rema':
-            self.build_rema_files()
-        
-        elif self.data == 'rawrema':
-            self.build_raw_rema_files()
     
     
 
@@ -267,6 +209,69 @@ class FileManager:
         return self.special_prep(sample_file, source)
     
 
+    def pointify(self, row):
+        #Dr. Lilien code
+        return Point(row['longitude'],row['latitude'])
+    
+    def build_gravimetry_files(self):
+        return
+        data = xr.open_rasterio(GRAV_LOCATION)
+
+
+        relevant_data = data
+        relevant_data = data.loc[start_time:end_time]
+        relevant_data = relevant_data.where((relevant_data.x > self.minlat) & (relevant_data.x < self.maxlat), drop=True)
+        relevant_data = relevant_data.where((relevant_data.y > self.minlon) & (relevant_data.y < self.maxlon), drop=True)
+
+        self.file = data
+
+
+
+    def close(self):
+        '''
+        Resets the current file to hold nothing.
+        '''
+        self.file = {}
+
+
+
+class VelocityManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data,
+                 fname_formats = FILE_FORMATS, h5_location = ELEVATION_H5_LOCATION,
+                 source_override = False, label='',  sources = None):
+        
+        further_processing = VELOCITY_SPECIAL_PREP[None]
+        ftype='tif'
+        base_drop_vars = []
+
+        if data == 'velx':
+            further_processing = VELOCITY_SPECIAL_PREP['x'], 
+            base_drop_vars = VELOCITY_DROP_VARS['x']
+            label = VELOCITY_DIM_LABELS['x']
+        elif data == 'vely':
+            further_processing = VELOCITY_SPECIAL_PREP['y'], 
+            base_drop_vars = VELOCITY_DROP_VARS['y']
+        elif data == 'vel':
+            base_drop_vars = ['STDX', 'STDY', #'ERRX', 'ERRY',
+                                    'mapping', 'landice', 
+                                    'vx_error', 'vy_error', #'v_error',
+                                    'coord_system']
+            
+        self.combo_mode = flags.combo_method()
+            
+        super().__init__(xlims, ylims, flags, data, ftype, fname_formats=fname_formats, h5_location=h5_location,
+                            source_override=source_override, label=label, sources=sources, 
+                            further_processing=further_processing, base_drop_vars=base_drop_vars)
+        
+        
+
+
+    def get_velocity_fname(self, year):
+        return 'velocities/' + str(year) + self.label + "_v." + self.ftype
+        
+
+        
     def build_velocity_files(self, dim=None):
         '''
         Opens all files from all sources in a range of years (self.yearStart through self.yearEnd inclusively)
@@ -407,11 +412,126 @@ class FileManager:
         '''
         return self.file
 
+    def build_files(self):
+        self.build_velocity_files()
 
-    def pointify(self, row):
-        #Dr. Lilien code
-        return Point(row['longitude'],row['latitude'])
+    def fnames(self, ftype=None):
+
+        fname_data = {
+            'vel': self.get_velocity_fname,
+        }
+        fname_prefix = {
+            'vel': OUTPUT,
+        }
+
+        fnames = []
+        found_years = []
+
+        for year in range(self.yearStart, self.yearEnd):
+            location = fname_data[self.data]
+
+            if type(location) == str:
+                fnames = [fname_prefix[self.data] + location]
+
+            else:
+                f = fname_prefix[self.data] + location(year)
+                if not Path(f).is_file():
+                    continue
+                fnames.append(f)
+                found_years.append(year)
+
+        return fnames, found_years
     
+
+
+class ElevationManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data,
+                 source_override = False, label='',  sources = None):
+        
+        further_processing = VELOCITY_SPECIAL_PREP[None]
+        base_drop_vars = []
+        ftype = 'gpkg'
+
+        print(data)
+
+        
+        if data == 'evel' and sources == None:
+            sources = ['IceSAT2']
+        elif data == 'rema':
+            ftype='tif'
+            sources = ['REMAPrev']
+        elif data == 'remaraw':
+            ftype='tif'
+            sources = ['REMA']
+
+            
+        super().__init__(xlims, ylims, flags, data, ftype,
+                            source_override=source_override, label=label, sources=sources, 
+                            further_processing=further_processing, base_drop_vars=base_drop_vars)
+        
+    
+        
+
+    def get_elevation_fname(self, year):
+        return  'elevation/' + str(year) + "_e." + self.ftype
+        
+        
+
+    def get_rema_fname(self, year):
+        return  'rema/' + str(year) + "_r." + self.ftype
+    
+    def get_rema_raw_fname(self, year):
+        return  'rema/' + str(year) + "_r." + self.ftype
+    
+
+
+    def build_files(self):
+        
+        if self.data == 'elev':
+            self.build_elevation_files()
+        
+        elif self.data == 'rema':
+            self.build_rema_files()
+        
+        elif self.data == 'rawrema':
+            self.build_raw_rema_files()
+
+
+    def fnames(self):
+
+        fname_data = {
+            'elev': self.get_elevation_fname,
+            'rema': self.get_rema_fname,
+            'remaraw': self.get_rema_raw_fname
+        }
+        fname_prefix = {
+            'elev': OUTPUT,
+            'rema': OUTPUT,
+            'remaraw': OUTPUT
+        }
+
+        fnames = []
+        found_years = []
+
+        for year in range(self.yearStart, self.yearEnd):
+            location = fname_data[self.data]
+
+            if type(location) == str:
+                fnames = [fname_prefix[self.data] + location]
+
+            else:
+                f = fname_prefix[self.data] + location(year)
+                if not Path(f).is_file():
+                    continue
+                fnames.append(f)
+                found_years.append(year)
+
+        return fnames, found_years
+    
+
+
+
     def build_elevation_files(self):
         progress = LoadingBar()
         progress2 = LoadingBar()
@@ -513,23 +633,20 @@ class FileManager:
         for x in list(range(self.yearStart, self.yearEnd+1)):
             self.generate_image(None, self.get_rema_raw_fname(x), self.plotter.plot_raw_rema_data, x, )
 
-    def build_gravimetry_files(self):
+
+
+class GravimetryManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
         return
-        data = xr.open_rasterio(GRAV_LOCATION)
+    
 
-
-        relevant_data = data
-        relevant_data = data.loc[start_time:end_time]
-        relevant_data = relevant_data.where((relevant_data.x > self.minlat) & (relevant_data.x < self.maxlat), drop=True)
-        relevant_data = relevant_data.where((relevant_data.y > self.minlon) & (relevant_data.y < self.maxlon), drop=True)
-
-        self.file = data
-
-
-
-    def close(self):
-        '''
-        Resets the current file to hold nothing.
-        '''
-        self.file = {}
-
+    def fnames(self, ftype=None):
+        return [GRAV_LOCATION], []

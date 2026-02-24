@@ -4,7 +4,7 @@ import os
 from utils import *
 
 
-from file_manager import FileManager, plt
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, plt
 
 from elevation_errpr import ElevationError
 from pointwise import Pointwize
@@ -199,8 +199,8 @@ class main():
     
 
     def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = False):
-        p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
-                        self.point_name, data = 'vel', change=change)
+        p = Pointwize(self.flags, self.xlim, self.ylim, 
+                        self.point_name, data = 'vel', change=change )
         
         p.save_point_df()
         plt.close('all')
@@ -220,7 +220,7 @@ class main():
 
 
         for i, d in enumerate(data):
-            p = Pointwize(self.flags.YEARSTART, self.flags.YEAREND, self.xlim, self.ylim, 
+            p = Pointwize(self.flags, self.xlim, self.ylim, 
                         self.point_name, data = d, change=change)
             p.plot_time_series(fig, ax[i])
             ax[i].set_ylabel(labels[d])
@@ -253,11 +253,16 @@ class main():
         None
         '''
 
+        managers = {
+            'vel': VelocityManager,
+            'elev': ElevationManager,
+            'grav': GravimetryManager
+        }
+
         sources = self.flags.sources()
         combo_mode = self.flags.combo_method()
-        fm = FileManager(self.xlim[0], self.xlim[1], self.ylim[0], self.ylim[1], 
-                        sources=sources,combo_mode=combo_mode, 
-                        yearEnd=self.flags.YEAREND, yearStart=self.flags.YEARSTART,
+        fm = managers[data](self.xlim, self.ylim, self.flags,
+                        sources=sources,combo_mode=combo_mode,
                         data=data)
         fm.build_files()
 
