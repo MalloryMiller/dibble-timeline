@@ -12,7 +12,7 @@ import numpy as np
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, change=False):
+    def __init__(self, flags, xlim, ylim, points, data, change=True):
         self.flags = flags
         self.yearStart = int(self.flags.YEARSTART)
         self.yearEnd = int(self.flags.YEAREND)
@@ -54,16 +54,31 @@ class Pointwize():
         p = self.points[index]
         df_ref = self.create_point_df([p])
 
-        df_ref = gpd.sjoin_nearest(df_ref, out)
-        data = df_ref.copy(deep=True)
+        #df_ref = gpd.sjoin_nearest(df_ref, out)
+        df_ref = gpd.sjoin(df_ref, out, distance=100,predicate='dwithin')
+        print(df_ref)
+
+        time = []
+        data = []
+
+        for x in df_ref['date'].unique():
+            time.append(x)
+            print(df_ref[df_ref['date'] == x][column_of_interest])
+            data.append(df_ref[df_ref['date'] == x][column_of_interest].mean())
+
+        time = np.array(time)
+        data = np.array(data)
+        print(data)
+        print(time)
+        if len(data) == 0:
+            return
 
         if self.change:
             print(self.change)
-            ref_time = df_ref['date'].min()
-            data[column_of_interest] = data[column_of_interest] - data[column_of_interest][df_ref['date'] == ref_time]
-
-        self.results[index] = pd.DataFrame({'time': df_ref['date'],
-                                        self.data: data[column_of_interest]})
+            ref_time = time.min()
+            data = data - data[time == ref_time]
+        self.results[index] = pd.DataFrame({'time': time,
+                                        self.data: data})
 
     
     def geotiff_geom_match(self, out, index, column_of_interest = 'band_data'):

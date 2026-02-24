@@ -262,9 +262,9 @@ class Plotting:
                 for l in df['labels'].unique():
                     cur = df[df['labels'] == l]
                     print(cur)
-                    plt.scatter(cur['x'], cur['y'], label=l)
+                    plt.scatter(cur['x'], cur['y'], label=l, marker='o')
         else:
-            plt.scatter(df['x'], df['y'])
+            plt.scatter(df['x'], df['y'], marker='o')
 
 
         plt.legend()

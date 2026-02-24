@@ -198,7 +198,7 @@ class main():
 
     
 
-    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = False):
+    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True):
         p = Pointwize(self.flags, self.xlim, self.ylim, 
                         self.point_name, data = 'vel', change=change )
         
