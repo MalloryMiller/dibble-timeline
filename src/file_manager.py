@@ -427,6 +427,9 @@ class ElevationManager(FileManager):
                             source_override=source_override, label=label, sources=sources, 
                             further_processing=further_processing, base_drop_vars=base_drop_vars)
         
+        if data== 'elev':
+            self.sample_source = gpd.read_file(INPUT + 'elevation/ATL11_trends_APS.gpkg')
+        
     
         
 

@@ -22,12 +22,16 @@ class Pointwize():
         self.data = data
         self.change = change
         self.pt_range = pt_range
+        self.labels = []
+
+        self.max_dist = 50
 
 
         if streamwise:
-            s = StreamFlow(xlim, ylim, flags, self.points[0], point_spacing, pt_range)
+            s = StreamFlow(xlim, ylim, flags, self.points[0], point_spacing, pt_range, max_dist=self.max_dist)
             self.point_spacing = point_spacing
-            self.points = s.get_points()
+            e = ElevationManager(xlim, ylim, flags, 'elev')
+            self.points, self.labels = s.get_points(e.sample_source)
 
         self.point_df = None
         self.results = {}
@@ -51,6 +55,8 @@ class Pointwize():
     
     
     def get_label(self, index, style='dist'):
+        if self.labels != []:
+            return str(round(self.labels[index] / 1000, 1)) + ' km'
         if style == 'dist':
             return (str(((index * self.point_spacing) + (self.pt_range[0] * self.point_spacing)) / 1000) + ' km')
         return str(chr(index + 65))
@@ -70,26 +76,22 @@ class Pointwize():
         df_ref = self.create_point_df([p])
 
         #df_ref = gpd.sjoin_nearest(df_ref, out)
-        df_ref = gpd.sjoin(df_ref, out, distance=100,predicate='dwithin')
-        print(df_ref)
+        df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
 
         time = []
         data = []
 
         for x in df_ref['date'].unique():
             time.append(x)
-            print(df_ref[df_ref['date'] == x][column_of_interest])
             data.append(df_ref[df_ref['date'] == x][column_of_interest].mean())
 
         time = np.array(time)
         data = np.array(data)
-        print(data)
-        print(time)
+
         if len(data) == 0:
             return
 
         if self.change:
-            print(self.change)
             ref_time = time.min()
             data = data - data[time == ref_time]
         self.results[self.get_label(index)] = pd.DataFrame({'time': time,
@@ -175,7 +177,7 @@ class Pointwize():
 
 
 class StreamFlow():
-    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS):
+    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500):
         self.fmx = VelocityManager(xlims, ylims, flags, 'velx')
         self.fmy = VelocityManager(xlims, ylims, flags, 'vely')
 
@@ -193,6 +195,7 @@ class StreamFlow():
         self.step_num = step_num[1] - step_num[0]
         self.step_range = step_num
         self.date_steps = date_steps
+        self.max_dist = max_dist
 
         #self.output['velocity'] = self.output['velocity'].where(False)
         #self.output = self.output.where(self.output['visted'] != 0)
@@ -204,18 +207,13 @@ class StreamFlow():
 
 
     def follow_flow(self, cur_dist, fx, fy, dir=1):
-        print(fx)
         cur_vx = dir * float(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
         cur_vy = -dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
         if np.isnan(cur_vx):
             return self.duration + 1
-        print()
-        print()
-        print(cur_vx)
         
 
         v = float(overall_velocity(cur_vx, cur_vy))
-        print(v)
         self.velocities.append(v)
         self.date += self.date_steps
         self.dates.append(self.date)
@@ -223,15 +221,12 @@ class StreamFlow():
 
         self.pos[0] += cur_vx * self.date_steps
         self.pos[1] += cur_vy * self.date_steps
-        print(self.pos[1])
 
-        self.points.append(Point(self.pos[1], self.pos[0]))
+        self.points.append(Point(self.pos[0], self.pos[1]))
 
         cur_dist += dir * float(overall_velocity(cur_vx * self.date_steps, cur_vy * self.date_steps))
         self.dist.append(int(cur_dist))
 
-        print()
-        print()
 
         
         return cur_dist
@@ -248,13 +243,14 @@ class StreamFlow():
         self.pos[0] = self.starting_pos[1]
         self.pos[1] = self.starting_pos[0]
 
-        print(cur_dist)
-        print(self.duration)
 
         cutoff = self.duration * 100000
         i = 0
 
-        while cur_dist < self.duration and cur_dist > -self.duration and cutoff > i:
+        partial_duration = (np.abs(points)/self.step_num) * self.duration #only do the needed duration (points can be negative so it is abs'ed)
+        
+
+        while cur_dist < partial_duration and cur_dist > -partial_duration and cutoff > i:
             cur_dist = self.follow_flow(cur_dist, fx, fy,dir=direction)
             i += 1
 
@@ -271,32 +267,58 @@ class StreamFlow():
             self.get_stream(direction=1, points=min(self.step_range[1], self.step_range[1]-self.step_range[0]))
 
 
-    def get_points(self):
+    def get_points(self, overlap_ds=False, include_all=False):
         if self.dist == []:
             self.run_experiment()
+
+        if type(overlap_ds) != bool:
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.dist}, geometry=self.points, crs='EPSG:3031')
+            if include_all:
+                all = gpd.copy(deep=True)
+            new_df = gpd.sjoin_nearest(overlap_ds, gpd_df, max_distance=self.max_dist)
+
+            
+            new_df.set_index('geometry')
+            new_df = new_df.drop(columns=['latitude', 'longitude', 'index_right', 'trend', 'date', 'uncert'])
+            new_df = new_df[~new_df.index.duplicated(keep='first')]
+            print(new_df)
+
+            self.points = list(new_df['geometry'])
+            self.dist = list(new_df['dist_from_grndline'])
+            print(self.dist)
+            print(self.points)
+
+
 
         df = xr.Dataset({
             #'date': self.dates,
             'geometry': (('dist'), self.points)
             }, coords={
-            'dist': self.dist})
+            'dist': self.dist}).drop_duplicates(dim='dist')
         print(df)
+
         
 
         point_dists = np.array(list(range(self.step_range[0], self.step_range[1]))) * self.step_dist
 
         points = []
+        labels = []
 
         df = df.sortby(df['dist'])
         
         for x in point_dists:
 
-            selected_point = df.sel(dist=x, method='nearest')['geometry'].values
-            points.append([selected_point.max().x, selected_point.max().y])
-            print(points)
+            selected_point = df.sel(dist=x, method='nearest')['geometry']
+            points.append([selected_point.values.max().y, selected_point.values.max().x])
+            print(selected_point)
+            labels.append(int(selected_point.dist))
+            
+
+        if include_all:
+            return points, labels, all
 
 
-        return points
+        return points, labels
 
         
 

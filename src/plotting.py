@@ -256,6 +256,7 @@ class Plotting:
 
 
             if 'x' in df.columns:
+                print(df['labels'])
                 for l in df['labels'].unique():
                     cur = df[df['labels'] == l]
                     plt.scatter(cur['x'], cur['y'], label=l)
