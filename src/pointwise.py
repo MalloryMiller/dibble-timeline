@@ -12,7 +12,7 @@ import numpy as np
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, change=True):
+    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 5], point_spacing=15000, change=True, streamwise=True):
         self.flags = flags
         self.yearStart = int(self.flags.YEARSTART)
         self.yearEnd = int(self.flags.YEAREND)
@@ -21,6 +21,13 @@ class Pointwize():
         self.points = POINT_LISTS[points]
         self.data = data
         self.change = change
+        self.pt_range = pt_range
+
+
+        if streamwise:
+            s = StreamFlow(xlim, ylim, flags, self.points[0], point_spacing, pt_range)
+            self.point_spacing = point_spacing
+            self.points = s.get_points()
 
         self.point_df = None
         self.results = {}
@@ -31,13 +38,21 @@ class Pointwize():
 
         point_geom = []
         for p in pointls:
-            point_geom.append(Point(p[1], p[0]))
+            if type(p) == list:
+                point_geom.append(Point(p[1], p[0]))
+            else:
+                point_geom.append(p)
 
         df_ref = pd.DataFrame({'geometry':point_geom})
         df_ref = gpd.GeoDataFrame(df_ref, geometry=point_geom, crs='EPSG:3031')
+        if len(pointls) > 1:
+            df_ref.to_file("points.gpkg", driver="GPKG")
         return df_ref
     
-    def get_label(self, index):
+    
+    def get_label(self, index, style='dist'):
+        if style == 'dist':
+            return (str(((index * self.point_spacing) + (self.pt_range[0] * self.point_spacing)) / 1000) + ' km')
         return str(chr(index + 65))
 
 
@@ -77,7 +92,7 @@ class Pointwize():
             print(self.change)
             ref_time = time.min()
             data = data - data[time == ref_time]
-        self.results[index] = pd.DataFrame({'time': time,
+        self.results[self.get_label(index)] = pd.DataFrame({'time': time,
                                         self.data: data})
 
     
@@ -111,16 +126,19 @@ class Pointwize():
             print(df[column_of_interest][df[time_dim] == ref_time])
             df[column_of_interest] = df[column_of_interest] - data[column_of_interest][data[time_dim] == ref_time]'''
         
-        self.results[index] = pd.DataFrame({'time': new_dates,
+        self.results[self.get_label(index)] = pd.DataFrame({'time': new_dates,
                                             self.data: df[column_of_interest]})
 
 
     def plot_time_series(self, fig, ax):
         if not self.results:
             self.get_data()
+
+            print(self.results)
         
         for p in self.results.keys():
-            ax.plot(self.results[p]['time'], self.results[p][self.data].values, label = self.get_label(p))
+            ax.plot(self.results[p]['time'], 
+                    self.results[p][self.data].values, label = p, marker= 'o')
 
 
     def get_data(self):
@@ -148,4 +166,141 @@ class Pointwize():
                 self.gpd_geom_match(out, p, column_of_interest=type_info[self.data])
             elif type(out) == xr.core.dataset.Dataset:
                 self.geotiff_geom_match(out, p, column_of_interest=type_info[self.data])
-            self.results[p] = self.results[p].sort_values('time')
+
+            if self.get_label(p) not in self.results.keys():
+                return
+            
+            self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
+
+
+
+class StreamFlow():
+    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS):
+        self.fmx = VelocityManager(xlims, ylims, flags, 'velx')
+        self.fmy = VelocityManager(xlims, ylims, flags, 'vely')
+
+        self.starting_pos = starting_pos
+        self.pos = [0, 0]
+        self.pos[0] = self.starting_pos[1] # y is stored as first item in the coords
+        self.pos[1] = self.starting_pos[0]
+
+        self.date = flags.YEARSTART
+        self.dist = []
+        self.flags = flags
+
+        self.duration = step_dist * (step_num[1] - step_num[0])
+        self.step_dist = step_dist
+        self.step_num = step_num[1] - step_num[0]
+        self.step_range = step_num
+        self.date_steps = date_steps
+
+        #self.output['velocity'] = self.output['velocity'].where(False)
+        #self.output = self.output.where(self.output['visted'] != 0)
+
+        self.dates = []
+        self.velocities = []
+        self.dist = []
+        self.points = []
+
+
+    def follow_flow(self, cur_dist, fx, fy, dir=1):
+        print(fx)
+        cur_vx = dir * float(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
+        cur_vy = -dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
+        if np.isnan(cur_vx):
+            return self.duration + 1
+        print()
+        print()
+        print(cur_vx)
+        
+
+        v = float(overall_velocity(cur_vx, cur_vy))
+        print(v)
+        self.velocities.append(v)
+        self.date += self.date_steps
+        self.dates.append(self.date)
+
+
+        self.pos[0] += cur_vx * self.date_steps
+        self.pos[1] += cur_vy * self.date_steps
+        print(self.pos[1])
+
+        self.points.append(Point(self.pos[1], self.pos[0]))
+
+        cur_dist += dir * float(overall_velocity(cur_vx * self.date_steps, cur_vy * self.date_steps))
+        self.dist.append(int(cur_dist))
+
+        print()
+        print()
+
+        
+        return cur_dist
+    
+
+    def get_stream(self, direction=1, points=None):
+        if points == None:
+            points = self.step_num
+        fx = self.fmx.get_ouput_files()
+        fy = self.fmy.get_ouput_files()
+        
+        cur_dist = 0
+
+        self.pos[0] = self.starting_pos[1]
+        self.pos[1] = self.starting_pos[0]
+
+        print(cur_dist)
+        print(self.duration)
+
+        cutoff = self.duration * 100000
+        i = 0
+
+        while cur_dist < self.duration and cur_dist > -self.duration and cutoff > i:
+            cur_dist = self.follow_flow(cur_dist, fx, fy,dir=direction)
+            i += 1
+
+
+    def run_experiment(self):
+        self.dates = []
+        self.velocities = []
+        self.dist = []
+        self.points = []
+        if self.step_range[0] < 0:
+            self.get_stream(direction=-1, points=min(self.step_range[0], self.step_range[0]-self.step_range[1]))
+
+        if self.step_range[1] > 0:
+            self.get_stream(direction=1, points=min(self.step_range[1], self.step_range[1]-self.step_range[0]))
+
+
+    def get_points(self):
+        if self.dist == []:
+            self.run_experiment()
+
+        df = xr.Dataset({
+            #'date': self.dates,
+            'geometry': (('dist'), self.points)
+            }, coords={
+            'dist': self.dist})
+        print(df)
+        
+
+        point_dists = np.array(list(range(self.step_range[0], self.step_range[1]))) * self.step_dist
+
+        points = []
+
+        df = df.sortby(df['dist'])
+        
+        for x in point_dists:
+
+            selected_point = df.sel(dist=x, method='nearest')['geometry'].values
+            points.append([selected_point.max().x, selected_point.max().y])
+            print(points)
+
+
+        return points
+
+        
+
+        
+    
+
+

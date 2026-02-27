@@ -243,12 +243,10 @@ class Plotting:
             self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="pink", label='Velocity from QAntarctica (m/y)')
         self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
 
-        print(df)
         if 'geometry' in df.columns:
             xs = []
             ys = []
             for p in df['geometry']:
-                print(p)
                 xs.append(p.x)
                 ys.append(p.y)
             df['x'] = xs
@@ -256,15 +254,13 @@ class Plotting:
 
         if 'labels' in df.columns:
 
-            print(df)
 
             if 'x' in df.columns:
                 for l in df['labels'].unique():
                     cur = df[df['labels'] == l]
-                    print(cur)
-                    plt.scatter(cur['x'], cur['y'], label=l, marker='o')
+                    plt.scatter(cur['x'], cur['y'], label=l)
         else:
-            plt.scatter(df['x'], df['y'], marker='o')
+            plt.scatter(df['x'], df['y'])
 
 
         plt.legend()
@@ -389,12 +385,6 @@ plot_only_vel_trend_geotiff(cmap='RdBu')
 #plot_only_vel_geotiff()
 
 '''
-
-
-
-
-
-
 
 
 

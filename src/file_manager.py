@@ -66,44 +66,6 @@ class FileManager:
 
         self.file = {}
 
-    def fnames(self, ftype=None):
-        if self.data == 'elev' and ftype == None:
-            ftype = '.gpkg'
-        elif ftype == None:
-            ftype = '.tif'
-
-        fname_data = {
-            'vel': self.get_velocity_fname,
-            'elev': self.get_elevation_fname,
-            'grav': GRAV_LOCATION,
-            'rema': self.get_rema_fname,
-            'remaraw': self.get_rema_raw_fname
-        }
-        fname_prefix = {
-            'vel': OUTPUT,
-            'elev': OUTPUT,
-            'grav': '',
-            'rema': OUTPUT,
-            'remaraw': OUTPUT
-        }
-
-        fnames = []
-        found_years = []
-
-        for year in range(self.yearStart, self.yearEnd):
-            location = fname_data[self.data]
-
-            if type(location) == str:
-                fnames = [fname_prefix[self.data] + location]
-
-            else:
-                f = fname_prefix[self.data] + location(year, ftype=ftype)
-                if not Path(f).is_file():
-                    continue
-                fnames.append(f)
-                found_years.append(year)
-
-        return fnames, found_years
     
     def get_ouput_files(self):
         f, years = self.fnames()
@@ -111,7 +73,6 @@ class FileManager:
         all_files = []
 
         for file in f:
-
             if file.split('.')[-1] == 'gpkg':
                 cur_df = gpd.read_file(file)
                 cur_df = cur_df.to_crs('EPSG:3031')
@@ -120,6 +81,10 @@ class FileManager:
                 cur_df = xr.open_dataset(file).squeeze()
             all_files.append(cur_df)
 
+        if len(all_files) == 0:
+            return
+
+        file = f[0]
 
         if file.split('.')[-1] == 'gpkg':
             if len(f) == 1:
@@ -132,6 +97,7 @@ class FileManager:
             
             self.file = xr.concat(all_files, dim=years)
             self.file = self.file.rename({'concat_dim': 'year'})
+
         return self.file
 
     
@@ -215,15 +181,6 @@ class FileManager:
     
     def build_gravimetry_files(self):
         return
-        data = xr.open_rasterio(GRAV_LOCATION)
-
-
-        relevant_data = data
-        relevant_data = data.loc[start_time:end_time]
-        relevant_data = relevant_data.where((relevant_data.x > self.minlat) & (relevant_data.x < self.maxlat), drop=True)
-        relevant_data = relevant_data.where((relevant_data.y > self.minlon) & (relevant_data.y < self.maxlon), drop=True)
-
-        self.file = data
 
 
 
@@ -272,7 +229,7 @@ class VelocityManager(FileManager):
         
 
         
-    def build_velocity_files(self, dim=None):
+    def build_velocity_files(self):
         '''
         Opens all files from all sources in a range of years (self.yearStart through self.yearEnd inclusively)
         places relevant information from sourcs into self.file, one dataset where all other files have been concatonated
@@ -415,13 +372,17 @@ class VelocityManager(FileManager):
     def build_files(self):
         self.build_velocity_files()
 
-    def fnames(self, ftype=None):
+    def fnames(self):
 
         fname_data = {
             'vel': self.get_velocity_fname,
+            'velx': self.get_velocity_fname,
+            'vely': self.get_velocity_fname,
         }
         fname_prefix = {
             'vel': OUTPUT,
+            'velx': OUTPUT,
+            'vely': OUTPUT,
         }
 
         fnames = []
@@ -430,15 +391,12 @@ class VelocityManager(FileManager):
         for year in range(self.yearStart, self.yearEnd):
             location = fname_data[self.data]
 
-            if type(location) == str:
-                fnames = [fname_prefix[self.data] + location]
+            f = fname_prefix[self.data] + location(year)
+            if not Path(f).is_file():
+                continue
+            fnames.append(f)
+            found_years.append(year)
 
-            else:
-                f = fname_prefix[self.data] + location(year)
-                if not Path(f).is_file():
-                    continue
-                fnames.append(f)
-                found_years.append(year)
 
         return fnames, found_years
     
@@ -453,7 +411,6 @@ class ElevationManager(FileManager):
         base_drop_vars = []
         ftype = 'gpkg'
 
-        print(data)
 
         
         if data == 'evel' and sources == None:
@@ -648,5 +605,5 @@ class GravimetryManager(FileManager):
         return
     
 
-    def fnames(self, ftype=None):
+    def fnames(self):
         return [GRAV_LOCATION], []
