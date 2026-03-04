@@ -1,8 +1,5 @@
 
 
-FLAGS = []
-
-
 
 class Flags():
     '''
@@ -36,7 +33,8 @@ class Flags():
 
 
     def __init__(self):
-        self.source_flags = [
+        self.flags=[]
+        self.source_v_flags = [
             '-itslive',
             '-measures'
         ]
@@ -51,7 +49,7 @@ class Flags():
 
 
         self.all_flags = []
-        self.all_flags.extend(self.source_flags)
+        self.all_flags.extend(self.source_v_flags)
         self.all_flags.extend(self.combo_flags)
         self.all_flags.extend(self.chart_flags)
         self.YEARSTART = 2000
@@ -85,11 +83,11 @@ class Flags():
             print("Urecognized flag: '" + string + "'")
 
         else:
-            FLAGS.append(string)
+            self.flags.append(string)
 
 
 
-    def sources(self):
+    def sources_v(self):
         '''
         Returns the sources to be included based on the flags used.
         Defaults to all sources if no flags are provided
@@ -105,24 +103,24 @@ class Flags():
             String that reflects one or more of the flags selected in the sources category.
         '''
         
-        SOURCES = [
+        SOURCES_V = [
             #'Measures',
             'ItsLive',
         ]
                 
         source_reset = False
-        for x in self.source_flags:
+        for x in self.source_v_flags:
 
-            if x in FLAGS:
+            if x in self.flags:
                 source_reset = True
 
         if not source_reset:
-            return SOURCES
+            return SOURCES_V
         
 
         sources = []
 
-        for x in FLAGS:
+        for x in self.flags:
             if x == '-itslive':
                 sources.append("ItsLive")
             if x == '-measures':
@@ -147,9 +145,9 @@ class Flags():
             String that reflects one of the flags selected in the combo category.
         '''
 
-        if '-offset' in FLAGS:
+        if '-offset' in self.flags:
             return 'offset'
-        elif '-average' in FLAGS:
+        elif '-average' in self.flags:
             return 'average'
         else:
             return 'weighted'
@@ -172,7 +170,7 @@ class Flags():
             String that reflects one of the flags selected in the chart category.
         '''
 
-        if '-points' in FLAGS:
+        if '-points' in self.flags:
             return 'points'
         
         return ''

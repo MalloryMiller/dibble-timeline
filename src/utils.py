@@ -63,7 +63,7 @@ REMA_LOCATION = OUTPUT + "rema/"
 
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",
-    'grounding': "shapefiles/grounding_line.shp",
+    'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025.shp",
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
 }

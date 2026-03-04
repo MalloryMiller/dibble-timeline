@@ -8,6 +8,9 @@ import xarray as xr
 from shapely.geometry import Point
 import pandas as pd
 import numpy as np
+from matplotlib import cm
+import matplotlib.colors as mcolors
+import matplotlib as mpl
 
 from plotting import Plotting
 
@@ -23,6 +26,10 @@ class Pointwize():
         self.change = change
         self.pt_range = pt_range
         self.labels = []
+
+        max_dist = max(np.abs(pt_range[0])*point_spacing, np.abs(pt_range[1]-1)*point_spacing)
+        self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
+        self.cm = cm.get_cmap('managua', 256)
 
         self.max_dist = 50
 
@@ -69,9 +76,10 @@ class Pointwize():
         for x in range(len(self.points)):
             labels.append(self.get_label(x))
         df['labels'] = labels
-        p.plot_df_on_borders(df)
+        
+        p.plot_df_on_borders(df, self.cm, self.norm, self.labels)
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation'):
+    def gpd_geom_match(self, out, index, column_of_interest = 'elevation',add_result=False):
         p = self.points[index]
         df_ref = self.create_point_df([p])
 
@@ -94,11 +102,20 @@ class Pointwize():
         if self.change:
             ref_time = time.min()
             data = data - data[time == ref_time]
-        self.results[self.get_label(index)] = pd.DataFrame({'time': time,
+
+        df = pd.DataFrame({'time': time,
                                         self.data: data})
+        
+        if add_result:
+            if len(self.results[self.get_label(index)]) == 0:
+                self.results[self.get_label(index)] = df
+            self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
+        else:
+
+            self.results[self.get_label(index)] = df
 
     
-    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data'):
+    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data',add_result=False):
         p = self.points[index]
 
         df = out.sel(x=p[1], y=p[0], method='nearest')
@@ -108,7 +125,7 @@ class Pointwize():
             t = df['year'].values
             new_dates = []
             for x in range(len(t)):
-                new_dates.append(datetime.datetime(t[x], 1, 1))
+                new_dates.append(t[x])
             time_dim = 'year'
         else:
             time_dim = 'time'
@@ -121,40 +138,90 @@ class Pointwize():
                 new_dates = df['time'].values
 
         df[time_dim] = new_dates
+        
+        if 'sources' in df.variables:
+            df = pd.DataFrame({'time': new_dates,
+                                                                'sources': df['sources'],
+                                                self.data: df[column_of_interest]})
+
+        else:
+            df = pd.DataFrame({'time': new_dates,
+                                                self.data: df[column_of_interest]})
+            
         '''if self.change:
-            ref_time = df[time_dim].min()
+            ref_time = df['time'].min()
             data = df.copy(deep=True)
             print(df)
-            print(df[column_of_interest][df[time_dim] == ref_time])
-            df[column_of_interest] = df[column_of_interest] - data[column_of_interest][data[time_dim] == ref_time]'''
+            print(df[self.data][df['time'] == ref_time])
+            df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]'''
         
-        self.results[self.get_label(index)] = pd.DataFrame({'time': new_dates,
-                                            self.data: df[column_of_interest]})
+        if add_result:
+            if len(self.results[self.get_label(index)]) == 0:
+                self.results[self.get_label(index)] = df
+            self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
+        else:
+            self.results[self.get_label(index)] = df
 
 
-    def plot_time_series(self, fig, ax):
+    def plot_time_series(self, fig, ax, rema=False):
         if not self.results:
-            self.get_data()
+            self.get_data(rema)
 
-            print(self.results)
+        shapes = ['s', '^', 'D']
+        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+        if 'sources' in self.results[list(self.results.keys())[0]].columns:
+            for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
+                ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
         
-        for p in self.results.keys():
+
+        for j, p in enumerate(self.results.keys()):
             ax.plot(self.results[p]['time'], 
-                    self.results[p][self.data].values, label = p, marker= 'o')
+                        self.results[p][self.data].values, marker= 'None', color=sm.to_rgba(self.labels[j]))
+            
+            
+            if 'sources' in self.results[p].columns:
+                for i, s in enumerate(self.results[p]['sources'].unique()):
+                    cur = self.results[p][self.results[p]['sources'] == s]
+                    
+                    ax.plot(cur['time'], 
+                            cur[self.data].values, marker= shapes[i], color=sm.to_rgba(self.labels[j]), linestyle='None')
+            else:
+                ax.plot(self.results[p]['time'], 
+                        self.results[p][self.data].values, label = p, marker= 'o', color=sm.to_rgba(self.labels[j]), linestyle='None')
 
 
-    def get_data(self):
+    def get_data_rema(self):
+
+        print()
+        print()
+        for p in range(len(self.points)):
+            if p not in self.results.keys():
+                self.results[self.get_label(p)] = pd.DataFrame({})
+
+        filemanager = ElevationManager(self.xlim, self.ylim, self.flags, self.data)
+        
+        for p, point in enumerate(self.points):
+            new_df = filemanager.get_point_data(point)
+            print(type(new_df))
+            print(type(self.results[self.get_label(p)]))
+            print(self.results[self.get_label(p)])
+            print(self.results)
+            self.results[self.get_label(p)] = pd.concat([self.results[self.get_label(p)], new_df])
+            self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
+
+
+    def get_data(self, rema=False):
 
         type_info = {
             'vel': 'band_data',
             'grav': 'dm',
-            'elev': 'elevation'
+            'elev': 'elevation',
         }
         
         fms = {
             'vel': VelocityManager,
             'grav': GravimetryManager,
-            'elev': ElevationManager
+            'elev': ElevationManager,
         }
 
         print()
@@ -173,13 +240,18 @@ class Pointwize():
                 return
             
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
+        if rema and self.data == 'elev':
+            return self.get_data_rema()
 
 
 
 class StreamFlow():
     def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500):
-        self.fmx = VelocityManager(xlims, ylims, flags, 'velx')
-        self.fmy = VelocityManager(xlims, ylims, flags, 'vely')
+        f = Flags()
+        f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
+        f.add('-itslive')
+        self.fmx = VelocityManager(xlims, ylims, f, 'velx')
+        self.fmy = VelocityManager(xlims, ylims, f, 'vely')
 
         self.starting_pos = starting_pos
         self.pos = [0, 0]
@@ -188,7 +260,7 @@ class StreamFlow():
 
         self.date = flags.YEARSTART
         self.dist = []
-        self.flags = flags
+        self.flags = f
 
         self.duration = step_dist * (step_num[1] - step_num[0])
         self.step_dist = step_dist
@@ -208,7 +280,7 @@ class StreamFlow():
 
     def follow_flow(self, cur_dist, fx, fy, dir=1):
         cur_vx = dir * float(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
-        cur_vy = -dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
+        cur_vy = dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
         if np.isnan(cur_vx):
             return self.duration + 1
         
@@ -251,7 +323,7 @@ class StreamFlow():
         
 
         while cur_dist < partial_duration and cur_dist > -partial_duration and cutoff > i:
-            cur_dist = self.follow_flow(cur_dist, fx, fy,dir=direction)
+            cur_dist = self.follow_flow(cur_dist, fx, fy, dir=direction)
             i += 1
 
 
@@ -281,12 +353,8 @@ class StreamFlow():
             new_df.set_index('geometry')
             new_df = new_df.drop(columns=['latitude', 'longitude', 'index_right', 'trend', 'date', 'uncert'])
             new_df = new_df[~new_df.index.duplicated(keep='first')]
-            print(new_df)
-
             self.points = list(new_df['geometry'])
             self.dist = list(new_df['dist_from_grndline'])
-            print(self.dist)
-            print(self.points)
 
 
 
@@ -295,7 +363,6 @@ class StreamFlow():
             'geometry': (('dist'), self.points)
             }, coords={
             'dist': self.dist}).drop_duplicates(dim='dist')
-        print(df)
 
         
 
@@ -310,7 +377,6 @@ class StreamFlow():
 
             selected_point = df.sel(dist=x, method='nearest')['geometry']
             points.append([selected_point.values.max().y, selected_point.values.max().x])
-            print(selected_point)
             labels.append(int(selected_point.dist))
             
 

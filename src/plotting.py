@@ -12,6 +12,7 @@ from utils import *
 from matplotlib import cm
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.cm import ScalarMappable
+import matplotlib as mpl
 import numpy as np
 
 
@@ -234,7 +235,7 @@ class Plotting:
         plt.close('all')
 
 
-    def plot_df_on_borders(self, df, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
+    def plot_df_on_borders(self, df, cmap, norm, c_list, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
         if extent == None:
             extent = self.extent
         fig, ax = plt.subplots()
@@ -252,19 +253,31 @@ class Plotting:
             df['x'] = xs
             df['y'] = ys
 
+        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
         if 'labels' in df.columns:
 
 
             if 'x' in df.columns:
                 print(df['labels'])
-                for l in df['labels'].unique():
+                for i, l in enumerate(df['labels'].unique()):
                     cur = df[df['labels'] == l]
-                    plt.scatter(cur['x'], cur['y'], label=l)
+                    if cmap == None or c_list == []:
+                        ax.plot(cur['x'], cur['y'], label=l, marker='o', linestyle='None')
+                    else:
+                        ax.plot(cur['x'], cur['y'], label=l, color=sm.to_rgba(c_list[i]), marker='o', linestyle='None')
+                    
         else:
-            plt.scatter(df['x'], df['y'])
+            if cmap == None or c_list == []:
+                ax.plot(cur['x'], cur['y'], marker='o', linestyle='None')
+            else:
+                ax.plot(cur['x'], cur['y'], color=sm.to_rgba(c_list[i]), marker='o', linestyle='None')
 
 
-        plt.legend()
+        ax.legend()
+        '''leg = ax.legend()
+        for line, text in zip(leg.get_lines(), leg.get_texts()):
+            text.set_color(line.get_color())'''
+        fig.colorbar(sm, ax=ax)
         if extent:
             plt.xlim(extent[0], extent[1])
             plt.ylim(extent[2],  extent[3])

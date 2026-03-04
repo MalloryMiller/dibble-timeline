@@ -95,11 +95,11 @@ class main():
             self.get_points_timeline()
             
 
-        #print(self.build_files(dim='x').file)
-        #print(self.build_files(dim='y').file)
-        #print(self.build_files().file)
-        #print(self.build_files(data='elev').file)
-        #print(self.build_files(data='rema').file)
+        #print(self.build_files(dim='x'))
+        #print(self.build_files(dim='y'))
+        #print(self.build_files())
+        #print(self.build_files(data='elev'))
+        #print(self.build_files(data='rema'))
 
         #self.get_elevation_error()
 
@@ -198,7 +198,7 @@ class main():
 
     
 
-    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True):
+    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True, rema=True):
         p = Pointwize(self.flags, self.xlim, self.ylim, 
                         self.point_name, data = 'vel', change=change )
         
@@ -222,7 +222,9 @@ class main():
         for i, d in enumerate(data):
             p = Pointwize(self.flags, self.xlim, self.ylim, 
                         self.point_name, data = d, change=change)
-            p.plot_time_series(fig, ax[i])
+            p.plot_time_series(fig, ax[i], rema=rema)
+
+
             ax[i].set_ylabel(labels[d])
             ax[i].grid()
 
@@ -260,9 +262,7 @@ class main():
         }
 
         sources = self.flags.sources()
-        combo_mode = self.flags.combo_method()
         fm = managers[data](self.xlim, self.ylim, self.flags,
-                        sources=sources,combo_mode=combo_mode,
                         data=data)
         fm.build_files()
 
