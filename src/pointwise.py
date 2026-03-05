@@ -76,6 +76,7 @@ class Pointwize():
         for x in range(len(self.points)):
             labels.append(self.get_label(x))
         df['labels'] = labels
+
         
         p.plot_df_on_borders(df, self.cm, self.norm, self.labels)
 
@@ -87,14 +88,19 @@ class Pointwize():
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
 
         time = []
+        sources = []
         data = []
 
         for x in df_ref['date'].unique():
             time.append(x)
+            if 'sources' in df_ref.columns:
+                sources.append(df_ref[df_ref['date'] == x]['sources'][0])
             data.append(df_ref[df_ref['date'] == x][column_of_interest].mean())
 
         time = np.array(time)
         data = np.array(data)
+        sources = np.array(sources)
+        print(sources)
 
         if len(data) == 0:
             return
@@ -103,7 +109,12 @@ class Pointwize():
             ref_time = time.min()
             data = data - data[time == ref_time]
 
-        df = pd.DataFrame({'time': time,
+        if len(sources):
+
+            df = pd.DataFrame({'time': time, 'sources': sources,
+                                            self.data: data})
+        else:
+            df = pd.DataFrame({'time': time,
                                         self.data: data})
         
         if add_result:
@@ -148,12 +159,11 @@ class Pointwize():
             df = pd.DataFrame({'time': new_dates,
                                                 self.data: df[column_of_interest]})
             
-        '''if self.change:
+        if self.change:
+            df = self.geotiff_time_difference(df)
             ref_time = df['time'].min()
             data = df.copy(deep=True)
-            print(df)
-            print(df[self.data][df['time'] == ref_time])
-            df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]'''
+            df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]
         
         if add_result:
             if len(self.results[self.get_label(index)]) == 0:
@@ -161,6 +171,12 @@ class Pointwize():
             self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
         else:
             self.results[self.get_label(index)] = df
+
+
+    def geotiff_time_difference(self, df):
+        zero = df[df['time'] == df.time.min()][self.data].values[0]
+        df[self.data] = df[self.data] - zero
+        return df
 
 
     def plot_time_series(self, fig, ax, rema=False):
@@ -195,17 +211,15 @@ class Pointwize():
         print()
         print()
         for p in range(len(self.points)):
-            if p not in self.results.keys():
+            if self.get_label(p) not in self.results.keys():
                 self.results[self.get_label(p)] = pd.DataFrame({})
 
         filemanager = ElevationManager(self.xlim, self.ylim, self.flags, self.data)
         
         for p, point in enumerate(self.points):
             new_df = filemanager.get_point_data(point)
-            print(type(new_df))
-            print(type(self.results[self.get_label(p)]))
-            print(self.results[self.get_label(p)])
-            print(self.results)
+            if self.change:
+                new_df = self.geotiff_time_difference(new_df)
             self.results[self.get_label(p)] = pd.concat([self.results[self.get_label(p)], new_df])
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
 

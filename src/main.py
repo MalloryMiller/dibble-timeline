@@ -198,7 +198,7 @@ class main():
 
     
 
-    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True, rema=True):
+    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True, rema=True): #['vel', 'elev', 'grav']
         p = Pointwize(self.flags, self.xlim, self.ylim, 
                         self.point_name, data = 'vel', change=change )
         
@@ -212,6 +212,13 @@ class main():
             'grav': 'Gravimetry Change since 2011 (kg/m²)'
         }
 
+
+        can_change = {
+            'vel': False,
+            'elev': True,
+            'grav': False
+        }
+
         if not change:
             labels['elev'] = 'Elevation (m)'
 
@@ -221,7 +228,7 @@ class main():
 
         for i, d in enumerate(data):
             p = Pointwize(self.flags, self.xlim, self.ylim, 
-                        self.point_name, data = d, change=change)
+                        self.point_name, data = d, change=change and can_change[d])
             p.plot_time_series(fig, ax[i], rema=rema)
 
 
@@ -230,8 +237,9 @@ class main():
 
             ax[i].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
 
-        ax[0].legend()
-        ax[-1].set_xlabel('Year')
+            ax[i].legend()
+            if i == len(data)-1:
+                ax[i].set_xlabel('Year')
         
         print("Saving image...")
         plt.savefig("pointwise.png", dpi=200)

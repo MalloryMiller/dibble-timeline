@@ -77,6 +77,7 @@ class FileManager:
             if file.split('.')[-1] == 'gpkg':
                 cur_df = gpd.read_file(file)
                 cur_df = cur_df.to_crs('EPSG:3031')
+                cur_df['sources'] = 'IceSAT2'
 
             elif file.split('.')[-1] == 'tif':
                 cur_df = xr.open_dataset(file).squeeze()
@@ -502,12 +503,11 @@ class ElevationManager(FileManager):
         for i, f in enumerate(f):
             cur = xr.open_dataset(f)
             df = cur.sel(x=p[1], y=p[0], method='nearest').squeeze()['band_data'].values
-            print(df)
             if np.isnan(df) or df == 0:
                 continue
             found_files.append(df)
             found_years.append(years[i])
-            found_sources.append(sources[i])
+            found_sources.append('Corregistered REMA')
 
         df = pd.DataFrame({'time': found_years,
                            'sources': found_sources,
