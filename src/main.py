@@ -92,13 +92,16 @@ class main():
 
         if self.flags.chart_type() == 'points':
             self.point_name = self.title
-            self.get_points_timeline()
+            points = POINT_LISTS[self.point_name]
+            for i in points:
+                print(i)
+                self.get_points_timeline(i)
             
 
         #print(self.build_files(dim='x'))
         #print(self.build_files(dim='y'))
         #print(self.build_files())
-        #print(self.build_files(data='elev'))
+        print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
 
         #self.get_elevation_error()
@@ -166,7 +169,7 @@ class main():
         title = ""
         combo_mode = self.flags.combo_method()
         file_type = self.flags.chart_type()
-        sources = self.flags.sources()
+        sources = self.flags.sources_v()
 
         if combo_mode != "weighted":
             title += combo_mode + "_"
@@ -198,13 +201,7 @@ class main():
 
     
 
-    def get_points_timeline(self, data = ['vel', 'elev', 'grav'], change = True, rema=True): #['vel', 'elev', 'grav']
-        p = Pointwize(self.flags, self.xlim, self.ylim, 
-                        self.point_name, data = 'vel', change=change )
-        
-        p.save_point_df()
-        plt.close('all')
-
+    def get_points_timeline(self, point, data = ['vel', 'elev', 'grav'], change = True, rema=True): #['vel', 'elev', 'grav']
 
         labels = {
             'vel': "Velocity (m/y)",
@@ -228,8 +225,11 @@ class main():
 
         for i, d in enumerate(data):
             p = Pointwize(self.flags, self.xlim, self.ylim, 
-                        self.point_name, data = d, change=change and can_change[d])
+                        point, data = d, change=change and can_change[d])
             p.plot_time_series(fig, ax[i], rema=rema)
+            if i == 0:
+                p.save_point_df() # save the points df if first one made
+                plt.close('all')
 
 
             ax[i].set_ylabel(labels[d])
@@ -242,8 +242,8 @@ class main():
                 ax[i].set_xlabel('Year')
         
         print("Saving image...")
-        plt.savefig("pointwise.png", dpi=200)
-        print("pointwise.png")
+        plt.savefig(POINTWISE_OUTPUT_LOCATION + str(point) +".png", dpi=200)
+        print(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + ".png")
         
         plt.close('all')
 
@@ -269,9 +269,11 @@ class main():
             'grav': GravimetryManager
         }
 
-        sources = self.flags.sources()
+        sources = self.flags.sources_v()
         fm = managers[data](self.xlim, self.ylim, self.flags,
                         data=data)
+        if data == 'elev':
+            fm.build_supplementary_files()
         fm.build_files()
 
 

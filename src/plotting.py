@@ -190,12 +190,13 @@ class Plotting:
     def plot_shapefile(self, fname, color, z_order = 15, fill=False, extra_xs=[], extra_ys=[]):
         sf = shp.Reader(fname)
         for shape in sf.shapeRecords():
+
             x = [i[0] for i in shape.shape.points[:]] + extra_xs
             y = [i[1] for i in shape.shape.points[:]] + extra_ys
             if fill:
                 plt.fill(x, y, color=color)
             else:
-                plt.plot(x, y, color=color, zorder=z_order)
+                plt.scatter(x, y, color=color, zorder=z_order, marker='o', linewidths=0, s = 2)
         
         
     def plot_glacier_borders(self, fig, ax, grounding_color='black', glacial_color='blue', basin_color="red", fill=False, legend=True, basins=False):
@@ -235,7 +236,7 @@ class Plotting:
         plt.close('all')
 
 
-    def plot_df_on_borders(self, df, cmap, norm, c_list, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
+    def plot_df_on_borders(self, df, cmap, norm, c_list, title, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
         if extent == None:
             extent = self.extent
         fig, ax = plt.subplots()
@@ -283,8 +284,8 @@ class Plotting:
             plt.ylim(extent[2],  extent[3])
         
         print("Saving image...")
-        plt.savefig("point_locations.png", dpi=200)
-        print("point_locations.png")
+        plt.savefig(title, dpi=200)
+        print(title)
         
         plt.close('all')
 

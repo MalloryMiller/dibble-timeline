@@ -471,6 +471,10 @@ class ElevationManager(FileManager):
         
         
 
+    def get_interpolated_elevation_fname(self, year):
+        return  'elevation/interp_' + str(year) + "_e." + self.ftype
+        
+
     def get_rema_fname(self, year):
         return  'rema/' + str(year) + "_r." + self.ftype
     
@@ -507,7 +511,7 @@ class ElevationManager(FileManager):
                 continue
             found_files.append(df)
             found_years.append(years[i])
-            found_sources.append('Corregistered REMA')
+            found_sources.append('Coregistered REMA')
 
         df = pd.DataFrame({'time': found_years,
                            'sources': found_sources,
@@ -620,7 +624,7 @@ class ElevationManager(FileManager):
 
 
         for c in range(self.yearStart, self.yearEnd+1):
-            self.file[np.datetime64(str(c))] = pd.DataFrame(columns=['latitude', 'longitude', 'velocity', 'date', 'geometry'])
+            self.file[np.datetime64(str(c))] = pd.DataFrame(columns=['latitude', 'longitude', 'date', 'geometry'])
 
         cur_track = 0
         max = len(D11)
@@ -661,14 +665,92 @@ class ElevationManager(FileManager):
                 output_crs=gdf_final.crs 
             )
 
+
             out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_elevation_fname(c) + '.tif')
+
             gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_elevation_fname(c) + '.tif', 
                       TIF_LOCATION + self.get_elevation_fname(c) + '.tif',
                       dstSRS='EPSG:3031')
+            
 
             self.generate_image(False, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
+
+        self.build_supplementary_files()
+
+
+    def build_supplementary_files(self):
+
+        ref_year = 2019
+        if not np.datetime64(str(ref_year)) in self.file.keys():
+            self.file[np.datetime64(str(ref_year))] = gpd.read_file(TIF_LOCATION +'reprojected/' + self.get_elevation_fname(ref_year))
+        ref_file = self.file[np.datetime64(str(ref_year))].copy(deep=True)
+
+        ref_file = ref_file.sort_values(by='date')
+        ref_file.drop_duplicates(keep='first')
+
+        print(ref_file)
+
+        progress = LoadingBar()
+        start_year = max(2010, self.yearStart-1)
+        end_year = min(self.yearEnd, 2018)
+
+        for c in range(end_year, start_year, -1): # icesat1 ended in 2010, so don't use the in between rate for before that
+            print(self.file)
+            
+            print(c)
+            offset = xr.open_dataset(ICESAT1_ELEVATION_RATE) * (c-start_year)
+            geom = []
+            lat = []
+            lon = []
+            new_vals = []
+
+            for i, r in ref_file.iterrows():
+                try:
+                    offset_found= offset.sel(x=r['geometry'].x, y=r['geometry'].y, method="nearest", tolerance=20)
+                except:
+                    continue
+                
+                print(offset_found)
+                new_vals.append(r['elevation'] + (offset_found*(c-start_year)))
+                lat.append(r['latitude'])
+                lon.append(r['longitude'])
+                geom.append(r['geometry'])
+            
+
+            dates = [np.datetime64(str(c))] * len(new_vals)
+
+            df = gpd.GeoDataFrame({'latitude': lat,
+                                'longitude': lon, 
+                                'elevation': new_vals['band_data'].values,
+                                'date': dates, 'geometry': geom},  geometry='geometry', crs='EPSG:4326')
+            self.file[c] = df
+            print('geodatarfame made')
+            print(df)
+
+
+            out_grid = make_geocube(
+                vector_data=self.file[c],
+                measurements=["elevation"],
+                resolution=(-0.001, 0.001), 
+                output_crs=self.file[c].crs 
+            )
+
+
+            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_interpolated_elevation_fname(c) + '.tif')
+
+            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_interpolated_elevation_fname(c) + '.tif', 
+                    TIF_LOCATION + self.get_interpolated_elevation_fname(c) + '.tif',
+                    dstSRS='EPSG:3031')
+            
+
+            self.generate_image(False, self.get_interpolated_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
+
+            
+            progress.load_bar(c - max(2010, self.yearStart-1), self.yearEnd - max(2010, self.yearStart-1))
+
+
 
     def build_rema_files(self):
         for x in list(range(self.yearStart, self.yearEnd+1)):

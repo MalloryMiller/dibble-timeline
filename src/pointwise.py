@@ -21,7 +21,9 @@ class Pointwize():
         self.yearEnd = int(self.flags.YEAREND)
         self.xlim = xlim
         self.ylim = ylim
-        self.points = POINT_LISTS[points]
+        self.points = points
+        print(points)
+        self.point_label = str(int(points[0])) + '_' + str(int(points[1]))
         self.data = data
         self.change = change
         self.pt_range = pt_range
@@ -35,7 +37,8 @@ class Pointwize():
 
 
         if streamwise:
-            s = StreamFlow(xlim, ylim, flags, self.points[0], point_spacing, pt_range, max_dist=self.max_dist)
+            
+            s = StreamFlow(xlim, ylim, flags, self.points, point_spacing, pt_range, max_dist=self.max_dist)
             self.point_spacing = point_spacing
             e = ElevationManager(xlim, ylim, flags, 'elev')
             self.points, self.labels = s.get_points(e.sample_source)
@@ -57,7 +60,8 @@ class Pointwize():
         df_ref = pd.DataFrame({'geometry':point_geom})
         df_ref = gpd.GeoDataFrame(df_ref, geometry=point_geom, crs='EPSG:3031')
         if len(pointls) > 1:
-            df_ref.to_file("points.gpkg", driver="GPKG")
+            print(str(self.point_label) + ".gpkg")
+            df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + ".gpkg", layer="geometry", driver="GPKG")
         return df_ref
     
     
@@ -78,7 +82,7 @@ class Pointwize():
         df['labels'] = labels
 
         
-        p.plot_df_on_borders(df, self.cm, self.norm, self.labels)
+        p.plot_df_on_borders(df, self.cm, self.norm, self.labels, POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_locations.png")
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elevation',add_result=False):
         p = self.points[index]

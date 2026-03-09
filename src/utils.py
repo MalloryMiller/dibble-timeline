@@ -23,14 +23,10 @@ AREAS = {
 POINT_LISTS = {
 
     'Dibble' : [
-        #[-1803212,1834870],
-        #[-1753719.5,1833511.6],
-        #[-1776238,1844142],
         [-1805005.87,1855416.14],
-        [-1819464.3,1856519.3],
-        [-1839610,1857715],
-        [-1855995,1851346]
-        
+        [-1835433,1850375],
+        [-1841946,1843270],
+        [-1830432,1861889]
     ],
 
 
@@ -52,10 +48,12 @@ INPUT = "input/"
 ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 GRAV_LOCATION = INPUT + "grav/AIS_GMB_grid.tif"
+ICESAT1_ELEVATION_RATE = INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
 
 ELEVATION_GPKG_LOCATION = OUTPUT + 'elevation/'
 TIF_LOCATION = OUTPUT
 TEST_PNG_LOCATION = OUTPUT +"images/"
+POINTWISE_OUTPUT_LOCATION = OUTPUT + 'pointwise/'
 
 REMA_PREVIEW_LOCATION = INPUT + "rema/"
 REMA_RAW_LOCATION = INPUT + "rema/raw/"
@@ -63,7 +61,7 @@ REMA_LOCATION = OUTPUT + "rema/"
 
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",
-    'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025.shp",
+    'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.shp",
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
 }
