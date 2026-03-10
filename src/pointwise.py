@@ -98,13 +98,16 @@ class Pointwize():
         for x in df_ref['date'].unique():
             time.append(x)
             if 'sources' in df_ref.columns:
-                sources.append(df_ref[df_ref['date'] == x]['sources'][0])
+                src = df_ref[df_ref['date'] == x]['sources'][0]
+                if type(df_ref[df_ref['date'] == x]['sources'][0]) != str:
+                    src = list(src.values)[0]
+                sources.append(src)
             data.append(df_ref[df_ref['date'] == x][column_of_interest].mean())
 
         time = np.array(time)
         data = np.array(data)
-        sources = np.array(sources)
         print(sources)
+        sources = np.array(sources)
 
         if len(data) == 0:
             return
@@ -192,6 +195,8 @@ class Pointwize():
         if 'sources' in self.results[list(self.results.keys())[0]].columns:
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
                 ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
+
+        self.results[p] = self.results[p].dropna()
         
 
         for j, p in enumerate(self.results.keys()):

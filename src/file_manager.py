@@ -123,6 +123,7 @@ class FileManager:
 
     def generate_image(self, data, data_name, chart_function, year, reprojected = False):
         if type(data) != bool:
+            os.makedirs(TIF_LOCATION + '/'.join(data_name.split('/')[:-1]), exist_ok=True)
             data.rio.to_raster(TIF_LOCATION + data_name)
         
         if chart_function != None:
@@ -138,7 +139,7 @@ class FileManager:
             
             #print("Saving image...")
             plt.savefig('test.png', dpi=200)
-            plt.savefig(TEST_PNG_LOCATION + data_name + '.png', dpi=200)
+            plt.savefig(TEST_PNG_LOCATION + data_name.split('.')[0] + '.png', dpi=200)
             
             plt.close('all')
 
@@ -185,7 +186,6 @@ class FileManager:
             self.minlon =  min(sample_file.y).values
             self.maxlon =  max(sample_file.y).values
         
-
         return self.special_prep(sample_file, source)
     
 
@@ -217,12 +217,13 @@ class VelocityManager(FileManager):
         ftype='tif'
         base_drop_vars = []
 
+
         if data == 'velx':
-            further_processing = VELOCITY_SPECIAL_PREP['x'], 
+            further_processing = VELOCITY_SPECIAL_PREP['x']
             base_drop_vars = VELOCITY_DROP_VARS['x']
             label = VELOCITY_DIM_LABELS['x']
         elif data == 'vely':
-            further_processing = VELOCITY_SPECIAL_PREP['y'], 
+            further_processing = VELOCITY_SPECIAL_PREP['y']
             base_drop_vars = VELOCITY_DROP_VARS['y']
             label = VELOCITY_DIM_LABELS['y']
         elif data == 'vel':
@@ -246,6 +247,12 @@ class VelocityManager(FileManager):
         if target_source != None and len(self.sources) != 1:
             return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v." + self.ftype
         return 'velocities/' + str(year) + self.label + "_v." + self.ftype
+        
+
+    def get_tif_velocity_fname(self, year, target_source=None):
+        if target_source != None and len(self.sources) != 1:
+            return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v.tif"
+        return 'velocities/' + str(year) + self.label + "_v.tif"
         
 
         
@@ -363,7 +370,9 @@ class VelocityManager(FileManager):
 
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
-                    self.generate_image(tif_to_save, self.get_velocity_fname(x), self.plotter.plot_velocity, x)
+
+                    
+                    self.generate_image(tif_to_save, self.get_tif_velocity_fname(x), self.plotter.plot_velocity, x)
 
                 self.file[x] = self.get_velocity_fname(x)
 
@@ -456,23 +465,27 @@ class ElevationManager(FileManager):
         
         
         if data == 'evel' and sources == None:
-            self.sources = ['IceSAT2']
+            self.sources = 'IceSAT2'
         elif data == 'rema':
             ftype='tif'
-            self.sources = ['REMAPrev']
+            self.sources = 'REMAPrev'
         elif data == 'remaraw':
             ftype='tif'
-            self.sources = ['REMA']
+            self.sources = 'REMA'
     
         
 
     def get_elevation_fname(self, year):
         return  'elevation/' + str(year) + "_e." + self.ftype
         
+    def get_tif_elevation_fname(self, year):
+        return  'elevation/' + str(year) + "_e.tif"
+        
+        
         
 
     def get_interpolated_elevation_fname(self, year):
-        return  'elevation/interp_' + str(year) + "_e." + self.ftype
+        return  'elevation/' + str(year) + "_e." + self.ftype
         
 
     def get_rema_fname(self, year):
@@ -566,7 +579,7 @@ class ElevationManager(FileManager):
                                 dt = datetime.datetime(int(fname_date[:4]), int(fname_date[4:6]), int(fname_date[6:8]))
 
                                 found_years.append(dt)
-                                sources.append(self.sources[0])
+                                sources.append(self.sources)
 
             elif data == 'elev':
                 f = fname_prefix[data] + location(year)
@@ -574,7 +587,7 @@ class ElevationManager(FileManager):
                     continue
                 fnames.append(f)
                 found_years.append(year)
-                sources.append(self.sources[0])
+                sources.append(self.sources)
 
         return fnames, found_years, sources
     
@@ -654,7 +667,7 @@ class ElevationManager(FileManager):
                 continue
             try:
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-                gdf_final.to_file(OUTPUT + self.get_elevation_fname(c,ftype='.gpkg'), driver='GPKG')
+                gdf_final.to_file(OUTPUT + self.get_elevation_fname(c), driver='GPKG')
             except:
                     ('Saving year ' + str(c) + ' gpkg failed.')
             
@@ -666,10 +679,10 @@ class ElevationManager(FileManager):
             )
 
 
-            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_elevation_fname(c) + '.tif')
+            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
 
-            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_elevation_fname(c) + '.tif', 
-                      TIF_LOCATION + self.get_elevation_fname(c) + '.tif',
+            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c), 
+                      TIF_LOCATION + self.get_tif_elevation_fname(c),
                       dstSRS='EPSG:3031')
             
 
@@ -680,75 +693,78 @@ class ElevationManager(FileManager):
         self.build_supplementary_files()
 
 
-    def build_supplementary_files(self):
+    def build_supplementary_files(self, to_build=2011):
 
         ref_year = 2019
         if not np.datetime64(str(ref_year)) in self.file.keys():
-            self.file[np.datetime64(str(ref_year))] = gpd.read_file(TIF_LOCATION +'reprojected/' + self.get_elevation_fname(ref_year))
+            self.file[np.datetime64(str(ref_year))] = gpd.read_file(TIF_LOCATION + self.get_elevation_fname(ref_year))
         ref_file = self.file[np.datetime64(str(ref_year))].copy(deep=True)
-
         ref_file = ref_file.sort_values(by='date')
-        ref_file.drop_duplicates(keep='first')
+        ref_file["geometry"] = ref_file.normalize()
+        ref_file.drop_duplicates()
 
-        print(ref_file)
+
 
         progress = LoadingBar()
         start_year = max(2010, self.yearStart-1)
-        end_year = min(self.yearEnd, 2018)
 
-        for c in range(end_year, start_year, -1): # icesat1 ended in 2010, so don't use the in between rate for before that
-            print(self.file)
-            
-            print(c)
-            offset = xr.open_dataset(ICESAT1_ELEVATION_RATE) * (c-start_year)
-            geom = []
-            lat = []
-            lon = []
-            new_vals = []
+        
+        offset = xr.open_dataset(ICESAT1_ELEVATION_RATE)
+        lat = []
+        lon = []
+        new_vals = []
+        j = 0
 
-            for i, r in ref_file.iterrows():
-                try:
-                    offset_found= offset.sel(x=r['geometry'].x, y=r['geometry'].y, method="nearest", tolerance=20)
-                except:
-                    continue
-                
-                print(offset_found)
-                new_vals.append(r['elevation'] + (offset_found*(c-start_year)))
-                lat.append(r['latitude'])
-                lon.append(r['longitude'])
-                geom.append(r['geometry'])
+        for i, r in ref_file.iterrows():
+            j += 1
+            try:
+                offset_found = offset.sel(x=r['geometry'].x, y=r['geometry'].y, method="nearest", tolerance=50).squeeze()
+            except Exception as e:
+                continue
+
+            offset_found = offset_found['band_data']  * (to_build-start_year)
             
 
-            dates = [np.datetime64(str(c))] * len(new_vals)
+            
+            new_vals.append((float(r['elevation']) + float((offset_found))))
+            lat.append(r['latitude'])
+            lon.append(r['longitude'])
 
-            df = gpd.GeoDataFrame({'latitude': lat,
-                                'longitude': lon, 
-                                'elevation': new_vals['band_data'].values,
-                                'date': dates, 'geometry': geom},  geometry='geometry', crs='EPSG:4326')
-            self.file[c] = df
-            print('geodatarfame made')
-            print(df)
+            progress.load_bar(j, len(ref_file))
 
 
-            out_grid = make_geocube(
-                vector_data=self.file[c],
-                measurements=["elevation"],
-                resolution=(-0.001, 0.001), 
-                output_crs=self.file[c].crs 
-            )
+        dates = [np.datetime64(str(to_build))] * len(new_vals)
+
+        df = pd.DataFrame({'latitude': lat,
+                            'longitude': lon, 
+                            'elevation': new_vals,
+                            'date': dates})
+        df['geometry']  = df.apply(self.pointify, axis=1)
+        df = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
+        df.to_file(OUTPUT + self.get_elevation_fname(to_build), driver='GPKG')
+        
+        df = df.dropna()
+        self.file[np.datetime64(str(to_build))] = df
+        print(df)
+
+        out_grid = make_geocube(
+            vector_data=self.file[np.datetime64(str(to_build))],
+            measurements=["elevation"],
+            resolution=(-0.001, 0.001), 
+            output_crs=self.file[np.datetime64(str(to_build))].crs 
+        )
 
 
-            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_interpolated_elevation_fname(c) + '.tif')
+        out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(to_build))
 
-            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_interpolated_elevation_fname(c) + '.tif', 
-                    TIF_LOCATION + self.get_interpolated_elevation_fname(c) + '.tif',
+        gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(to_build), 
+                    TIF_LOCATION + self.get_tif_elevation_fname(to_build),
                     dstSRS='EPSG:3031')
-            
+        
 
-            self.generate_image(False, self.get_interpolated_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
+        self.generate_image(False, self.get_elevation_fname(to_build), self.plotter.plot_elevation, to_build, reprojected=True)
 
-            
-            progress.load_bar(c - max(2010, self.yearStart-1), self.yearEnd - max(2010, self.yearStart-1))
+        
 
 
 

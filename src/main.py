@@ -90,27 +90,28 @@ class main():
             return 
         
 
-        if self.flags.chart_type() == 'points':
-            self.point_name = self.title
-            points = POINT_LISTS[self.point_name]
-            for i in points:
-                print(i)
-                self.get_points_timeline(i)
-            
-
         #print(self.build_files(dim='x'))
         #print(self.build_files(dim='y'))
         #print(self.build_files())
-        print(self.build_files(data='elev'))
+        #print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
 
         #self.get_elevation_error()
 
 
+        if self.flags.chart_type() == 'points':
+            self.point_name = self.title
+            points = POINT_LISTS[self.point_name]
+            for i in points:
+                self.get_points_timeline(i)
+            
+
+
 
         '''e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
         e.filter_clouds()'''
-        #self.coregister_rema(2019)
+        for x in range(self.flags.YEARSTART, self.flags.YEAREND):
+            self.coregister_rema(x)
         #self.test_coregister_rema()
 
         
@@ -120,22 +121,24 @@ class main():
 
     def coregister_rema(self, year, override=False, clean=True):
         dir = 'input/rema/raw/'
+        if not os.path.isdir(dir + str(year)):
+            return
+        
         test_files = os.listdir(dir + str(year))
 
         for t in test_files:
             if t.split('_')[-1] == 'align' or t.split('.')[-1] != 'tif':
                 continue
-            print(t.split('.')[0].split('/')[-1])
             print("Proceeding:", t.split('.')[0] + '_dem_align' not in test_files or override)
             if (t.split('.')[0] + '_dem_align' not in test_files or override):
-                e1 = ElevationError(str(year) + '/' + t) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
+                e1 = ElevationError(str(year) + '/' + t, get_icesat_match=False) # '2021/adjusted/SETSM_s2s041_WV02_20210228_10300100B2087900_10300100B555C000_2m_lsf_seg1_dem_2021-02-28T00:00:00Z.tif',mask_type=None )#
                 try:
                     e1.reallign()
-                except:
+                except Exception as e:
                     print('Allignment failed, it looks like this file may be bad.')
+                    print(e)
 
             gend_dir = dir + str(year) + '/' + t.split('.')[0] + '_dem_align'
-            print(os.path.isdir(gend_dir))
             if clean and os.path.isdir(gend_dir):
                 files = os.listdir(gend_dir)
                 for f in files:
@@ -197,7 +200,6 @@ class main():
                 if s.split('.')[-1] == 'tif':
                     ee = ElevationError(str(year) + '/' + s, output_name=s.split('/')[-1].split('.')[0]) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
                     print('getting error')
-                    print(ee.get_error())
 
     
 
@@ -242,13 +244,13 @@ class main():
                 ax[i].set_xlabel('Year')
         
         print("Saving image...")
-        plt.savefig(POINTWISE_OUTPUT_LOCATION + str(point) +".png", dpi=200)
-        print(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + ".png")
+        fig.savefig(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + "_plot.png", dpi=200)
+        print(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + "_plot.png")
         
         plt.close('all')
 
 
-    def build_files(self, data='vel', dim=None):
+    def build_files(self, data='vel', dim=''):
         '''
         Generates a single file of the type specified by the dimension if any.
 
@@ -271,10 +273,10 @@ class main():
 
         sources = self.flags.sources_v()
         fm = managers[data](self.xlim, self.ylim, self.flags,
-                        data=data)
+                        data=data+dim)
+        fm.build_files()
         if data == 'elev':
             fm.build_supplementary_files()
-        fm.build_files()
 
 
 

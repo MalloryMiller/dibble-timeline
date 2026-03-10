@@ -5,8 +5,8 @@ from numpy import abs # type: ignore
 AREAS = {
 
     'Dibble' : [
-        [1841130,1882493,],
-        [-1876131, -1799974]
+        [1815595,1882493,],
+        [-1876131, -1748203]
         
     ],
 
@@ -48,7 +48,7 @@ INPUT = "input/"
 ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 GRAV_LOCATION = INPUT + "grav/AIS_GMB_grid.tif"
-ICESAT1_ELEVATION_RATE = INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
+ICESAT1_ELEVATION_RATE = INPUT + 'elevation/change_rates_crs_4326.tif'#INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
 
 ELEVATION_GPKG_LOCATION = OUTPUT + 'elevation/'
 TIF_LOCATION = OUTPUT

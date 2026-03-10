@@ -39,13 +39,11 @@ class ElevationError():
         if self.fname == "" or self.fname == None:
             return
 
-        print(self.fname)
 
         i = -1
         registered = False
         try:
             while len(self.fname.split('_')[i].split('-')) != 3:
-                print(self.fname.split('_')[i].split('-'))
                 registered = True
                 i -= 1
         
@@ -158,21 +156,26 @@ class ElevationError():
             year_search_range = 10
             
             reference_post = 'output/reprojected/elevation/' + str(self.year)+ "_e.tif"
-            reference_pre = 'output/reprojected/elevation/' + str(int(self.year) - year_offset)+ "_e.tif"
-            cur_year = self.year
+            reference_pre = 'output/reprojected/elevation/' + str(int(self.year) - 1) + "_e.tif"
+            cur_year = int(self.year)
 
 
             ''' Get nearest years around with data'''
-            while not os.path.isfile(reference_post) and int(self.year) + year_search_range > cur_year:
+            i = 0
+            while not os.path.isfile(reference_post) and i < year_search_range:
                 cur_year += 1
+                year_offset += 1
+                i += 1
                 reference_post = 'output/reprojected/elevation/' + str(cur_year)+ "_e.tif"
-                year_offset += 1
 
-            cur_year = int(self.year) - year_offset
-            while not os.path.isfile(reference_pre) and int(self.year) - year_search_range < cur_year:
+            cur_year = int(self.year) - 1
+            i = 0
+            while not os.path.isfile(reference_pre) and i < year_search_range:
                 cur_year -= 1
-                reference_pre = 'output/reprojected/elevation/' + str(cur_year)+ "_e.tif"
                 year_offset += 1
+                i += 1
+                reference_pre = 'output/reprojected/elevation/' + str(cur_year)+ "_e.tif"
+
 
             ''' if edge of range just use the single closest one'''
             if not os.path.isfile(reference_pre):
@@ -184,30 +187,18 @@ class ElevationError():
             if os.path.isfile(reference_pre) and os.path.isfile(reference_post):
 
                 projected_ref = "output/reprojected/elevation/temp.tif"
-                date_perc = (float(self.month) / 12 + ((1/12) * (float(self.day) / 30))) + (12 * (year_offset - 1)) # in % of year
+                date_perc = ((float(self.month) / 12 + ((1/12) * (float(self.day) / 30))) + (12 * (year_offset - 1)) / year_offset) # in % of year
 
                 arr1 = rioxarray.open_rasterio(reference_pre)
                 arr2 = rioxarray.open_rasterio(reference_post)
                 print(arr1)
-                print(arr2)
                 
                 arr = arr1.copy(deep=True)
-                arr += (arr2 - arr1) * date_perc # get % change from pre date to post date
+                arr += (arr2 - arr1) * (date_perc) # get % change from pre date to post date
+                print(arr)
                 arr.rio.write_crs("EPSG:3031", inplace=True)
 
-                '''
-                arr = arr.to_dataframe()
                 print(arr)
-                arr['geometry'] = arr.apply(lambda row: Point(row['y'],row['x']),  axis=1)
-                arr = gpd.GeoDataFrame(arr, geometry='geometry', crs='EPSG:3031')
-                print(arr)
-
-                arr = make_geocube(
-                    vector_data=arr,
-                    measurements=["elevation"],
-                    resolution=(-0.001, 0.001), 
-                    output_crs="epsg:3031",
-                )'''
 
                 arr.rio.to_raster(projected_ref, no_data=np.nan)
                 gdal.Warp(projected_ref, projected_ref,
@@ -222,7 +213,9 @@ class ElevationError():
             print('coregistration failed, no data at relevant years')
             return # there was nothing in the year before or current year
         
+        print()
         print(reference)
+        print('input/rema/raw/' + self.fname)
         dem_align.main([reference, 'input/rema/raw/' + self.fname])
 
         return self.fname
