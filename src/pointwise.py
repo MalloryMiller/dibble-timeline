@@ -196,10 +196,10 @@ class Pointwize():
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
                 ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
 
-        self.results[p] = self.results[p].dropna()
         
 
         for j, p in enumerate(self.results.keys()):
+            self.results[p] = self.results[p].dropna()
             ax.plot(self.results[p]['time'], 
                         self.results[p][self.data].values, marker= 'None', color=sm.to_rgba(self.labels[j]))
             

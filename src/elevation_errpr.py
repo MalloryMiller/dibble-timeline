@@ -26,7 +26,7 @@ from rasterio.merge import merge
 
 class ElevationError():
 
-    def __init__(self, REMAfname, sample_size=20, mask_type = 'mask', output_name='output', max_diff = 50, get_icesat_match=True):
+    def __init__(self, REMAfname, sample_size=2, mask_type = 'mask', output_name='output', max_diff = 50, get_icesat_match=True):
         default_sample_size = 2
         self.sample_size = sample_size
         sample_factor = default_sample_size/self.sample_size
@@ -79,13 +79,11 @@ class ElevationError():
 
 
         raw_file = rioxarray.open_rasterio('input/rema/raw/' + self.fname, masked=True)
-        
-        try:
-            if mask_type != None:
-                mask_file = rioxarray.open_rasterio('input/rema/raw/bitmask/' + self.fname.replace('dem', mask_type))
-        except:
-            mask_type = None
-            print('no mask file found for ' + self.fname)
+        if os.path.isfile('input/rema/raw/cloudmask_' + self.fname):
+            mask_file = rioxarray.open_rasterio('input/rema/raw/cloudmask_' + self.fname, masked=True)
+        else:
+            mask_file = self.filter_clouds()
+
         
         if sample_size != default_sample_size:
             raw_file = raw_file.rio.reproject(raw_file.rio.crs, shape=(int(raw_file.rio.width * sample_factor), int(raw_file.rio.height * sample_factor)), resampling=Resampling.bilinear).squeeze()
@@ -97,7 +95,7 @@ class ElevationError():
                 mask_file = mask_file.squeeze()
 
         if mask_type != None:
-            raw_file = raw_file.where(mask_file.values != 1, np.nan)
+            raw_file *= mask_file
        
 
         print('converting to dataframe')
@@ -113,27 +111,44 @@ class ElevationError():
 
 
 
-    def filter_clouds(self, ref_fname = 'tiles/merged_tiles.tif', threshold = REMA_CLOUD_LEVEL,):
-        thing = rioxarray.open_rasterio('input/rema/raw/' + self.fname).squeeze()
-        ref = rioxarray.open_rasterio('input/rema/raw/' +ref_fname).squeeze()
-        bounds = thing.rio.bounds()
+    def filter_clouds(self, ref_fname = 'tiles/merged_tiles.tif', threshold = REMA_CLOUD_LEVEL):
+        thing = rioxarray.open_rasterio('input/rema/raw/' + self.fname)
+        ref = rioxarray.open_rasterio('input/rema/raw/' + ref_fname)
+        ref.rio.write_crs("EPSG:3031", inplace=True)
+        thing.rio.write_crs("EPSG:3031", inplace=True)
+        #bounds = thing.rio.bounds()
         
-        ref = ref.rio.clip_box(bounds[0], bounds[1], bounds[2], bounds[3])
-        print(ref.rio.bounds())
-        print(bounds)
+        #ref = ref.rio.clip_box(bounds[0], bounds[1], bounds[2], bounds[3])
+        #thing = thing.rio.clip_box(bounds[0], bounds[1], bounds[2], bounds[3])
+        ref = ref.rio.reproject_match(thing)
 
-        ref = gdal.DEMProcessing('input/rema/raw/' + self.fname, '_CLOUDTEST_gdal.tif', 'slope', format='GTiff')
 
-        #ref.rio.to_raster('_CLOUDTEST.tif')
+        #thing, ref = xr.align(thing, ref, join='inner')
+        ref.rio.to_raster('_CLOUDTEST_ref.tif')
+        thing.rio.to_raster('_CLOUDTEST_thing.tif')
+
+        #ref = gdal.DEMProcessing('input/rema/raw/cloudmask_' + self.fname, 'slope', format='GTiff')
+
 
         
         arr = thing.copy(deep=True)
-        arr = np.abs(thing - ref)
+        arr = np.abs(thing.values - ref.values)
 
-        too_big = np.where(arr > threshold, np.nan, 1)
+        print(arr)
+        xr.DataArray(arr, coords=ref.coords).rio.to_raster('_CLOUDTEST_diff.tif')
+
+        too_big = np.where(arr > threshold, 1, np.nan)
+        too_big = arr
+        too_big = xr.DataArray(too_big, coords=ref.coords)
         too_big.rio.write_crs("EPSG:3031", inplace=True)
 
-        too_big.rio.to_raster('_CLOUDTEST.tif') 
+        print(too_big)
+        
+
+        
+        too_big.rio.to_raster('_CLOUDTEST.tif')
+        os.makedirs('input/rema/raw/cloudmask_' + '/'.join(self.fname.split('/')[:-1]), exist_ok=True)
+        #too_big.rio.to_raster('input/rema/raw/cloudmask_' + self.fname) 
         #ref, thing = warplib.memwarp_multi([ref, thing], extent='intersection', t_srs=thing.rio.crs)
 
         '''print(ref)
@@ -144,6 +159,7 @@ class ElevationError():
         b[not b.isnan()] = 1
           
         thing = thing * b'''
+        return too_big
 
         
 

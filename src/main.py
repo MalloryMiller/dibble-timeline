@@ -108,10 +108,10 @@ class main():
 
 
 
-        '''e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
-        e.filter_clouds()'''
-        for x in range(self.flags.YEARSTART, self.flags.YEAREND):
-            self.coregister_rema(x)
+        #e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
+        #e.filter_clouds()
+        '''for x in range(self.flags.YEARSTART, self.flags.YEAREND):
+            self.coregister_rema(x)'''
         #self.test_coregister_rema()
 
         
@@ -203,7 +203,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['vel', 'elev', 'grav'], change = True, rema=True): #['vel', 'elev', 'grav']
+    def get_points_timeline(self, point, data = ['vel', 'elev', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav']
 
         labels = {
             'vel': "Velocity (m/y)",
