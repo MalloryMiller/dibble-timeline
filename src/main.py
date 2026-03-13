@@ -207,7 +207,7 @@ class main():
 
         labels = {
             'vel': "Velocity (m/y)",
-            'elev': 'Elevation Change (m)',
+            'elev': 'Elevation Change since 2011 (m)',
             'grav': 'Gravimetry Change since 2011 (kg/m²)'
         }
 
@@ -226,7 +226,11 @@ class main():
 
 
         for i, d in enumerate(data):
-            p = Pointwize(self.flags, self.xlim, self.ylim, 
+            f = Flags()
+            for fl in self.flags.flags:
+                f.add(fl)
+            f.add('-2010-2025')
+            p = Pointwize(f, self.xlim, self.ylim, 
                         point, data = d, change=change and can_change[d])
             p.plot_time_series(fig, ax[i], rema=rema)
             if i == 0:
