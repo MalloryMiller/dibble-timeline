@@ -667,7 +667,7 @@ class ElevationManager(FileManager):
                 continue
             try:
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-                gdf_final.to_file(OUTPUT + self.get_elevation_fname(c), driver='GPKG')
+                gdf_final.to_file(TIF_LOCATION + self.get_elevation_fname(c), driver='GPKG')
             except:
                     ('Saving year ' + str(c) + ' gpkg failed.')
             
@@ -684,32 +684,28 @@ class ElevationManager(FileManager):
             gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c), 
                       TIF_LOCATION + self.get_tif_elevation_fname(c),
                       dstSRS='EPSG:3031')
+            print(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c))
             
 
-            self.generate_image(False, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
+            #self.generate_image(False, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
             i += 1
             progress2.load_bar(i, len(list(self.file.keys())))
 
         self.build_supplementary_files()
 
 
-    def build_supplementary_files(self, to_build=2011):
-
-        ref_year = 2019
-        if not np.datetime64(str(ref_year)) in self.file.keys():
-            self.file[np.datetime64(str(ref_year))] = gpd.read_file(TIF_LOCATION + self.get_elevation_fname(ref_year))
-        ref_file = self.file[np.datetime64(str(ref_year))].copy(deep=True)
-        ref_file = ref_file.sort_values(by='date')
-        ref_file["geometry"] = ref_file.normalize()
-        ref_file.drop_duplicates()
-
-
-
+    def apply_rate_(self, ref_file, rate_fname, floating, to_build=2011):
+        # TODO: make this not suck
         progress = LoadingBar()
         start_year = max(2010, self.yearStart-1)
 
+        factor = 1
+
+        if floating:
+            factor = 0.1
+
         
-        offset = xr.open_dataset(ICESAT1_ELEVATION_RATE)
+        offset = xr.open_dataset(rate_fname)
         lat = []
         lon = []
         new_vals = []
@@ -722,7 +718,7 @@ class ElevationManager(FileManager):
             except Exception as e:
                 continue
 
-            offset_found = offset_found['band_data']  * (to_build-start_year)
+            offset_found = offset_found['band_data']  * (to_build-start_year) * factor
             
 
             
@@ -734,6 +730,27 @@ class ElevationManager(FileManager):
 
 
         dates = [np.datetime64(str(to_build))] * len(new_vals)
+
+        return lat, lon, new_vals, dates
+
+
+
+    def build_supplementary_files(self, to_build=2011):
+
+        ref_year = 2019
+        if not np.datetime64(str(ref_year)) in self.file.keys():
+            self.file[np.datetime64(str(ref_year))] = gpd.read_file(TIF_LOCATION + self.get_elevation_fname(ref_year))
+        ref_file = self.file[np.datetime64(str(ref_year))].copy(deep=True)
+        ref_file = ref_file.sort_values(by='date')
+        ref_file.drop_duplicates()
+
+        lat_g, lon_g, new_vals_g, dates_g = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE, False, to_build=2011)
+        lat_f, lon_f, new_vals_f, dates_f = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE_FLOATING, True, to_build=2011)
+
+        lat = lat_g + lat_f
+        lon = lon_g + lon_f
+        new_vals = new_vals_g + new_vals_f
+        dates = dates_g + dates_f
 
         df = pd.DataFrame({'latitude': lat,
                             'longitude': lon, 
@@ -762,7 +779,7 @@ class ElevationManager(FileManager):
                     dstSRS='EPSG:3031')
         
 
-        self.generate_image(False, self.get_elevation_fname(to_build), self.plotter.plot_elevation, to_build, reprojected=True)
+        #self.generate_image(False, self.get_tif_elevation_fname(to_build), self.plotter.plot_elevation, to_build, reprojected=True)
 
         
 

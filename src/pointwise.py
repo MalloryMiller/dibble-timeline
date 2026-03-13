@@ -15,10 +15,8 @@ import matplotlib as mpl
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 5], point_spacing=15000, change=True, streamwise=True):
+    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True):
         self.flags = flags
-        self.yearStart = int(self.flags.YEARSTART)
-        self.yearEnd = int(self.flags.YEAREND)
         self.xlim = xlim
         self.ylim = ylim
         self.points = points
@@ -84,7 +82,7 @@ class Pointwize():
         
         p.plot_df_on_borders(df, self.cm, self.norm, self.labels, POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_locations.png")
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation',add_result=False):
+    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False):
         p = self.points[index]
         df_ref = self.create_point_df([p])
 
@@ -96,17 +94,21 @@ class Pointwize():
         data = []
 
         for x in df_ref['date'].unique():
-            time.append(x)
+            val = df_ref[df_ref['date'] == x][column_of_interest].dropna().mean()
+            if np.isnan(val):
+                continue
             if 'sources' in df_ref.columns:
                 src = df_ref[df_ref['date'] == x]['sources'][0]
                 if type(df_ref[df_ref['date'] == x]['sources'][0]) != str:
                     src = list(src.values)[0]
                 sources.append(src)
-            data.append(df_ref[df_ref['date'] == x][column_of_interest].mean())
+
+            
+            data.append(val)
+            time.append(x)
 
         time = np.array(time)
         data = np.array(data)
-        print(sources)
         sources = np.array(sources)
 
         if len(data) == 0:
@@ -133,7 +135,7 @@ class Pointwize():
             self.results[self.get_label(index)] = df
 
     
-    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data',add_result=False):
+    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data', add_result=False):
         p = self.points[index]
 
         df = out.sel(x=p[1], y=p[0], method='nearest')
@@ -158,18 +160,20 @@ class Pointwize():
         df[time_dim] = new_dates
         
         if 'sources' in df.variables:
-            df = pd.DataFrame({'time': new_dates,
-                                                                'sources': df['sources'],
-                                                self.data: df[column_of_interest]})
+            df = pd.DataFrame({'time': new_dates, 'sources': df['sources'],
+                               self.data: df[column_of_interest]})
 
         else:
             df = pd.DataFrame({'time': new_dates,
-                                                self.data: df[column_of_interest]})
+                                self.data: df[column_of_interest]})
             
+
         if self.change:
             df = self.geotiff_time_difference(df)
+            df = df.dropna()
             ref_time = df['time'].min()
             data = df.copy(deep=True)
+            print(data)
             df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]
         
         if add_result:
@@ -186,7 +190,7 @@ class Pointwize():
         return df
 
 
-    def plot_time_series(self, fig, ax, rema=False):
+    def plot_time_series(self, fig, ax, rema=False, unified_line=False):
         if not self.results:
             self.get_data(rema)
 
@@ -200,25 +204,26 @@ class Pointwize():
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
-            ax.plot(self.results[p]['time'], 
-                        self.results[p][self.data].values, marker= 'None', color=sm.to_rgba(self.labels[j]))
-            
+            ls = 'None'
+            if unified_line:
+                ax.plot(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= 'None', color=sm.to_rgba(self.labels[j]))
+            else:
+                ls = 'solid'
             
             if 'sources' in self.results[p].columns:
                 for i, s in enumerate(self.results[p]['sources'].unique()):
                     cur = self.results[p][self.results[p]['sources'] == s]
                     
                     ax.plot(cur['time'], 
-                            cur[self.data].values, marker= shapes[i], color=sm.to_rgba(self.labels[j]), linestyle='None')
+                            cur[self.data].values, marker= shapes[i], color=sm.to_rgba(self.labels[j]), linestyle=ls)
             else:
                 ax.plot(self.results[p]['time'], 
-                        self.results[p][self.data].values, label = p, marker= 'o', color=sm.to_rgba(self.labels[j]), linestyle='None')
+                        self.results[p][self.data].values, label = p, marker= 'o', color=sm.to_rgba(self.labels[j]), linestyle=ls)
 
 
     def get_data_rema(self):
 
-        print()
-        print()
         for p in range(len(self.points)):
             if self.get_label(p) not in self.results.keys():
                 self.results[self.get_label(p)] = pd.DataFrame({})
@@ -247,8 +252,6 @@ class Pointwize():
             'elev': ElevationManager,
         }
 
-        print()
-        print()
         filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
         print('getting output')
         out = filemanager.get_ouput_files()
@@ -265,6 +268,8 @@ class Pointwize():
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
         if rema and self.data == 'elev':
             return self.get_data_rema()
+
+
 
 
 
@@ -362,7 +367,7 @@ class StreamFlow():
             self.get_stream(direction=1, points=min(self.step_range[1], self.step_range[1]-self.step_range[0]))
 
 
-    def get_points(self, overlap_ds=False, include_all=False):
+    def get_points(self, overlap_ds=False, include_all=False, index='dist'):
         if self.dist == []:
             self.run_experiment()
 
@@ -380,12 +385,18 @@ class StreamFlow():
             self.dist = list(new_df['dist_from_grndline'])
 
 
+        if index == 'dist':
+            df = xr.Dataset({
+                #'date': self.dates,
+                'geometry': (('dist'), self.points)
+                }, coords={
+                'dist': self.dist}).drop_duplicates(dim='dist')
+        else:
+            df = xr.Dataset({
+                'geometry': (('dist'), self.points)
+                }, coords={
+                'dist': self.dates}).drop_duplicates(dim='dist')
 
-        df = xr.Dataset({
-            #'date': self.dates,
-            'geometry': (('dist'), self.points)
-            }, coords={
-            'dist': self.dist}).drop_duplicates(dim='dist')
 
         
 

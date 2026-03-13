@@ -25,7 +25,6 @@ POINT_LISTS = {
     'Dibble' : [
         [-1805005.87,1855416.14],
         [-1835433,1850375],
-        [-1841946,1843270],
         [-1830432,1861889]
     ],
 
@@ -49,6 +48,7 @@ ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 GRAV_LOCATION = INPUT + "grav/AIS_GMB_grid.tif"
 ICESAT1_ELEVATION_RATE = INPUT + 'elevation/change_rates_crs_4326.tif'#INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
+ICESAT1_ELEVATION_RATE_FLOATING = INPUT + 'elevation/change_rates_crs_4326_floating.tif'#INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
 
 ELEVATION_GPKG_LOCATION = OUTPUT + 'elevation/'
 TIF_LOCATION = OUTPUT
