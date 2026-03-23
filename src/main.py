@@ -208,18 +208,21 @@ class main():
         labels = {
             'vel': "Velocity (m/y)",
             'elev': 'Elevation Change since 2011 (m)',
-            'grav': 'Gravimetry Change since 2011 (kg/m²)'
+            'grav': 'Gravimetry Change since 2011 (kg/m²)',
+            'gl': 'Grounding Line Change (m)',
         }
 
 
         can_change = {
             'vel': False,
             'elev': True,
-            'grav': False
+            'grav': False,
+            'gl': True,
         }
 
         if not change:
             labels['elev'] = 'Elevation (m)'
+            labels['gl'] = 'Grounding Line (m)'
 
         fig, ax = plt.subplots(len(data), 1)
         fig.set_figheight(3*len(data))

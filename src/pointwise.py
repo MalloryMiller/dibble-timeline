@@ -82,6 +82,13 @@ class Pointwize():
         
         p.plot_df_on_borders(df, self.cm, self.norm, self.labels, POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_locations.png")
 
+
+
+    def get_gl_set(self):
+        pass
+
+
+
     def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False):
         p = self.points[index]
         df_ref = self.create_point_df([p])
@@ -194,6 +201,9 @@ class Pointwize():
         if not self.results:
             self.get_data(rema)
 
+        if self.data == 'gl':
+            return # TODO: remove this exit
+
         shapes = ['s', '^', 'D']
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
         if 'sources' in self.results[list(self.results.keys())[0]].columns:
@@ -204,6 +214,7 @@ class Pointwize():
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
+            print(self.results[p][self.data].values)
             ls = 'None'
             if unified_line:
                 ax.plot(self.results[p]['time'], 
@@ -251,6 +262,9 @@ class Pointwize():
             'grav': GravimetryManager,
             'elev': ElevationManager,
         }
+
+        if self.data == 'gl':
+            self.get_gl_set()
 
         filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
         print('getting output')

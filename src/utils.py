@@ -66,6 +66,8 @@ SHAPEFILES = {
     'basins': "shapefiles/a_lot_of_basins.shp",
 }
 
+GL_GPKG = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
+
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
 

@@ -142,6 +142,17 @@ class Plotting:
         self.plot_glacier_borders(fig, ax)
         return True
 
+    def plot_gpkg(self, fig, ax, gpkg, coloring=None):
+        gdf = gpd.read_file(gpkg)
+        gdf = gdf.to_crs(3031)
+        if coloring != None:
+            gdf.plot(ax=ax, column=coloring)
+        else:
+            gdf.plot(ax=ax, autolim=False, kind='line')
+
+    def plot_temporal_grounding_line(self, fig, ax):
+        self.plot_gpkg(fig, ax, GL_GPKG, 'Year')
+
     def plot_raw_rema_data(self, na, year):
         try:
             strips = os.listdir(REMA_RAW_LOCATION + str(year)) 
@@ -169,7 +180,7 @@ class Plotting:
         self.plot_glacier_borders(fig, ax)
         return True
 
-    def plot_geotiff(self, fname, fig, ax, vmax=600, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5, legend=True):
+    def plot_geotiff(self, fname, fig, ax, vmax=1000, vmin=0, label = "Velocity Trend Slope (m/yr)", cmap='viridis', alpha=0.5, legend=True):
         with rs.open(fname) as f:
             img = f.read(1)
             minx, miny, maxx, maxy = f.bounds.left, f.bounds.bottom, f.bounds.right, f.bounds.top
@@ -198,6 +209,7 @@ class Plotting:
             else:
                 plt.scatter(x, y, color=color, zorder=z_order, marker='o', linewidths=0, s = 2)
         
+
         
     def plot_glacier_borders(self, fig, ax, grounding_color='black', glacial_color='blue', basin_color="red", fill=False, legend=True, basins=False):
         if basins:
@@ -215,7 +227,7 @@ class Plotting:
     def mask_outside(self, mask_color='white', extent=None):
         if extent == None:
             extent = self.extent
-        self.plot_shapefile(SHAPEFILES['oceanmask'], mask_color, fill=True, )
+        self.plot_shapefile(SHAPEFILES['oceanmask'], mask_color, fill=True)
         
         
     def plot_only_vel_geotiff(self, grounding_color='red', glacial_color='slategrey', extent=None):
@@ -223,7 +235,7 @@ class Plotting:
             extent = self.extent
         fig, ax = plt.subplots()
         
-        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="RdYlBu")
+        self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=.5, cmap="bone")
         self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
         if extent:
             plt.xlim(extent[0], extent[1])
@@ -236,14 +248,17 @@ class Plotting:
         plt.close('all')
 
 
-    def plot_df_on_borders(self, df, cmap, norm, c_list, title, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True):
+    def plot_df_on_borders(self, df, cmap, norm, c_list, title, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True, vel_a=.75):
+        
         if extent == None:
             extent = self.extent
         fig, ax = plt.subplots()
         
         if velocity:
-            self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=1, cmap="pink", label='Velocity from QAntarctica (m/y)')
-        self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
+            self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=vel_a, cmap="bone", label='Velocity from QAntarctica (m/y)')
+            self.mask_outside()
+        self.plot_temporal_grounding_line(fig, ax)
+        
 
         if 'geometry' in df.columns:
             xs = []
@@ -275,10 +290,9 @@ class Plotting:
 
 
         ax.legend()
-        '''leg = ax.legend()
-        for line, text in zip(leg.get_lines(), leg.get_texts()):
-            text.set_color(line.get_color())'''
-        fig.colorbar(sm, ax=ax)
+        
+
+        #fig.colorbar(sm, ax=ax)
         if extent:
             plt.xlim(extent[0], extent[1])
             plt.ylim(extent[2],  extent[3])
