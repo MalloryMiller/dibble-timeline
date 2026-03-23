@@ -290,9 +290,7 @@ class Plotting:
 
 
         ax.legend()
-        
-
-        #fig.colorbar(sm, ax=ax)
+        fig.colorbar(sm, ax=ax)
         if extent:
             plt.xlim(extent[0], extent[1])
             plt.ylim(extent[2],  extent[3])

@@ -39,7 +39,11 @@ class Pointwize():
             s = StreamFlow(xlim, ylim, flags, self.points, point_spacing, pt_range, max_dist=self.max_dist)
             self.point_spacing = point_spacing
             e = ElevationManager(xlim, ylim, flags, 'elev')
-            self.points, self.labels = s.get_points(e.sample_source)
+            if self.data == 'gl':
+                self.points, self.labels, self.fl = s.get_points(e.sample_source, include_all=True)
+            else:
+                self.points, self.labels = s.get_points(e.sample_source)
+            
 
         self.point_df = None
         self.results = {}
@@ -64,6 +68,8 @@ class Pointwize():
     
     
     def get_label(self, index, style='dist'):
+        if type(index) != int:
+            return ''
         if self.labels != []:
             return str(round(self.labels[index] / 1000, 1)) + ' km'
         if style == 'dist':
@@ -84,29 +90,41 @@ class Pointwize():
 
 
 
-    def get_gl_set(self):
+    def get_gl_set(self, date_cols=['Date_4', 'Date_1', 'Date_2', 'Date_3',]):
+        gdf = gpd.read_file(GL_GPKG)
+        gdf['date'] = gdf[date_cols].mean(axis=1)
+        gdf = gdf.to_crs(3031)
+        self.gpd_geom_match(gdf, self.fl, column_of_interest = 'dist_from_grndline', date_col='date')
+        self.results[''] = self.results[''].sort_values(by='time')
+        print(self.results[''])
         pass
 
 
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False):
-        p = self.points[index]
-        df_ref = self.create_point_df([p])
+    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False, date_col='date'):
+        if type(index) == int:
+            p = self.points[index]
+            df_ref = self.create_point_df([p])
+        else:
+            df_ref = index
+            generate_labels = True
 
-        #df_ref = gpd.sjoin_nearest(df_ref, out)
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
-
+        print(df_ref)
+        if self.data == 'gl':
+            df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
+        
         time = []
         sources = []
         data = []
 
-        for x in df_ref['date'].unique():
-            val = df_ref[df_ref['date'] == x][column_of_interest].dropna().mean()
+        for x in df_ref[date_col].unique():
+            val = df_ref[df_ref[date_col] == x][column_of_interest].dropna().mean()
             if np.isnan(val):
                 continue
             if 'sources' in df_ref.columns:
-                src = df_ref[df_ref['date'] == x]['sources'][0]
-                if type(df_ref[df_ref['date'] == x]['sources'][0]) != str:
+                src = df_ref[df_ref[date_col] == x]['sources'][0]
+                if type(df_ref[df_ref[date_col] == x]['sources'][0]) != str:
                     src = list(src.values)[0]
                 sources.append(src)
 
@@ -201,8 +219,6 @@ class Pointwize():
         if not self.results:
             self.get_data(rema)
 
-        if self.data == 'gl':
-            return # TODO: remove this exit
 
         shapes = ['s', '^', 'D']
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
@@ -214,7 +230,6 @@ class Pointwize():
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
-            print(self.results[p][self.data].values)
             ls = 'None'
             if unified_line:
                 ax.plot(self.results[p]['time'], 
@@ -264,7 +279,7 @@ class Pointwize():
         }
 
         if self.data == 'gl':
-            self.get_gl_set()
+            return self.get_gl_set()
 
         filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
         print('getting output')
@@ -388,7 +403,7 @@ class StreamFlow():
         if type(overlap_ds) != bool:
             gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.dist}, geometry=self.points, crs='EPSG:3031')
             if include_all:
-                all = gpd.copy(deep=True)
+                all_p = gpd_df.copy(deep=True)
             new_df = gpd.sjoin_nearest(overlap_ds, gpd_df, max_distance=self.max_dist)
 
             
@@ -429,7 +444,7 @@ class StreamFlow():
             
 
         if include_all:
-            return points, labels, all
+            return points, labels, all_p
 
 
         return points, labels
