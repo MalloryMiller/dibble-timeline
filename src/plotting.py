@@ -142,16 +142,16 @@ class Plotting:
         self.plot_glacier_borders(fig, ax)
         return True
 
-    def plot_gpkg(self, fig, ax, gpkg, coloring=None):
+    def plot_gpkg(self, fig, ax, gpkg, coloring=None, cmap='summer'):
         gdf = gpd.read_file(gpkg)
         gdf = gdf.to_crs(3031)
         if coloring != None:
-            gdf.plot(ax=ax, column=coloring)
+            gdf.plot(ax=ax, column=coloring, cmap=cmap, autolim=False)
         else:
-            gdf.plot(ax=ax, autolim=False, kind='line')
+            gdf.plot(ax=ax, autolim=False)
 
-    def plot_temporal_grounding_line(self, fig, ax):
-        self.plot_gpkg(fig, ax, GL_GPKG, 'Year')
+    def plot_temporal_grounding_line(self, fig, ax, cmap='summer'):
+        self.plot_gpkg(fig, ax, GL_GPKG, 'Year', cmap=cmap)
 
     def plot_raw_rema_data(self, na, year):
         try:

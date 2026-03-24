@@ -48,7 +48,7 @@ class Flags():
         ]
 
 
-        self.all_flags = []
+        self.all_flags = ['-datelabel']
         self.all_flags.extend(self.source_v_flags)
         self.all_flags.extend(self.combo_flags)
         self.all_flags.extend(self.chart_flags)
@@ -84,6 +84,13 @@ class Flags():
 
         else:
             self.flags.append(string)
+
+
+    def label_type(self):
+        if '-datelabel' in self.flags:
+            return 'date'
+        else:
+            return 'dist'
 
 
 

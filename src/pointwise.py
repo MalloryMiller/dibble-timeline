@@ -27,16 +27,14 @@ class Pointwize():
         self.pt_range = pt_range
         self.labels = []
 
-        max_dist = max(np.abs(pt_range[0])*point_spacing, np.abs(pt_range[1]-1)*point_spacing)
-        self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
-        self.cm = cm.get_cmap('managua', 256)
 
         self.max_dist = 50
+        self.label_type = flags.label_type()
 
 
         if streamwise:
             
-            s = StreamFlow(xlim, ylim, flags, self.points, point_spacing, pt_range, max_dist=self.max_dist)
+            s = StreamFlow(xlim, ylim, flags, self.points, point_spacing, pt_range, max_dist=self.max_dist, label_type = self.label_type)
             self.point_spacing = point_spacing
             e = ElevationManager(xlim, ylim, flags, 'elev')
             if self.data == 'gl':
@@ -44,6 +42,9 @@ class Pointwize():
             else:
                 self.points, self.labels = s.get_points(e.sample_source)
             
+        max_dist = max(max(self.labels), -min(self.labels))
+        self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
+        self.cm = cm.get_cmap('managua', 256)
 
         self.point_df = None
         self.results = {}
@@ -67,13 +68,20 @@ class Pointwize():
         return df_ref
     
     
-    def get_label(self, index, style='dist'):
+    def get_label(self, index, style=None):
+        if style == None:
+            style = self.label_type
+
+        print(style)
+
         if type(index) != int:
             return ''
-        if self.labels != []:
-            return str(round(self.labels[index] / 1000, 1)) + ' km'
+        if style == 'date':
+            return str(round(float(self.labels[index]))) + ' years'
         if style == 'dist':
-            return (str(((index * self.point_spacing) + (self.pt_range[0] * self.point_spacing)) / 1000) + ' km')
+            return str(round(self.labels[index] / 1000, 1)) + ' km'
+
+        
         return str(chr(index + 65))
 
 
@@ -90,7 +98,7 @@ class Pointwize():
 
 
 
-    def get_gl_set(self, date_cols=['Date_4', 'Date_1', 'Date_2', 'Date_3',]):
+    def get_gl_set(self, date_cols=['Date_4', 'Date_1', 'Date_2', 'Date_3']):
         gdf = gpd.read_file(GL_GPKG)
         gdf['date'] = gdf[date_cols].mean(axis=1)
         gdf = gdf.to_crs(3031)
@@ -110,7 +118,6 @@ class Pointwize():
             generate_labels = True
 
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
-        print(df_ref)
         if self.data == 'gl':
             df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
         
@@ -198,7 +205,6 @@ class Pointwize():
             df = df.dropna()
             ref_time = df['time'].min()
             data = df.copy(deep=True)
-            print(data)
             df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]
         
         if add_result:
@@ -303,7 +309,7 @@ class Pointwize():
 
 
 class StreamFlow():
-    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500):
+    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist'):
         f = Flags()
         f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
         f.add('-itslive')
@@ -315,7 +321,7 @@ class StreamFlow():
         self.pos[0] = self.starting_pos[1] # y is stored as first item in the coords
         self.pos[1] = self.starting_pos[0]
 
-        self.date = flags.YEARSTART
+        self.date = 0
         self.dist = []
         self.flags = f
 
@@ -325,6 +331,8 @@ class StreamFlow():
         self.step_range = step_num
         self.date_steps = date_steps
         self.max_dist = max_dist
+
+        self.label_type = label_type
 
         #self.output['velocity'] = self.output['velocity'].where(False)
         #self.output = self.output.where(self.output['visted'] != 0)
@@ -344,7 +352,7 @@ class StreamFlow():
 
         v = float(overall_velocity(cur_vx, cur_vy))
         self.velocities.append(v)
-        self.date += self.date_steps
+        self.date += dir * self.date_steps
         self.dates.append(self.date)
 
 
@@ -368,6 +376,7 @@ class StreamFlow():
         fy = self.fmy.get_ouput_files()
         
         cur_dist = 0
+        self.date = 0
 
         self.pos[0] = self.starting_pos[1]
         self.pos[1] = self.starting_pos[0]
@@ -386,6 +395,7 @@ class StreamFlow():
 
     def run_experiment(self):
         self.dates = []
+        self.date = 0
         self.velocities = []
         self.dist = []
         self.points = []
@@ -401,7 +411,7 @@ class StreamFlow():
             self.run_experiment()
 
         if type(overlap_ds) != bool:
-            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.dist}, geometry=self.points, crs='EPSG:3031')
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.dist, 'vel_dates': self.dates}, geometry=self.points, crs='EPSG:3031')
             if include_all:
                 all_p = gpd_df.copy(deep=True)
             new_df = gpd.sjoin_nearest(overlap_ds, gpd_df, max_distance=self.max_dist)
@@ -412,19 +422,14 @@ class StreamFlow():
             new_df = new_df[~new_df.index.duplicated(keep='first')]
             self.points = list(new_df['geometry'])
             self.dist = list(new_df['dist_from_grndline'])
+            self.dates = list(new_df['vel_dates'])
 
 
-        if index == 'dist':
-            df = xr.Dataset({
-                #'date': self.dates,
-                'geometry': (('dist'), self.points)
-                }, coords={
-                'dist': self.dist}).drop_duplicates(dim='dist')
-        else:
-            df = xr.Dataset({
-                'geometry': (('dist'), self.points)
-                }, coords={
-                'dist': self.dates}).drop_duplicates(dim='dist')
+        df = xr.Dataset({
+            'date': (('dist'), self.dates),
+            'geometry': (('dist'), self.points),
+            }, coords={
+            'dist': self.dist}).drop_duplicates(dim='dist')
 
 
         
@@ -438,9 +443,12 @@ class StreamFlow():
         
         for x in point_dists:
 
-            selected_point = df.sel(dist=x, method='nearest')['geometry']
-            points.append([selected_point.values.max().y, selected_point.values.max().x])
-            labels.append(int(selected_point.dist))
+            selected_point = df.sel(dist=x, method='nearest')
+            points.append([selected_point['geometry'].values.max().y, selected_point['geometry'].values.max().x])
+            if self.label_type == 'dist':
+                labels.append(int(selected_point.dist))
+            elif self.label_type == 'date':
+                labels.append(selected_point['date'].values)
             
 
         if include_all:
