@@ -364,8 +364,6 @@ class StreamFlow():
         cur_dist += dir * float(overall_velocity(cur_vx * self.date_steps, cur_vy * self.date_steps))
         self.dist.append(int(cur_dist))
 
-
-        
         return cur_dist
     
 
