@@ -23,9 +23,29 @@ AREAS = {
 POINT_LISTS = {
 
     'Dibble' : [
-        [-1805005.87,1855416.14],
-        [-1835433,1850375],
-        [-1830432,1861889]
+        {
+            'point': [-1815410,1852497],
+            'point_range': [-2, 4],
+            'point_spacing': 2000
+        },
+        {
+            'point': [-1805005.87,1855416.14],
+            'point_range': [-2, 4],
+            'point_spacing': 2000,
+            
+            #'point_range': [-2, 4],
+            #'point_spacing': 17000
+        },
+        {
+            'point': [-1835433,1850375],
+            'point_range': [-2, 4],
+            'point_spacing': 17000
+        },
+        {
+            'point': [-1830432,1861889],
+            'point_range': [-2, 4],
+            'point_spacing': 17000
+        },
     ],
 
 

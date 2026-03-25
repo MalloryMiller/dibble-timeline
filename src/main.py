@@ -234,7 +234,8 @@ class main():
                 f.add(fl)
             f.add('-2010-2025')
             p = Pointwize(f, self.xlim, self.ylim, 
-                        point, data = d, change=change and can_change[d])
+                        point['point'], data = d, change=change and can_change[d],
+                        pt_range = point['point_range'], point_spacing=point['point_spacing'])
             p.plot_time_series(fig, ax[i], rema=rema)
             if i == 0:
                 p.save_point_df() # save the points df if first one made
@@ -251,8 +252,8 @@ class main():
                 ax[i].set_xlabel('Year')
         
         print("Saving image...")
-        fig.savefig(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + "_plot.png", dpi=200)
-        print(POINTWISE_OUTPUT_LOCATION + str(int(point[0])) + '_' + str(int(point[1])) + "_plot.png")
+        fig.savefig(POINTWISE_OUTPUT_LOCATION + str(int(point['point'][0])) + '_' + str(int(point['point'][1])) + "_plot.png", dpi=200)
+        print(POINTWISE_OUTPUT_LOCATION + str(int(point['point'][0])) + '_' + str(int(point['point'][1])) + "_plot.png")
         
         plt.close('all')
 
