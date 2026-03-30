@@ -233,6 +233,7 @@ class main():
             for fl in self.flags.flags:
                 f.add(fl)
             f.add('-2010-2025')
+            print(point)
             p = Pointwize(f, self.xlim, self.ylim, 
                         point['point'], data = d, change=change and can_change[d],
                         pt_range = point['point_range'], point_spacing=point['point_spacing'])

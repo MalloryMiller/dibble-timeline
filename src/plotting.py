@@ -151,7 +151,7 @@ class Plotting:
             gdf.plot(ax=ax, autolim=False)
 
     def plot_temporal_grounding_line(self, fig, ax, cmap='summer'):
-        self.plot_gpkg(fig, ax, GL_GPKG, 'Year', cmap=cmap)
+        self.plot_gpkg(fig, ax, GL_GPKG_InSAR, 'Year', cmap=cmap)
 
     def plot_raw_rema_data(self, na, year):
         try:

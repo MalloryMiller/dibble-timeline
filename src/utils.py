@@ -19,10 +19,26 @@ AREAS = {
 
 }
 
-
+-1806894.25,1855363.70
 POINT_LISTS = {
 
     'Dibble' : [
+        {
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-2, 4],
+            'point_spacing': 17000
+        },
+    ]
+}
+POINT_LISTS2 = {
+
+    'Dibble' : [
+        {
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-2, 4],
+            'point_spacing': 17000
+        },
+        
         {
             'point': [-1815410,1852497],
             'point_range': [-2, 4],
@@ -86,7 +102,8 @@ SHAPEFILES = {
     'basins': "shapefiles/a_lot_of_basins.shp",
 }
 
-GL_GPKG = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
+GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
+GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 

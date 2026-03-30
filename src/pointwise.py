@@ -28,7 +28,7 @@ class Pointwize():
         self.labels = []
 
 
-        self.max_dist = 50
+        self.max_dist = 100
         self.label_type = flags.label_type()
 
 
@@ -63,7 +63,6 @@ class Pointwize():
         df_ref = pd.DataFrame({'geometry':point_geom})
         df_ref = gpd.GeoDataFrame(df_ref, geometry=point_geom, crs='EPSG:3031')
         if len(pointls) > 1:
-            print(str(self.point_label) + ".gpkg")
             df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + ".gpkg", layer="geometry", driver="GPKG")
         return df_ref
     
@@ -72,7 +71,6 @@ class Pointwize():
         if style == None:
             style = self.label_type
 
-        print(style)
 
         if type(index) != int:
             return ''
@@ -98,13 +96,30 @@ class Pointwize():
 
 
 
-    def get_gl_set(self, date_cols=['Date_4', 'Date_1', 'Date_2', 'Date_3']):
-        gdf = gpd.read_file(GL_GPKG)
-        gdf['date'] = gdf[date_cols].mean(axis=1)
+    def get_gl_set(self, fname = GL_GPKG_InSAR, date_cols=['Date_4', 'Date_1', 'Date_2', 'Date_3'], source_label='Rignot, 2026'):
+        layers = len(gpd.list_layers(fname))
+        '''if layers >1:
+            gdf = gpd.read_file(fname, layer="gl")
+        else:'''
+        
+        gdf = gpd.read_file(fname)
+        
+
+        if 'lat' in gdf.columns:
+            gdf = gdf.drop(columns=['lat', 'lon'])
+        
         gdf = gdf.to_crs(3031)
-        self.gpd_geom_match(gdf, self.fl, column_of_interest = 'dist_from_grndline', date_col='date')
+
+        gdf['date'] = gdf[date_cols].mean(axis=1)
+        gdf['sources'] = [source_label] * len(gdf)
+        
+
+        self.gpd_geom_match(gdf, self.fl, column_of_interest = 'dist_from_grndline', date_col='date', add_result=True)
+        
+        if '' not in self.results.keys():
+            return
+
         self.results[''] = self.results[''].sort_values(by='time')
-        print(self.results[''])
         pass
 
 
@@ -115,9 +130,10 @@ class Pointwize():
             df_ref = self.create_point_df([p])
         else:
             df_ref = index
-            generate_labels = True
 
+        
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
+        
         if self.data == 'gl':
             df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
         
@@ -130,8 +146,9 @@ class Pointwize():
             if np.isnan(val):
                 continue
             if 'sources' in df_ref.columns:
-                src = df_ref[df_ref[date_col] == x]['sources'][0]
-                if type(df_ref[df_ref[date_col] == x]['sources'][0]) != str:
+                
+                src = list(df_ref[df_ref[date_col] == x]['sources'])[0]
+                if type(src) != str:
                     src = list(src.values)[0]
                 sources.append(src)
 
@@ -159,6 +176,9 @@ class Pointwize():
                                         self.data: data})
         
         if add_result:
+            if self.get_label(index) not in self.results.keys():
+                self.results[self.get_label(index)] = pd.DataFrame()
+                
             if len(self.results[self.get_label(index)]) == 0:
                 self.results[self.get_label(index)] = df
             self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
@@ -224,6 +244,9 @@ class Pointwize():
     def plot_time_series(self, fig, ax, rema=False, unified_line=False):
         if not self.results:
             self.get_data(rema)
+        if not self.results:
+            print('No values found for time series.')
+            return
 
 
         shapes = ['s', '^', 'D']
@@ -285,7 +308,9 @@ class Pointwize():
         }
 
         if self.data == 'gl':
-            return self.get_gl_set()
+            self.get_gl_set()
+            self.get_gl_set(GL_GPKG_radar, ['date'], 'Ice Penetrating Radar')
+            return 
 
         filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
         print('getting output')
