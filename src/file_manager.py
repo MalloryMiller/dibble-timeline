@@ -42,6 +42,7 @@ class FileManager:
 
         self.fname_format = fname_formats
         self.h5_location = h5_location
+        self.gpkg_source = 'IceSAT2'
         self.sources = flags.sources_v()
 
         self.yearStart = int(flags.YEARSTART)
@@ -77,7 +78,7 @@ class FileManager:
             if file.split('.')[-1] == 'gpkg':
                 cur_df = gpd.read_file(file)
                 cur_df = cur_df.to_crs('EPSG:3031')
-                cur_df['sources'] = 'IceSAT2'
+                cur_df['sources'] = self.gpkg_source
 
             elif file.split('.')[-1] == 'tif':
                 cur_df = xr.open_dataset(file).squeeze()
@@ -735,7 +736,7 @@ class ElevationManager(FileManager):
 
 
 
-    def build_supplementary_files(self, to_build=2011):
+    def build_supplementary_files(self, to_build=2003):
 
         ref_year = 2019
         if not np.datetime64(str(ref_year)) in self.file.keys():
@@ -815,3 +816,29 @@ class GravimetryManager(FileManager):
         else:
             data = data_override
         return [GRAV_LOCATION], [], []
+
+
+
+class IPRManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='csv'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        self.gpkg_source = "Open Polar Radar, 2024"
+        
+    
+
+    def build_files(self):
+        return
+
+    
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [IPR_GPKG_LOCATION], [], []

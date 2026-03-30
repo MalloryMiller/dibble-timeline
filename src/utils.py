@@ -88,7 +88,7 @@ ICESAT1_ELEVATION_RATE_FLOATING = INPUT + 'elevation/change_rates_crs_4326_float
 
 ELEVATION_GPKG_LOCATION = OUTPUT + 'elevation/'
 TIF_LOCATION = OUTPUT
-TEST_PNG_LOCATION = OUTPUT +"images/"
+TEST_PNG_LOCATION = OUTPUT +"images/" 
 POINTWISE_OUTPUT_LOCATION = OUTPUT + 'pointwise/'
 
 REMA_PREVIEW_LOCATION = INPUT + "rema/"
@@ -104,6 +104,8 @@ SHAPEFILES = {
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
 GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
+
+IPR_GPKG_LOCATION = INPUT + "ipr/radar.gpkg"
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 

@@ -207,7 +207,7 @@ class main():
 
         labels = {
             'vel': "Velocity (m/y)",
-            'elev': 'Elevation Change since 2011 (m)',
+            'elev': 'Elevation Change since 2003 (m)',
             'grav': 'Gravimetry Change since 2011 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
         }
@@ -224,33 +224,50 @@ class main():
             labels['elev'] = 'Elevation (m)'
             labels['gl'] = 'Grounding Line (m)'
 
-        fig, ax = plt.subplots(len(data), 1)
+
+        gl_elevation_width = 0.5
+
+        width_ratios = [1, 0]
+        if 'gl' in data:
+            width_ratios = [1, gl_elevation_width]
+
+        fig, ax = plt.subplots(len(data), 2, gridspec_kw={'width_ratios': width_ratios})
         fig.set_figheight(3*len(data))
+
+        if width_ratios[1] > 1:
+            fig.set_figwidth(1 + gl_elevation_width)
 
 
         for i, d in enumerate(data):
             f = Flags()
             for fl in self.flags.flags:
                 f.add(fl)
-            f.add('-2010-2025')
+            f.add('-2000-2025')
             print(point)
             p = Pointwize(f, self.xlim, self.ylim, 
                         point['point'], data = d, change=change and can_change[d],
                         pt_range = point['point_range'], point_spacing=point['point_spacing'])
-            p.plot_time_series(fig, ax[i], rema=rema)
+            p.plot_time_series(fig, ax[i][0], rema=rema)
             if i == 0:
                 p.save_point_df() # save the points df if first one made
                 plt.close('all')
 
 
-            ax[i].set_ylabel(labels[d])
-            ax[i].grid()
+            ax[i][0].set_ylabel(labels[d])
+            ax[i][0].grid()
 
-            ax[i].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
+            ax[i][0].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
 
-            ax[i].legend()
+            ax[i][0].legend()
             if i == len(data)-1:
-                ax[i].set_xlabel('Year')
+                ax[i][0].set_xlabel('Year')
+
+            if d == 'gl':
+                p.plot_elevation_summary(fig, ax[i][1])
+            else:
+                ax[i][1].set_visible(False)
+
+
         
         print("Saving image...")
         fig.savefig(POINTWISE_OUTPUT_LOCATION + str(int(point['point'][0])) + '_' + str(int(point['point'][1])) + "_plot.png", dpi=200)

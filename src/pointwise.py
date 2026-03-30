@@ -1,6 +1,6 @@
 import datetime
 from utils import *
-from file_manager import GravimetryManager, ElevationManager, VelocityManager
+from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager
 
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
@@ -255,14 +255,20 @@ class Pointwize():
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
                 ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
 
+
+
         
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
             ls = 'None'
+            color = sm.to_rgba(self.labels[j])
+            if self.data == 'gl':
+                color = sm.to_rgba(0)
+
             if unified_line:
                 ax.plot(self.results[p]['time'], 
-                            self.results[p][self.data].values, marker= 'None', color=sm.to_rgba(self.labels[j]))
+                            self.results[p][self.data].values, marker= 'None', color=color)
             else:
                 ls = 'solid'
             
@@ -271,10 +277,42 @@ class Pointwize():
                     cur = self.results[p][self.results[p]['sources'] == s]
                     
                     ax.plot(cur['time'], 
-                            cur[self.data].values, marker= shapes[i], color=sm.to_rgba(self.labels[j]), linestyle=ls)
+                            cur[self.data].values, marker= shapes[i], color=color, linestyle=ls)
             else:
                 ax.plot(self.results[p]['time'], 
-                        self.results[p][self.data].values, label = p, marker= 'o', color=sm.to_rgba(self.labels[j]), linestyle=ls)
+                        self.results[p][self.data].values, label = p, marker= 'o', color=color, linestyle=ls)
+
+            if self.data == 'gl':
+                return
+
+
+    def plot_elevation_summary(self, fig, ax):
+
+        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
+        out = fm.get_ouput_files()
+        out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+
+        print(out)
+        print(self.fl)
+        out = out.sort_values('dist_from_grndline')
+            
+        
+
+        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+        color = sm.to_rgba(0)
+
+
+        #ax.plot(out['BOTTOM'], out['dist_from_grndline'].values, marker= 'None', color='blue', label='Bottom')
+        #ax.plot(out['SURFACE'], out['dist_from_grndline'].values, marker= 'None', color='red', label='Surface')
+        ax.plot(out['ELEVATION'], out['dist_from_grndline'].values, marker= 'None', color='green', label='Elevation')
+
+        ax.legend()
+
+        ax.set_ylim(min(self.results[''][self.data].values), max(self.results[''][self.data].values))
+
+        #ax.set_ylabel("Grounding Line Change (m)")
+        ax.set_xlabel("Elevation (m)")
+
 
 
     def get_data_rema(self):
@@ -309,7 +347,7 @@ class Pointwize():
 
         if self.data == 'gl':
             self.get_gl_set()
-            self.get_gl_set(GL_GPKG_radar, ['date'], 'Ice Penetrating Radar')
+            self.get_gl_set(GL_GPKG_radar, ['date'], 'Open Polar Radar, 2024')
             return 
 
         filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
