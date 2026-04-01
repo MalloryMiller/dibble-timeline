@@ -4,7 +4,7 @@ import os
 from utils import *
 
 
-from file_manager import VelocityManager, ElevationManager, GravimetryManager, plt
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  plt
 
 from elevation_errpr import ElevationError
 from pointwise import Pointwize
@@ -95,6 +95,7 @@ class main():
         #print(self.build_files())
         #print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
+        print(self.build_files(data='firn'))
 
         #self.get_elevation_error()
 
@@ -203,13 +204,14 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'vel', 'elev',], change = True, rema=False): #['vel', 'elev', 'grav']
+    def get_points_timeline(self, point, data = ['gl', 'vel', 'elev'], change = True, rema=False): #['vel', 'elev', 'grav']
 
         labels = {
             'vel': "Velocity (m/y)",
-            'elev': 'Elevation Change since 2003 (m)',
+            'elev': 'Elevation Change since 2009 (m)',
             'grav': 'Gravimetry Change since 2011 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
+            'firn': 'Firn Air Height (m)',
         }
 
 
@@ -218,6 +220,7 @@ class main():
             'elev': True,
             'grav': False,
             'gl': True,
+            'firn': False,
         }
 
         if not change:
@@ -232,10 +235,10 @@ class main():
             width_ratios = [1, gl_elevation_width]
 
         fig, ax = plt.subplots(len(data), 2, gridspec_kw={'width_ratios': width_ratios})
-        fig.set_figheight(3*len(data))
+        fig.set_figheight(4*len(data))
 
         if width_ratios[1] > 1:
-            fig.set_figwidth(1 + gl_elevation_width)
+            fig.set_figwidth(5 + (gl_elevation_width * 2))
 
 
         for i, d in enumerate(data):
@@ -249,7 +252,7 @@ class main():
                         pt_range = point['point_range'], point_spacing=point['point_spacing'])
             p.plot_time_series(fig, ax[i][0], rema=rema)
             if i == 0:
-                p.save_point_df() # save the points df if first one made
+                p.save_point_df() # save the points df after first one was made
                 plt.close('all')
 
 
@@ -294,6 +297,7 @@ class main():
         managers = {
             'vel': VelocityManager,
             'elev': ElevationManager,
+            'firn': FirnAirManager,
             'grav': GravimetryManager
         }
 

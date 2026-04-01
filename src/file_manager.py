@@ -82,6 +82,7 @@ class FileManager:
 
             elif file.split('.')[-1] == 'tif':
                 cur_df = xr.open_dataset(file).squeeze()
+
                 if len(sources) != 0:
                     cur_df['sources'] = sources[i]
                 if len(sources) != 0 and sources[i] == 'ItsLive' and 'Measures' in sources:
@@ -113,7 +114,7 @@ class FileManager:
             if len(f) == 1:
                 return all_files[0]
             
-            self.file = xr.concat(all_files, dim=years)
+            self.file = xr.concat(all_files, dim=years, join='outer')
             self.file = self.file.rename({'concat_dim': 'year'})
 
         return self.file
@@ -736,7 +737,7 @@ class ElevationManager(FileManager):
 
 
 
-    def build_supplementary_files(self, to_build=2003):
+    def build_supplementary_files(self, to_build=2009):
 
         ref_year = 2019
         if not np.datetime64(str(ref_year)) in self.file.keys():
@@ -842,3 +843,79 @@ class IPRManager(FileManager):
         else:
             data = data_override
         return [IPR_GPKG_LOCATION], [], []
+
+
+class FirnAirManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label='', source=0):
+        
+        ftype='csv'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        self.gpkg_source = "Open Polar Radar, 2024"
+
+        self.start_band_year = [1950, 2015, 2015][source]
+
+        self.source_firn_file = [HISTORIC_FIRN_TIF, SSP585_FIRN_TIF, SSP126_FIRN_TIF][source]
+        self.tif_source = ["Veldhuijsen, 2024 (Historic)", "Veldhuijsen, 2024 (SSP585)", "Veldhuijsen, 2024 (SSP126)"][source]
+        
+    
+
+    def build_files(self):
+        return self.build_firn_files()
+
+    def get_firn_fname(self, year):
+        source_label = self.source_firn_file.split('/')[-1].split('.')[0]
+        return OUTPUT + 'firn_air/' + str(year) + "_" + self.label + "_" + source_label + ".tif"
+
+    
+    def build_firn_files(self):
+        '''
+        splits firn file into years with each band of the image being a year offset from the last.
+
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        String[]
+            list of the generated data files
+        '''
+        for x in range(self.yearStart, self.yearEnd):
+            if x - self.start_band_year + 1 < 0:
+                pass
+            try:
+                gdal.Translate(self.get_firn_fname(x), self.source_firn_file, bandList=[x - self.start_band_year + 1])
+            except RuntimeError as e:
+                print("No firn air data for " + self.tif_source + " at year " + str(x))
+                print(e)
+                
+
+        
+        self.close()
+
+
+    def fnames(self):
+
+        fnames = []
+        found_years = []
+        sources = []
+
+        for year in range(self.yearStart, self.yearEnd):
+            f = self.get_firn_fname(year)
+            
+            if not Path(f).is_file():
+                continue
+
+            fnames.append(f)
+            found_years.append(datetime.datetime(year, 1, 1))
+            sources.append(self.tif_source)
+
+
+        print(fnames)
+        print(found_years)
+        print(sources)
+            
+        return fnames, found_years, sources
+    

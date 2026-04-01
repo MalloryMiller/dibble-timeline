@@ -48,7 +48,7 @@ class Flags():
         ]
 
 
-        self.all_flags = ['-datelabel']
+        self.all_flags = ['-datelabel', '-rebuild']
         self.all_flags.extend(self.source_v_flags)
         self.all_flags.extend(self.combo_flags)
         self.all_flags.extend(self.chart_flags)
@@ -160,6 +160,27 @@ class Flags():
             return 'weighted'
         
         
+
+    def rebuilding(self):
+        '''
+        Returns the current type of chart based on the flags used.
+        Defaults to 'nc' if no flags are provided
+
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        String
+            String that reflects one of the flags selected in the chart category.
+        '''
+
+        if '-rebuild' in self.flags:
+            return 'rebuild'
+        
+        return ''
 
     def chart_type(self):
         '''

@@ -1,6 +1,6 @@
 import datetime
 from utils import *
-from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager
+from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager, FirnAirManager
 
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
@@ -248,6 +248,8 @@ class Pointwize():
             print('No values found for time series.')
             return
 
+        print(self.results)
+
 
         shapes = ['s', '^', 'D']
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
@@ -292,8 +294,6 @@ class Pointwize():
         out = fm.get_ouput_files()
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
-        print(out)
-        print(self.fl)
         out = out.sort_values('dist_from_grndline')
             
         
@@ -302,9 +302,9 @@ class Pointwize():
         color = sm.to_rgba(0)
 
 
-        #ax.plot(out['BOTTOM'], out['dist_from_grndline'].values, marker= 'None', color='blue', label='Bottom')
-        #ax.plot(out['SURFACE'], out['dist_from_grndline'].values, marker= 'None', color='red', label='Surface')
-        ax.plot(out['ELEVATION'], out['dist_from_grndline'].values, marker= 'None', color='green', label='Elevation')
+        ax.plot(out['ELEVATION'] - out['BOTTOM'], out['dist_from_grndline'].values, marker= 'None', color='blue', label='Bottom')
+        ax.plot(out['ELEVATION'] - out['SURFACE'], out['dist_from_grndline'].values, marker= 'None', color='red', label='Surface')
+        #ax.plot(out['ELEVATION'], out['dist_from_grndline'].values, marker= 'None', color='green', label='Elevation')
 
         ax.legend()
 
@@ -337,12 +337,14 @@ class Pointwize():
             'vel': 'band_data',
             'grav': 'dm',
             'elev': 'elevation',
+            'firn': 'band_data',
         }
         
         fms = {
             'vel': VelocityManager,
             'grav': GravimetryManager,
             'elev': ElevationManager,
+            'firn': FirnAirManager,
         }
 
         if self.data == 'gl':

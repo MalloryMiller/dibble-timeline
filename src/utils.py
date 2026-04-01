@@ -95,6 +95,10 @@ REMA_PREVIEW_LOCATION = INPUT + "rema/"
 REMA_RAW_LOCATION = INPUT + "rema/raw/"
 REMA_LOCATION = OUTPUT + "rema/"
 
+HISTORIC_FIRN_TIF = INPUT + 'firn_air/firn_air_1950_on.tif'
+SSP126_FIRN_TIF = INPUT + 'firn_air/SSP126.tif'
+SSP585_FIRN_TIF = INPUT + 'firn_air/SSP585.tif'
+
 SHAPEFILES = {
     'iceshelf': "shapefiles/coastline_EPS.shp",
     'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.shp",
