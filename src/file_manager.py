@@ -847,7 +847,7 @@ class IPRManager(FileManager):
 
 class FirnAirManager(FileManager):
 
-    def __init__(self, xlims, ylims, flags, data, label='', source=0):
+    def __init__(self, xlims, ylims, flags, data, label='', source=2):
         
         ftype='csv'
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
