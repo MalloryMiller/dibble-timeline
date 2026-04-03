@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'vel', 'elev', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav']
+    def get_points_timeline(self, point, data = ['gl',], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity (m/y)",
@@ -233,6 +233,8 @@ class main():
         width_ratios = [1, 0]
         if 'gl' in data:
             width_ratios = [1, gl_elevation_width]
+        if len(data) == 1:
+            data.append('')
 
         fig, ax = plt.subplots(len(data), 2, gridspec_kw={'width_ratios': width_ratios})
         fig.set_figheight(4*len(data))
@@ -242,6 +244,12 @@ class main():
 
 
         for i, d in enumerate(data):
+            if d == '':
+                ax[i][0].set_visible(False)
+                ax[i][1].set_visible(False)
+                continue
+
+            
             f = Flags()
             for fl in self.flags.flags:
                 f.add(fl)

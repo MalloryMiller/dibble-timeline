@@ -41,7 +41,7 @@ class Pointwize():
                 self.points, self.labels, self.fl = s.get_points(e.sample_source, include_all=True)
             else:
                 self.points, self.labels = s.get_points(e.sample_source)
-            
+                
         max_dist = max(max(self.labels), -min(self.labels))
         self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
         self.cm = cm.get_cmap('managua', 256)
@@ -111,6 +111,8 @@ class Pointwize():
         gdf = gdf.to_crs(3031)
 
         gdf['date'] = gdf[date_cols].mean(axis=1)
+        gdf['gl_xerr_min'] = gdf['date'] - gdf[date_cols].min(axis=1)
+        gdf['gl_xerr_max'] = gdf[date_cols].max(axis=1) - gdf['date']
         gdf['sources'] = [source_label] * len(gdf)
         
 
@@ -133,14 +135,30 @@ class Pointwize():
 
         
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
+        print(df_ref)
         
-        if self.data == 'gl':
-            df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
+        #if self.data == 'gl':
+        #    df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
         
         time = []
         sources = []
         data = []
 
+        other_items = {}
+        potential_cols = [self.data + '_xerr_min', self.data + '_xerr_max', self.data + '_xerr',
+                          self.data + '_yerr_min', self.data + '_yerr_max', self.data + '_yerr']
+        item_combiner = {self.data + '_xerr_min' : np.min, 
+                         self.data + '_xerr_max': np.max, 
+                         self.data + '_xerr': np.mean,
+                         self.data + '_yerr_min' : np.min, 
+                         self.data + '_yerr_max': np.max, 
+                         self.data + '_yerr': np.mean}
+
+        for x in potential_cols:
+            if x in df_ref.columns:
+                other_items[x] = []
+
+        print(potential_cols)
         for x in df_ref[date_col].unique():
             val = df_ref[df_ref[date_col] == x][column_of_interest].dropna().mean()
             if np.isnan(val):
@@ -151,6 +169,11 @@ class Pointwize():
                 if type(src) != str:
                     src = list(src.values)[0]
                 sources.append(src)
+                
+                for y in other_items.keys():
+                    v = item_combiner[y](list(df_ref[df_ref[date_col] == x][y]))
+                    other_items[y].append(v)
+                
 
             
             data.append(val)
@@ -167,13 +190,13 @@ class Pointwize():
             ref_time = time.min()
             data = data - data[time == ref_time]
 
+        df_contents = {'time': time, self.data: data}
         if len(sources):
+            df_contents['sources'] = sources
+        for y in other_items.keys():
+            df_contents[y] = other_items[y]
 
-            df = pd.DataFrame({'time': time, 'sources': sources,
-                                            self.data: data})
-        else:
-            df = pd.DataFrame({'time': time,
-                                        self.data: data})
+        df = pd.DataFrame(df_contents)
         
         if add_result:
             if self.get_label(index) not in self.results.keys():
@@ -284,6 +307,34 @@ class Pointwize():
                 ax.plot(self.results[p]['time'], 
                         self.results[p][self.data].values, label = p, marker= 'o', color=color, linestyle=ls)
 
+            print()
+            print()
+            print()
+            print()
+            print(self.results[p].columns)
+            if self.data +'_xerr' in self.results[p].columns:
+                ax.errorbar(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= shapes[i], xerr= self.results[p][self.data +'_xerr'],
+                            fmt='none')
+            elif self.data +'_xerr_min' in self.results[p].columns:
+                ax.errorbar(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= shapes[i], 
+                            xerr= [self.results[p][self.data +'_xerr_min'], self.results[p][self.data +'_xerr_max']],
+                            fmt='none')
+                print("AAA ERROR FOUND")
+                print([self.results[p][self.data +'_xerr_min'], self.results[p][self.data +'_xerr_max']])
+
+
+            if self.data +'_yerr' in self.results[p].columns:
+                ax.errorbar(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= shapes[i], yerr= self.results[p][self.data +'_yerr'],
+                            fmt='none')
+            elif self.data +'_yerr_min' in self.results[p].columns:
+                ax.errorbar(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= shapes[i], 
+                            xerr= [self.results[p][self.data +'_yerr_min'], self.results[p][self.data +'_yerr_max']],
+                            fmt='none')
+
             if self.data == 'gl':
                 return
 
@@ -302,13 +353,12 @@ class Pointwize():
         color = sm.to_rgba(0)
 
 
-        ax.plot(out['ELEVATION'] - out['BOTTOM'], out['dist_from_grndline'].values, marker= 'None', color='blue', label='Bottom')
-        ax.plot(out['ELEVATION'] - out['SURFACE'], out['dist_from_grndline'].values, marker= 'None', color='red', label='Surface')
-        #ax.plot(out['ELEVATION'], out['dist_from_grndline'].values, marker= 'None', color='green', label='Elevation')
-
+        ax.plot(out['real_elevation1'] - out['THICK'], out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom')
+        
         ax.legend()
 
         ax.set_ylim(min(self.results[''][self.data].values), max(self.results[''][self.data].values))
+        ax.set_xlim(-1800, -1000)
 
         #ax.set_ylabel("Grounding Line Change (m)")
         ax.set_xlabel("Elevation (m)")

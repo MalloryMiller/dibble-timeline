@@ -109,7 +109,7 @@ SHAPEFILES = {
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
 GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
 
-IPR_GPKG_LOCATION = INPUT + "ipr/radar.gpkg"
+IPR_GPKG_LOCATION = INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg"
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
