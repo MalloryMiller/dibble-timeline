@@ -346,6 +346,7 @@ class Pointwize():
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
+        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
             
         
 
@@ -459,10 +460,14 @@ class StreamFlow():
 
 
     def follow_flow(self, cur_dist, fx, fy, dir=1):
-        cur_vx = dir * float(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
-        cur_vy = dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].mean())
+        cur_vx = dir * float(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].dropna(dim='year').mean())
+        cur_vy = dir * float(fy.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].dropna(dim='year').mean())
+        #print(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'])
+        #print(fx.sel(x=self.pos[0], y=self.pos[1], method='nearest')['band_data'].dropna(dim='year'))
+        
         if np.isnan(cur_vx):
             return self.duration + 1
+
         
 
         v = float(overall_velocity(cur_vx, cur_vy))
@@ -555,7 +560,6 @@ class StreamFlow():
         df = df.sortby(df['dist'])
         
         for x in point_dists:
-
             selected_point = df.sel(dist=x, method='nearest')
             points.append([selected_point['geometry'].values.max().y, selected_point['geometry'].values.max().x])
             if self.label_type == 'dist':

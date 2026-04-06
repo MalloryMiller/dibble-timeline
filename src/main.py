@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl',], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'vel', 'elev', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity (m/y)",
@@ -219,7 +219,7 @@ class main():
             'vel': False,
             'elev': True,
             'grav': False,
-            'gl': True,
+            'gl': False,
             'firn': False,
         }
 
