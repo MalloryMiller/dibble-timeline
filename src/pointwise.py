@@ -345,26 +345,37 @@ class Pointwize():
 
 
     def plot_elevation_summary(self, fig, ax):
+            
+        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+        color = sm.to_rgba(0)
 
         fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
         out = fm.get_ouput_files()
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
+        #bad_out = out.copy(deep=True)
         out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
-            
-        
-
-        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
-        color = sm.to_rgba(0)
 
 
-        ax.plot(out['real_elevation1'] - out['THICK'], out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom')
+        #ax.plot(bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom', ls = ':', alpha=0.5)
+        ax.plot(out['real_elevation1'] - out['THICK'], out['dist_from_grndline'].values, marker= 'None', color=color, label='Bed')
         
         ax.legend()
+        ax.grid()
 
-        ax.set_ylim(min(self.results[''][self.data].values), max(self.results[''][self.data].values))
+
+        ymin = min(self.results[''][self.data].values)
+        ymax = max(self.results[''][self.data].values)
+
+        ypadd = 0.05 * (ymax - ymin)
+
+        ax.set_ylim(ymin - np.abs(ypadd), ymax + np.abs(ypadd))
+        ax.yaxis.tick_right()
+        ax.yaxis.set_label_position("right")
+
         ax.set_xlim(-1800, -1450)
+
 
         #ax.set_ylabel("Grounding Line Change (m)")
         ax.set_xlabel("Elevation (m)")

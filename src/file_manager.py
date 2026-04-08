@@ -126,7 +126,7 @@ class FileManager:
     def generate_image(self, data, data_name, chart_function, year, reprojected = False):
         if type(data) != bool:
             os.makedirs(TIF_LOCATION + '/'.join(data_name.split('/')[:-1]), exist_ok=True)
-            data.rio.to_raster(TIF_LOCATION + data_name)
+            data.transpose('y', 'x').rio.to_raster(TIF_LOCATION + data_name)
         
         if chart_function != None:
             fig, ax = plt.subplots()
@@ -526,7 +526,7 @@ class ElevationManager(FileManager):
 
             if np.isnan(df['band_data'].values) or df['band_data'].values == 0:
                 continue
-            
+
             if self.data + '_yerr' in df.columns:
                 found_err.append(df[self.data + '_yerr'].values)
 
