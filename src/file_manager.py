@@ -516,21 +516,34 @@ class ElevationManager(FileManager):
         found_files = []
         found_years = []
         found_sources = []
+        found_err = []
         
 
 
         for i, f in enumerate(f):
             cur = xr.open_dataset(f)
-            df = cur.sel(x=p[1], y=p[0], method='nearest').squeeze()['band_data'].values
-            if np.isnan(df) or df == 0:
+            df = cur.sel(x=p[1], y=p[0], method='nearest').squeeze()
+
+            if np.isnan(df['band_data'].values) or df['band_data'].values == 0:
                 continue
-            found_files.append(df)
+            
+            if self.data + '_yerr' in df.columns:
+                found_err.append(df[self.data + '_yerr'].values)
+
+            found_files.append(df['band_data'].values)
             found_years.append(years[i])
             found_sources.append('Coregistered REMA')
 
-        df = pd.DataFrame({'time': found_years,
+
+        dataset = {'time': found_years,
                            'sources': found_sources,
-                           self.data: found_files})
+                           self.data: found_files}
+        if len(found_err) != 0:
+            dataset[[self.data + '_yerr']] = found_err
+
+
+
+        df = pd.DataFrame(dataset)
         
         return df
 
@@ -655,12 +668,14 @@ class ElevationManager(FileManager):
                 df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
                                     'longitude': track['longitude'][dates == c].flatten(), 
                                     'elevation': track['h_corr'][dates == c].flatten(),
+                                    'elevation_yerr': track['h_corr_sigma'][dates == c].flatten(),
                                     'date': track['datetime'][dates == c].flatten()})
                 df['geometry'] = df.apply(self.pointify, axis=1)
                 self.file[c] = pd.concat([self.file[c], df])
             
             cur_track += 1
             progress.load_bar(cur_track, max)
+
 
         i = 0
         for c in self.file.keys():
@@ -669,6 +684,8 @@ class ElevationManager(FileManager):
                 continue
             try:
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+                print(gdf_final)
+                print(self.get_elevation_fname(c))
                 gdf_final.to_file(TIF_LOCATION + self.get_elevation_fname(c), driver='GPKG')
             except:
                     ('Saving year ' + str(c) + ' gpkg failed.')

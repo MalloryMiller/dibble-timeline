@@ -127,6 +127,11 @@ class Pointwize():
 
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False, date_col='date'):
+
+        '''rename_for_datasource = {'elev': {'_xerr': '_xerr'},
+                                 'gl': {}}
+        out = out.rename(columns=rename_for_datasource[self.data])'''
+        
         if type(index) == int:
             p = self.points[index]
             df_ref = self.create_point_df([p])
@@ -359,7 +364,7 @@ class Pointwize():
         ax.legend()
 
         ax.set_ylim(min(self.results[''][self.data].values), max(self.results[''][self.data].values))
-        ax.set_xlim(-1800, -1000)
+        ax.set_xlim(-1800, -1450)
 
         #ax.set_ylabel("Grounding Line Change (m)")
         ax.set_xlabel("Elevation (m)")

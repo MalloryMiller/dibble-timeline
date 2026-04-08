@@ -95,7 +95,7 @@ class main():
         #print(self.build_files())
         #print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
-        print(self.build_files(data='firn'))
+        #print(self.build_files(data='firn'))
 
         #self.get_elevation_error()
 
@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'vel', 'elev', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'elev', 'firn', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity (m/y)",
@@ -228,19 +228,19 @@ class main():
             labels['gl'] = 'Grounding Line (m)'
 
 
-        gl_elevation_width = 0.5
+        gl_elevation_width = 0.35
 
         width_ratios = [1, 0]
         if 'gl' in data:
-            width_ratios = [1, gl_elevation_width]
+            width_ratios = [1-gl_elevation_width, gl_elevation_width - .2]
         if len(data) == 1:
             data.append('')
 
         fig, ax = plt.subplots(len(data), 2, gridspec_kw={'width_ratios': width_ratios})
-        fig.set_figheight(4*len(data))
+        fig.set_figheight(3*len(data))
 
         if width_ratios[1] > 1:
-            fig.set_figwidth(5 + (gl_elevation_width * 2))
+            fig.set_figwidth(4)
 
 
         for i, d in enumerate(data):
