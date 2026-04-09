@@ -204,11 +204,11 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'elev', 'firn', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
-            'vel': "Velocity (m/y)",
-            'elev': 'Elevation Change since 2009 (m)',
+            'vel': "Velocity Change (m/y)",
+            'elev': 'Elevation Change since 2020 (m)',
             'grav': 'Gravimetry Change since 2011 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
@@ -216,7 +216,7 @@ class main():
 
 
         can_change = {
-            'vel': False,
+            'vel': True,
             'elev': True,
             'grav': False,
             'gl': False,
@@ -225,7 +225,7 @@ class main():
 
         if not change:
             labels['elev'] = 'Elevation (m)'
-            labels['gl'] = 'Grounding Line (m)'
+            labels['vel'] = 'Velocity (m/y)'
 
 
         gl_elevation_width = 0.35

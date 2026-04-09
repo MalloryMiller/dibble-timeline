@@ -684,8 +684,6 @@ class ElevationManager(FileManager):
                 continue
             try:
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-                print(gdf_final)
-                print(self.get_elevation_fname(c))
                 gdf_final.to_file(TIF_LOCATION + self.get_elevation_fname(c), driver='GPKG')
             except:
                     ('Saving year ' + str(c) + ' gpkg failed.')
@@ -781,7 +779,6 @@ class ElevationManager(FileManager):
         
         df = df.dropna()
         self.file[np.datetime64(str(to_build))] = df
-        print(df)
 
         out_grid = make_geocube(
             vector_data=self.file[np.datetime64(str(to_build))],

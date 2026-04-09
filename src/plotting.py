@@ -133,7 +133,6 @@ class Plotting:
         plt.ylim(self.extent[2],  self.extent[3])
         first_item = True
         for s in strips:
-            print(s)
             if s.split('.')[-1] != 'tif':
                 print('continue')
                 continue
@@ -171,7 +170,6 @@ class Plotting:
         plt.ylim(self.extent[2],  self.extent[3])
         first_item = True
         for s in strips:
-            print(s)
             if s.split('.')[-1] != 'tif':
                 print('continue')
                 continue
@@ -274,7 +272,6 @@ class Plotting:
 
 
             if 'x' in df.columns:
-                print(df['labels'])
                 for i, l in enumerate(df['labels'].unique()):
                     cur = df[df['labels'] == l]
                     if cmap == None or c_list == []:

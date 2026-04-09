@@ -134,7 +134,6 @@ class ElevationError():
         arr = thing.copy(deep=True)
         arr = np.abs(thing.values - ref.values)
 
-        print(arr)
         xr.DataArray(arr, coords=ref.coords).rio.to_raster('_CLOUDTEST_diff.tif')
 
         too_big = np.where(arr > threshold, 1, np.nan)
@@ -142,7 +141,6 @@ class ElevationError():
         too_big = xr.DataArray(too_big, coords=ref.coords)
         too_big.rio.write_crs("EPSG:3031", inplace=True)
 
-        print(too_big)
         
 
         

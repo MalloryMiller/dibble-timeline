@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib as mpl
+from photutils.aperture import CircularAperture
 
 from plotting import Plotting
 
@@ -140,7 +141,6 @@ class Pointwize():
 
         
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
-        print(df_ref)
         
         #if self.data == 'gl':
         #    df_ref.to_file(POINTWISE_OUTPUT_LOCATION + str(self.point_label) + "_gl.gpkg", layer="geometry", driver="GPKG")
@@ -163,7 +163,6 @@ class Pointwize():
             if x in df_ref.columns:
                 other_items[x] = []
 
-        print(potential_cols)
         for x in df_ref[date_col].unique():
             val = df_ref[df_ref[date_col] == x][column_of_interest].dropna().mean()
             if np.isnan(val):
@@ -192,8 +191,7 @@ class Pointwize():
             return
 
         if self.change:
-            ref_time = time.min()
-            data = data - data[time == ref_time]
+            tiem, data = self.gpd_time_difference(time, data)
 
         df_contents = {'time': time, self.data: data}
         if len(sources):
@@ -239,6 +237,10 @@ class Pointwize():
 
         df[time_dim] = new_dates
         
+        if self.change:
+            print(df[column_of_interest])
+            self.gpd_time_difference(new_dates, df[column_of_interest].values)
+
         if 'sources' in df.variables:
             df = pd.DataFrame({'time': new_dates, 'sources': df['sources'],
                                self.data: df[column_of_interest]})
@@ -248,12 +250,6 @@ class Pointwize():
                                 self.data: df[column_of_interest]})
             
 
-        if self.change:
-            df = self.geotiff_time_difference(df)
-            df = df.dropna()
-            ref_time = df['time'].min()
-            data = df.copy(deep=True)
-            df[self.data] = df[self.data] - data[self.data][data['time'] == ref_time]
         
         if add_result:
             if len(self.results[self.get_label(index)]) == 0:
@@ -263,10 +259,23 @@ class Pointwize():
             self.results[self.get_label(index)] = df
 
 
-    def geotiff_time_difference(self, df):
-        zero = df[df['time'] == df.time.min()][self.data].values[0]
-        df[self.data] = df[self.data] - zero
-        return df
+    def gpd_time_difference(self, time, data, year=2020):
+        time = np.array(time)
+        data = np.array(data)
+        print(time)
+        if year == None:
+            ref_time = min(time[data != np.nan])
+        elif type(year) == int:
+            print(sorted(time, key=lambda x: abs(x - datetime.datetime(year, 1, 1))))
+            ref_time = sorted(time, key=lambda x: abs(x - datetime.datetime(year, 1, 1)))[0]
+
+        print(ref_time)
+
+        data = data - data[time == ref_time]
+        print(data)
+
+        return time, data
+
 
 
     def plot_time_series(self, fig, ax, rema=False, unified_line=False):
@@ -276,7 +285,6 @@ class Pointwize():
             print('No values found for time series.')
             return
 
-        print(self.results)
 
 
         shapes = ['s', '^', 'D']
@@ -287,7 +295,6 @@ class Pointwize():
 
 
 
-        
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
@@ -312,11 +319,6 @@ class Pointwize():
                 ax.plot(self.results[p]['time'], 
                         self.results[p][self.data].values, label = p, marker= 'o', color=color, linestyle=ls)
 
-            print()
-            print()
-            print()
-            print()
-            print(self.results[p].columns)
             if self.data +'_xerr' in self.results[p].columns:
                 ax.errorbar(self.results[p]['time'], 
                             self.results[p][self.data].values, marker= shapes[i], xerr= self.results[p][self.data +'_xerr'],
@@ -326,8 +328,6 @@ class Pointwize():
                             self.results[p][self.data].values, marker= shapes[i], 
                             xerr= [self.results[p][self.data +'_xerr_min'], self.results[p][self.data +'_xerr_max']],
                             fmt='none')
-                print("AAA ERROR FOUND")
-                print([self.results[p][self.data +'_xerr_min'], self.results[p][self.data +'_xerr_max']])
 
 
             if self.data +'_yerr' in self.results[p].columns:
@@ -354,11 +354,11 @@ class Pointwize():
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
-        #bad_out = out.copy(deep=True)
+        bad_out = out.copy(deep=True)
         out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
 
 
-        #ax.plot(bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom', ls = ':', alpha=0.5)
+        ax.plot(bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom', ls = ':', alpha=0.5)
         ax.plot(out['real_elevation1'] - out['THICK'], out['dist_from_grndline'].values, marker= 'None', color=color, label='Bed')
         
         ax.legend()
@@ -392,8 +392,6 @@ class Pointwize():
         
         for p, point in enumerate(self.points):
             new_df = filemanager.get_point_data(point)
-            if self.change:
-                new_df = self.geotiff_time_difference(new_df)
             self.results[self.get_label(p)] = pd.concat([self.results[self.get_label(p)], new_df])
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
 
