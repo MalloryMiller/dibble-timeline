@@ -29,7 +29,6 @@ class Plotting:
 
         self.extent = extent
         self.basin_extent = basin_extent
-        print("Reading trend file...")
         if get_elevation:
             self.gdf = gpd.read_file(ELEVATION_LOCATION) #base for the elevation df size
         else:

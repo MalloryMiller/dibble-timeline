@@ -100,6 +100,7 @@ class FileManager:
                     
             all_files.append(cur_df)
 
+
         if len(all_files) == 0:
             return
 
@@ -116,6 +117,7 @@ class FileManager:
             
             self.file = xr.concat(all_files, dim=years, join='outer')
             self.file = self.file.rename({'concat_dim': 'year'})
+
 
         return self.file
 
@@ -861,16 +863,16 @@ class IPRManager(FileManager):
 
 class FirnAirManager(FileManager):
 
-    def __init__(self, xlims, ylims, flags, data, label='', source=2):
+    def __init__(self, xlims, ylims, flags, data, label='', source=0):
         
         ftype='csv'
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
-        self.gpkg_source = "Open Polar Radar, 2024"
 
-        self.start_band_year = [1950, 2015, 2015][source]
+        self.start_band_year = [1950, 2015, 2015]
 
-        self.source_firn_file = [HISTORIC_FIRN_TIF, SSP585_FIRN_TIF, SSP126_FIRN_TIF][source]
-        self.tif_source = ["Veldhuijsen, 2024 (Historic)", "Veldhuijsen, 2024 (SSP585)", "Veldhuijsen, 2024 (SSP126)"][source]
+        self.source_firn_file = [HISTORIC_FIRN_TIF, SSP585_FIRN_TIF, SSP126_FIRN_TIF]
+        self.tif_source = ["Historic (Veldhuijsen, 2024)", "SSP585 (Veldhuijsen, 2024)", "SSP126 (Veldhuijsen, 2024)"]
+        self.source = source
         
     
 
@@ -878,7 +880,7 @@ class FirnAirManager(FileManager):
         return self.build_firn_files()
 
     def get_firn_fname(self, year):
-        source_label = self.source_firn_file.split('/')[-1].split('.')[0]
+        source_label = self.source_firn_file[self.source].split('/')[-1].split('.')[0]
         return OUTPUT + 'firn_air/' + str(year) + "_" + self.label + "_" + source_label + ".tif"
 
     
@@ -896,13 +898,14 @@ class FirnAirManager(FileManager):
         String[]
             list of the generated data files
         '''
+
         for x in range(self.yearStart, self.yearEnd):
-            if x - self.start_band_year + 1 < 0:
+            if x - self.start_band_year[self.source] + 1 < 0:
                 pass
             try:
-                gdal.Translate(self.get_firn_fname(x), self.source_firn_file, bandList=[x - self.start_band_year + 1])
+                gdal.Translate(self.get_firn_fname(x), self.source_firn_file[self.source], bandList=[x - self.start_band_year[self.source] + 1])
             except RuntimeError as e:
-                print("No firn air data for " + self.tif_source + " at year " + str(x))
+                print("No firn air data for " + self.tif_source[self.source] + " at year " + str(x))
                 print(e)
                 
 
@@ -915,7 +918,6 @@ class FirnAirManager(FileManager):
         fnames = []
         found_years = []
         sources = []
-
         for year in range(self.yearStart, self.yearEnd):
             f = self.get_firn_fname(year)
             
@@ -924,12 +926,7 @@ class FirnAirManager(FileManager):
 
             fnames.append(f)
             found_years.append(datetime.datetime(year, 1, 1))
-            sources.append(self.tif_source)
-
-
-        print(fnames)
-        print(found_years)
-        print(sources)
+            sources.append(self.tif_source[self.source])
             
         return fnames, found_years, sources
     

@@ -16,7 +16,7 @@ from photutils.aperture import CircularAperture
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True):
+    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True, time_diff_year = 2020):
         self.flags = flags
         self.xlim = xlim
         self.ylim = ylim
@@ -25,6 +25,7 @@ class Pointwize():
         self.point_label = str(int(points[0])) + '_' + str(int(points[1]))
         self.data = data
         self.change = change
+        self.time_diff_year = time_diff_year
         self.pt_range = pt_range
         self.labels = []
 
@@ -127,7 +128,7 @@ class Pointwize():
 
 
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=False, date_col='date'):
+    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=True, date_col='date'):
 
         '''rename_for_datasource = {'elev': {'_xerr': '_xerr'},
                                  'gl': {}}
@@ -213,7 +214,7 @@ class Pointwize():
             self.results[self.get_label(index)] = df
 
     
-    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data', add_result=False):
+    def geotiff_geom_match(self, out, index, column_of_interest = 'band_data', add_result=True):
         p = self.points[index]
 
         df = out.sel(x=p[1], y=p[0], method='nearest')
@@ -236,43 +237,44 @@ class Pointwize():
                 new_dates = df['time'].values
 
         df[time_dim] = new_dates
+
+        values = df[column_of_interest]
         
         if self.change:
-            print(df[column_of_interest])
-            self.gpd_time_difference(new_dates, df[column_of_interest].values)
+            new_dates, values = self.gpd_time_difference(new_dates, df[column_of_interest])
 
         if 'sources' in df.variables:
             df = pd.DataFrame({'time': new_dates, 'sources': df['sources'],
-                               self.data: df[column_of_interest]})
+                               self.data: values})
 
         else:
             df = pd.DataFrame({'time': new_dates,
-                                self.data: df[column_of_interest]})
+                                self.data: values})
             
 
         
         if add_result:
-            if len(self.results[self.get_label(index)]) == 0:
+            if self.get_label(index) not in self.results.keys() or len(self.results[self.get_label(index)]) == 0:
                 self.results[self.get_label(index)] = df
-            self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
+            else:
+                self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
         else:
             self.results[self.get_label(index)] = df
 
 
-    def gpd_time_difference(self, time, data, year=2020):
+    def gpd_time_difference(self, time, data):
         time = np.array(time)
         data = np.array(data)
-        print(time)
-        if year == None:
+        if self.time_diff_year == None:
             ref_time = min(time[data != np.nan])
-        elif type(year) == int:
-            print(sorted(time, key=lambda x: abs(x - datetime.datetime(year, 1, 1))))
-            ref_time = sorted(time, key=lambda x: abs(x - datetime.datetime(year, 1, 1)))[0]
+        elif type(self.time_diff_year) == int:
+            ref_time = sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1)))[0]
 
-        print(ref_time)
-
-        data = data - data[time == ref_time]
-        print(data)
+        
+        if self.change == '%':
+            data = ((data - data[time == ref_time]) / abs(data[time == ref_time])) * 100
+        else:
+            data = data - data[time == ref_time]
 
         return time, data
 
@@ -396,7 +398,7 @@ class Pointwize():
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
 
 
-    def get_data(self, rema=False):
+    def get_data(self, rema=False, firn_source=-1):
 
         type_info = {
             'vel': 'band_data',
@@ -417,7 +419,16 @@ class Pointwize():
             self.get_gl_set(GL_GPKG_radar, ['date'], 'Open Polar Radar, 2024')
             return 
 
-        filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
+        if self.data == 'firn' and firn_source == -1:
+            self.get_data(firn_source=0)
+            self.get_data(firn_source=1)
+            self.get_data(firn_source=2)
+            return
+        elif self.data == 'firn':
+            filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data, source=firn_source)
+        else:
+            filemanager = fms[self.data](self.xlim, self.ylim, self.flags, self.data)
+
         print('getting output')
         out = filemanager.get_ouput_files()
         print('comparing points')
@@ -431,6 +442,7 @@ class Pointwize():
                 return
             
             self.results[self.get_label(p)] = self.results[self.get_label(p)].sort_values('time')
+
         if rema and self.data == 'elev':
             return self.get_data_rema()
 

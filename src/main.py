@@ -95,7 +95,7 @@ class main():
         #print(self.build_files())
         #print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
-        #print(self.build_files(data='firn'))
+        print(self.build_files(data='firn'))
 
         #self.get_elevation_error()
 
@@ -204,35 +204,36 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['elev', 'vel', 'grav', 'firn', 'gl'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
-            'vel': "Velocity Change (m/y)",
+            'vel': "Velocity Change since 2020 (%)",
             'elev': 'Elevation Change since 2020 (m)',
-            'grav': 'Gravimetry Change since 2011 (kg/m²)',
+            'grav': 'Gravimetry Change since 2020 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
         }
 
 
         can_change = {
-            'vel': True,
+            'vel': '%',
             'elev': True,
-            'grav': False,
+            'grav': True,
             'gl': False,
             'firn': False,
         }
 
         if not change:
+            labels['grav'] = 'Gravimetry Change since 2011 (kg/m²)',
             labels['elev'] = 'Elevation (m)'
             labels['vel'] = 'Velocity (m/y)'
 
 
-        gl_elevation_width = 0.35
+        gl_elevation_width = 0.45
 
         width_ratios = [1, 0]
         if 'gl' in data:
-            width_ratios = [1-gl_elevation_width, gl_elevation_width - .2]
+            width_ratios = [2-gl_elevation_width, gl_elevation_width - .2]
         if len(data) == 1:
             data.append('')
 
@@ -240,7 +241,7 @@ class main():
         fig.set_figheight(3*len(data))
 
         if width_ratios[1] > 1:
-            fig.set_figwidth(4)
+            fig.set_figwidth(6)
 
 
         for i, d in enumerate(data):
@@ -269,13 +270,15 @@ class main():
 
             ax[i][0].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
 
-            ax[i][0].legend()
+            
             if i == len(data)-1:
                 ax[i][0].set_xlabel('Year')
 
             if d == 'gl':
                 p.plot_elevation_summary(fig, ax[i][1])
+                ax[i][0].legend()
             else:
+                ax[i][0].legend(loc='lower left')
                 ax[i][1].set_visible(False)
 
 
