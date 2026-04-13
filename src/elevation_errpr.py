@@ -141,6 +141,7 @@ class ElevationError():
         too_big = xr.DataArray(too_big, coords=ref.coords)
         too_big.rio.write_crs("EPSG:3031", inplace=True)
 
+        print(too_big)
         
 
         

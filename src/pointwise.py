@@ -370,7 +370,6 @@ class Pointwize():
 
         ymin = dataset.min()
         ymax = dataset.max()
-        print(ymin, ymax)
 
         ypadd = 0.05 * (ymax - ymin)
         if np.isnan(ypadd):

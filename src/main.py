@@ -95,7 +95,7 @@ class main():
         #print(self.build_files())
         #print(self.build_files(data='elev'))
         #print(self.build_files(data='rema'))
-        print(self.build_files(data='firn'))
+        #print(self.build_files(data='firn'))
 
         #self.get_elevation_error()
 
@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['firn', 'vel', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['vel', 'elev', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",

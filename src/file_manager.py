@@ -763,8 +763,8 @@ class ElevationManager(FileManager):
         ref_file = ref_file.sort_values(by='date')
         ref_file.drop_duplicates()
 
-        lat_g, lon_g, new_vals_g, dates_g = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE, False, to_build=2011)
-        lat_f, lon_f, new_vals_f, dates_f = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE_FLOATING, True, to_build=2011)
+        lat_g, lon_g, new_vals_g, dates_g = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE, False, to_build=to_build)
+        lat_f, lon_f, new_vals_f, dates_f = self.apply_rate_(ref_file, ICESAT1_ELEVATION_RATE_FLOATING, True, to_build=to_build)
 
         lat = lat_g + lat_f
         lon = lon_g + lon_f
