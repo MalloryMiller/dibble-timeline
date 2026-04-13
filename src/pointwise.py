@@ -280,17 +280,33 @@ class Pointwize():
 
 
 
-    def plot_time_series(self, fig, ax, rema=False, unified_line=False):
+    def plot_time_series(self, fig, ax, rema=False, unified_line=False, plot_range=None):
         if not self.results:
             self.get_data(rema)
         if not self.results:
             print('No values found for time series.')
             return
 
-
+        if plot_range == None:
+            plot_range = [datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)]
 
         shapes = ['s', '^', 'D']
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+
+
+        all_results_time = self.results[list(self.results.keys())[0]]['time']
+        all_results_values = self.results[list(self.results.keys())[0]][self.data]
+        for p in self.results.keys():
+            if p == list(self.results.keys())[0]:
+                continue
+            all_results_time =  np.concat([all_results_time, self.results[p]['time']])
+            all_results_values = np.concat([all_results_values, self.results[p][self.data]])
+
+        self.set_range_only_in_frame(ax, all_results_time, all_results_values, plot_range, 'y')
+        ax.set_xlim((plot_range[0], plot_range[1]))
+        
+
+
         if 'sources' in self.results[list(self.results.keys())[0]].columns:
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
                 ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
@@ -347,11 +363,18 @@ class Pointwize():
 
 
     def get_dataset_display_range(self, dataset):
+        dataset= np.array(dataset)
+        dataset = dataset[~np.isnan(dataset)]
+        if len(dataset) == 0:
+            return False
 
-        ymin = min(dataset)
-        ymax = max(dataset)
+        ymin = dataset.min()
+        ymax = dataset.max()
+        print(ymin, ymax)
 
         ypadd = 0.05 * (ymax - ymin)
+        if np.isnan(ypadd):
+            return False
         return [ymin - np.abs(ypadd), ymax + np.abs(ypadd)]
 
     def plot_elevation_summary(self, fig, ax):
@@ -382,24 +405,41 @@ class Pointwize():
         ax.yaxis.set_label_position("right")
 
         #ax.set_xlim(-1800, -1450)
-        self.set_range_only_in_frame(ax, , self.results[''][self.data].values, y_lims, 'x')
+        self.set_range_only_in_frame(ax, bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, y_lims, 'x')
 
 
         #ax.set_ylabel("Grounding Line Change (m)")
         ax.set_xlabel("Elevation (m)")
 
 
-    def set_range_only_in_frame(self, ax, x, y, range, axis):
+    def set_range_only_in_frame(self, ax, x, y, other_axis_range, axis):
+        print()
 
-        if 'x' in axis:
-            key_area = x.where(y > range[0] and y < range[1])
-            lims = self.get_dataset_display_range(key_area)
-            ax.set_xlim(lims[0], lims[1])
+        axis_params = {
+            'x': {
+                'to_crop': x,
+                'crop_by': y,
+                'set_axis': ax.set_xlim,
+                'set_other_axis': ax.set_ylim
+            },
 
-        if 'y' in axis:
-            key_area = y.where(x > range[0] and x < range[1])
-            lims = self.get_dataset_display_range(key_area)
-            ax.set_ylim(lims[0], lims[1])
+            'y': {
+                'to_crop': y,
+                'crop_by': x,
+                'set_axis': ax.set_ylim,
+                'set_other_axis': ax.set_xlim
+            }
+        }
+
+        key_area = axis_params[axis]['to_crop'].copy()
+        key_area[axis_params[axis]['crop_by'] < min(other_axis_range)] = np.nan
+        key_area[axis_params[axis]['crop_by'] > max(other_axis_range)] = np.nan
+        lims = self.get_dataset_display_range(key_area)
+        if not lims:
+            return
+        axis_params[axis]['set_axis'](lims[0], lims[1])
+        axis_params[axis]['set_other_axis'](other_axis_range[0], other_axis_range[1])
+
 
         
 

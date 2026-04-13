@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['elev', 'vel', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['firn', 'vel', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
@@ -259,7 +259,7 @@ class main():
             p = Pointwize(f, self.xlim, self.ylim, 
                         point['point'], data = d, change=change and can_change[d],
                         pt_range = point['point_range'], point_spacing=point['point_spacing'])
-            p.plot_time_series(fig, ax[i][0], rema=rema)
+            p.plot_time_series(fig, ax[i][0], rema=rema, plot_range=[datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)])
             if i == 0:
                 p.save_point_df() # save the points df after first one was made
                 plt.close('all')
@@ -268,7 +268,6 @@ class main():
             ax[i][0].set_ylabel(labels[d])
             ax[i][0].grid()
 
-            ax[i][0].set_xlim((datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)))
 
             
             if i == len(data)-1:
