@@ -204,7 +204,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['elev', 'vel', 'grav', 'firn', 'gl'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['elev', 'vel', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
@@ -241,7 +241,7 @@ class main():
         fig.set_figheight(3*len(data))
 
         if width_ratios[1] > 1:
-            fig.set_figwidth(6)
+            fig.set_figwidth(8)
 
 
         for i, d in enumerate(data):

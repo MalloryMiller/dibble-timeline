@@ -346,6 +346,14 @@ class Pointwize():
                 return
 
 
+    def get_dataset_display_range(self, dataset):
+
+        ymin = min(dataset)
+        ymax = max(dataset)
+
+        ypadd = 0.05 * (ymax - ymin)
+        return [ymin - np.abs(ypadd), ymax + np.abs(ypadd)]
+
     def plot_elevation_summary(self, fig, ax):
             
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
@@ -367,22 +375,33 @@ class Pointwize():
         ax.grid()
 
 
-        ymin = min(self.results[''][self.data].values)
-        ymax = max(self.results[''][self.data].values)
+        y_lims = self.get_dataset_display_range(self.results[''][self.data].values)
 
-        ypadd = 0.05 * (ymax - ymin)
-
-        ax.set_ylim(ymin - np.abs(ypadd), ymax + np.abs(ypadd))
+        ax.set_ylim(y_lims[0], y_lims[1])
         ax.yaxis.tick_right()
         ax.yaxis.set_label_position("right")
 
-        ax.set_xlim(-1800, -1450)
+        #ax.set_xlim(-1800, -1450)
+        self.set_range_only_in_frame(ax, , self.results[''][self.data].values, y_lims, 'x')
 
 
         #ax.set_ylabel("Grounding Line Change (m)")
         ax.set_xlabel("Elevation (m)")
 
 
+    def set_range_only_in_frame(self, ax, x, y, range, axis):
+
+        if 'x' in axis:
+            key_area = x.where(y > range[0] and y < range[1])
+            lims = self.get_dataset_display_range(key_area)
+            ax.set_xlim(lims[0], lims[1])
+
+        if 'y' in axis:
+            key_area = y.where(x > range[0] and x < range[1])
+            lims = self.get_dataset_display_range(key_area)
+            ax.set_ylim(lims[0], lims[1])
+
+        
 
     def get_data_rema(self):
 
