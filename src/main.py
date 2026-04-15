@@ -90,14 +90,19 @@ class main():
             return 
         
 
-        #print(self.build_files(dim='x'))
-        #print(self.build_files(dim='y'))
-        #print(self.build_files())
-        #print(self.build_files(data='elev'))
-        #print(self.build_files(data='rema'))
-        #print(self.build_files(data='firn'))
 
-        #self.get_elevation_error()
+        to_build = self.flags.rebuilding()
+
+        for x in to_build:
+            if x == 'velx':
+                print(self.build_files(dim='x'))
+            elif x == 'vely':
+                print(self.build_files(dim='y'))
+            elif x == 'vel':
+                print(self.build_files())
+            else:
+                print(self.build_files(data=x))
+
 
 
         if self.flags.chart_type() == 'points':
@@ -106,18 +111,20 @@ class main():
             for i in points:
                 self.get_points_timeline(i)
             
+        if self.flags.chart_type() == 'elev-error':
+            self.get_elevation_error()
 
 
 
-        #e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
-        #e.filter_clouds()
-        '''for x in range(self.flags.YEARSTART, self.flags.YEAREND):
-            self.coregister_rema(x)'''
-        #self.test_coregister_rema()
+            #e = ElevationError('2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif', get_icesat_match=False)
+            #e.filter_clouds()
+            '''for x in range(self.flags.YEARSTART, self.flags.YEAREND):
+                self.coregister_rema(x)'''
+            #self.test_coregister_rema()
 
-        
-        '''ee = ElevationError(None) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
-        ee.stack('test_2022/01')'''
+            
+            '''ee = ElevationError(None) #'2022/SETSM_s2s041_WV01_20220109_10200100BD005100_10200100BD3E7600_2m_lsf_seg1_dem_2022-01-09T00:00:00Z.tif')
+            ee.stack('test_2022/01')'''
         
 
     def coregister_rema(self, year, override=False, clean=True):
@@ -216,8 +223,8 @@ class main():
 
 
         can_change = {
-            'vel': '%',
-            'elev': True,
+            'vel': 'interp%',
+            'elev': 'interp',
             'grav': True,
             'gl': False,
             'firn': False,

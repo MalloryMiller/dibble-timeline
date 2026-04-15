@@ -279,7 +279,6 @@ class VelocityManager(FileManager):
         
         self.close()
 
-        #years_found = []
         progress = LoadingBar()
         print("Opening " + ", ".join(self.sources) + " data.")
         self.get_tif_data(base=True)

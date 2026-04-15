@@ -265,16 +265,42 @@ class Pointwize():
     def gpd_time_difference(self, time, data):
         time = np.array(time)
         data = np.array(data)
-        if self.time_diff_year == None:
-            ref_time = min(time[data != np.nan])
-        elif type(self.time_diff_year) == int:
-            ref_time = sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1)))[0]
 
-        
-        if self.change == '%':
-            data = ((data - data[time == ref_time]) / abs(data[time == ref_time])) * 100
+        if type(self.change) != bool and 'interp' in self.change:
+            ref_pre = np.array(sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1))))
+            ref_post = np.array(sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1))))
+            ref_pre = ref_pre[ref_pre < datetime.datetime(self.time_diff_year, 1, 1)]
+            ref_post = ref_post[ref_post > datetime.datetime(self.time_diff_year, 1, 1)]
+
+            if len(ref_pre) == 0 and len(ref_post) == 0:
+                return
+            elif len(ref_pre) == 0:
+                ref = data[time == ref_post[0]]
+            elif len(ref_post) == 0:
+                ref = data[time == ref_pre[0]]
+            else:
+                ref_pre = ref_pre[0]
+                ref_post = ref_post[0]
+                dif = data[time == ref_post] - data[time == ref_pre]
+
+                perc = 1 - ((datetime.datetime(self.time_diff_year, 1, 1) - ref_post) / (ref_pre - ref_post))
+
+                ref = data[time == ref_pre] + (dif * perc)
+
         else:
-            data = data - data[time == ref_time]
+            if self.time_diff_year == None:
+                ref_time = min(time[data != np.nan])
+            elif type(self.time_diff_year) == int:
+                ref_time = sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1)))[0]
+
+            ref = data[time == ref_time]
+
+            
+        
+        if type(self.change) != bool and '%' in self.change:
+            data = ((data - ref) / abs(ref)) * 100
+        else:
+            data = data - ref
 
         return time, data
 
@@ -290,6 +316,7 @@ class Pointwize():
         if plot_range == None:
             plot_range = [datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)]
 
+        shapes_set = {}
         shapes = ['s', '^', 'D']
         sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
 
@@ -309,7 +336,8 @@ class Pointwize():
 
         if 'sources' in self.results[list(self.results.keys())[0]].columns:
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
-                ax.plot([], [], label = s, marker= shapes[i], color=sm.to_rgba(0), linestyle='None')
+                shapes_set[s] = shapes[i]
+                ax.plot([], [], label = s, marker= shapes_set[s], color=sm.to_rgba(0), linestyle='None')
 
 
 
@@ -332,29 +360,30 @@ class Pointwize():
                     cur = self.results[p][self.results[p]['sources'] == s]
                     
                     ax.plot(cur['time'], 
-                            cur[self.data].values, marker= shapes[i], color=color, linestyle=ls)
+                        cur[self.data].values, marker= shapes_set[s], color=color, linestyle=ls)
             else:
                 ax.plot(self.results[p]['time'], 
                         self.results[p][self.data].values, label = p, marker= 'o', color=color, linestyle=ls)
 
+
             if self.data +'_xerr' in self.results[p].columns:
                 ax.errorbar(self.results[p]['time'], 
-                            self.results[p][self.data].values, marker= shapes[i], xerr= self.results[p][self.data +'_xerr'],
+                            self.results[p][self.data].values, marker= '', xerr= self.results[p][self.data +'_xerr'],
                             fmt='none')
             elif self.data +'_xerr_min' in self.results[p].columns:
                 ax.errorbar(self.results[p]['time'], 
-                            self.results[p][self.data].values, marker= shapes[i], 
+                            self.results[p][self.data].values, marker= '', 
                             xerr= [self.results[p][self.data +'_xerr_min'], self.results[p][self.data +'_xerr_max']],
                             fmt='none')
 
 
             if self.data +'_yerr' in self.results[p].columns:
                 ax.errorbar(self.results[p]['time'], 
-                            self.results[p][self.data].values, marker= shapes[i], yerr= self.results[p][self.data +'_yerr'],
+                            self.results[p][self.data].values, marker= '', yerr= self.results[p][self.data +'_yerr'],
                             fmt='none')
             elif self.data +'_yerr_min' in self.results[p].columns:
                 ax.errorbar(self.results[p]['time'], 
-                            self.results[p][self.data].values, marker= shapes[i], 
+                            self.results[p][self.data].values, marker= '', 
                             xerr= [self.results[p][self.data +'_yerr_min'], self.results[p][self.data +'_yerr_max']],
                             fmt='none')
 
@@ -412,7 +441,6 @@ class Pointwize():
 
 
     def set_range_only_in_frame(self, ax, x, y, other_axis_range, axis):
-        print()
 
         axis_params = {
             'x': {

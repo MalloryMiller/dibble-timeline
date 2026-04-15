@@ -44,14 +44,26 @@ class Flags():
 
         ]
         self.chart_flags = [
-            '-points'
+            '-points',
+            '-elev-error'
+        ]
+
+        self.rebuild_flags = [
+            '-rebuild',
+            '-rebuild:vel',
+            '-rebuild:firn',
+            '-rebuild:elev',
+            '-rebuild:velx',
+            '-rebuild:vely',
+            '-rebuild:rema',
         ]
 
 
-        self.all_flags = ['-datelabel', '-rebuild']
+        self.all_flags = ['-datelabel']
         self.all_flags.extend(self.source_v_flags)
         self.all_flags.extend(self.combo_flags)
         self.all_flags.extend(self.chart_flags)
+        self.all_flags.extend(self.rebuild_flags)
         self.YEARSTART = 2000
         self.YEAREND = 2025
         
@@ -176,11 +188,22 @@ class Flags():
         String
             String that reflects one of the flags selected in the chart category.
         '''
+        build_all = False
+        to_build = []
 
         if '-rebuild' in self.flags:
-            return 'rebuild'
+            build_all = True
+
+        for x in self.rebuild_flags:
+            if x == '-rebuild':
+                continue
+            cur = x.split(':')[-1]
+
+            if x in self.flags or build_all:
+                to_build.append(cur)
+
         
-        return ''
+        return to_build
 
     def chart_type(self):
         '''
@@ -200,5 +223,7 @@ class Flags():
 
         if '-points' in self.flags:
             return 'points'
+        if '-elev-error' in self.flags:
+            return 'elev-error'
         
         return ''

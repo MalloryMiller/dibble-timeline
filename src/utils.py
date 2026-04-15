@@ -33,10 +33,11 @@ POINT_LISTS = {
 POINT_LISTS2 = {
 
     'Dibble' : [
+        
         {
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-2, 4],
-            'point_spacing': 17000
+            'point_range': [-5, 5],
+            'point_spacing': 2000
         },
         
         {
