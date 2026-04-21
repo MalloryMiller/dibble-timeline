@@ -25,20 +25,20 @@ POINT_LISTS = {
     'Dibble' : [
         {
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-2, 4],
-            'point_spacing': 17000
+            'point_range': [-5, 5],
+            'point_spacing': 2000
         },
     ]
 }
 POINT_LISTS2 = {
 
     'Dibble' : [
-        
         {
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-5, 5],
-            'point_spacing': 2000
+            'point_range': [-2, 4],
+            'point_spacing': 14000
         },
+        
         
         {
             'point': [-1815410,1852497],
@@ -118,7 +118,8 @@ VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
 FILE_FORMATS = {
     'ItsLive': [
-         "../src/input/velocities/ITS_LIVE_velocity_120m_RGI19A_{0}_v02.nc"
+         "../src/input/velocities/ITS_LIVE_velocity_120m_RGI19A_{0}_v02.nc",
+         "../src/input/velocities/ITS_LIVE_velocity_120m_RGI19A_{0}_v02.1.nc"
     ],
 
     'Measures': [

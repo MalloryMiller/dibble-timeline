@@ -94,6 +94,7 @@ class main():
         to_build = self.flags.rebuilding()
 
         for x in to_build:
+            print(x)
             if x == 'velx':
                 print(self.build_files(dim='x'))
             elif x == 'vely':
@@ -215,8 +216,8 @@ class main():
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
-            'elev': 'Elevation Change since 2020 (m)',
-            'grav': 'Gravimetry Change since 2020 (kg/m²)',
+            'elev': 'Elevation Change since 2020 (%)',
+            'grav': 'Gravimetry Change since 2020 (%)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
         }
@@ -234,6 +235,10 @@ class main():
             labels['grav'] = 'Gravimetry Change since 2011 (kg/m²)',
             labels['elev'] = 'Elevation (m)'
             labels['vel'] = 'Velocity (m/y)'
+        elif type(change) == str and '%' not in change:
+            labels['grav'] = 'Gravimetry Change since 2020 (kg/m²)',
+            labels['elev'] = 'Elevation Change since 2020 (m)'
+            labels['vel'] = 'Velocity Change since 2020 (m/y)'
 
 
         gl_elevation_width = 0.45

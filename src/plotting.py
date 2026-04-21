@@ -15,6 +15,11 @@ from matplotlib.cm import ScalarMappable
 import matplotlib as mpl
 import numpy as np
 
+import cartopy.crs as ccrs
+from matplotlib_scalebar.scalebar import ScaleBar
+from matplotlib_map_utils.core.north_arrow import NorthArrow, north_arrow
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
 
 gpgk_folder_name = 'gpkg_progress'
 
@@ -28,6 +33,7 @@ class Plotting:
     def __init__(self, extent=extent, basin_extent=basin_extent, get_elevation = False):
 
         self.extent = extent
+        self.crs = ccrs.SouthPolarStereo()
         self.basin_extent = basin_extent
         if get_elevation:
             self.gdf = gpd.read_file(ELEVATION_LOCATION) #base for the elevation df size
@@ -189,7 +195,7 @@ class Plotting:
         
         if legend:
             colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
-            fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
+            #fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
         
         
         plt.imshow(img, cmap=cmap, extent = extent, origin='upper', vmin=vmin, vmax=vmax, alpha=alpha, zorder=-10)
@@ -237,6 +243,7 @@ class Plotting:
         if extent:
             plt.xlim(extent[0], extent[1])
             plt.ylim(extent[2],  extent[3])
+
         
         print("Saving image...")
         plt.savefig("velocity_reading.png", dpi=200)
@@ -249,7 +256,11 @@ class Plotting:
         
         if extent == None:
             extent = self.extent
-        fig, ax = plt.subplots()
+        fig = plt.figure()
+
+        #ax = fig.axes(projection=self.crs)
+
+        ax = plt.axes(projection=self.crs)
         
         if velocity:
             self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=vel_a, cmap="bone", label='Velocity from QAntarctica (m/y)')
@@ -286,11 +297,29 @@ class Plotting:
 
 
         ax.legend()
+
         fig.colorbar(sm, ax=ax)
+
+        
         if extent:
             plt.xlim(extent[0], extent[1])
             plt.ylim(extent[2],  extent[3])
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), 
+                  color='gray', 
+                  draw_labels=True, 
+                  dms=True, 
+                  x_inline=False, 
+                  y_inline=False)
+        #gl.top_labels = False
+        #gl.right_labels = False
+        #gl.xformatter = LONGITUDE_FORMATTER
+        #gl.yformatter = LATITUDE_FORMATTER
         
+
+        #ax.set_extent([133.919, 135.926 , -66, -65.478], ccrs.PlateCarree()) #,,-66.039,
+
+        ax.add_artist(ScaleBar(1))
+        north_arrow(ax, location="lower right", rotation={"crs": 3031, "reference": "center"}, scale=0.25)
         print("Saving image...")
         plt.savefig(title, dpi=200)
         print(title)
@@ -329,6 +358,7 @@ class Plotting:
         x_pos = [ extent[1],extent[0], extent[0], extent[1]]
         y_pos = [extent[2], extent[2], extent[3], extent[3]]
         plt.fill(x_pos, y_pos, color=extent_color, edgecolor=extent_line_color, linewidth=linewidth)
+
         
         print("Saving image...")
         plt.savefig("extent.png", dpi=200)
@@ -375,7 +405,7 @@ class Plotting:
         #plt.xlim(-1.65e6, -1.3e6)
         
             
-        fig.colorbar(colorb, orientation='vertical', label=color_label, ax=ax)
+        #fig.colorbar(colorb, orientation='vertical', label=color_label, ax=ax)
             
         print("Saving image...")
         plt.savefig(str(velocities) + "ATL11_" + colm + ".png", dpi=200)

@@ -266,24 +266,27 @@ class Pointwize():
         time = np.array(time)
         data = np.array(data)
 
-        if type(self.change) != bool and 'interp' in self.change:
-            ref_pre = np.array(sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1))))
-            ref_post = np.array(sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1))))
-            ref_pre = ref_pre[ref_pre < datetime.datetime(self.time_diff_year, 1, 1)]
-            ref_post = ref_post[ref_post > datetime.datetime(self.time_diff_year, 1, 1)]
+        ref_datetime = datetime.datetime(self.time_diff_year, 1, 1)
+
+        if type(self.change) != bool and 'interp' in self.change and ref_datetime not in time and np.datetime64(ref_datetime) not in time:
+            ref_pre = np.array(sorted(time[data != np.nan], key=lambda x: abs(np.datetime64(x) - np.datetime64(ref_datetime))))
+            ref_post = np.array(sorted(time[data != np.nan], key=lambda x: abs(np.datetime64(x) - np.datetime64(ref_datetime))))
+            ref_pre = ref_pre[ref_pre < ref_datetime]
+            ref_post = ref_post[ref_post > ref_datetime]
+
 
             if len(ref_pre) == 0 and len(ref_post) == 0:
                 return
-            elif len(ref_pre) == 0:
+            elif len(ref_pre) == 0 or ref_post[0] - np.datetime64(ref_datetime ) == 0:
                 ref = data[time == ref_post[0]]
-            elif len(ref_post) == 0:
+            elif len(ref_post) == 0 or ref_pre[0] - np.datetime64(ref_datetime ) == 0:
                 ref = data[time == ref_pre[0]]
             else:
                 ref_pre = ref_pre[0]
                 ref_post = ref_post[0]
                 dif = data[time == ref_post] - data[time == ref_pre]
 
-                perc = 1 - ((datetime.datetime(self.time_diff_year, 1, 1) - ref_post) / (ref_pre - ref_post))
+                perc = 1 - ((ref_datetime - ref_post) / (ref_pre - ref_post))
 
                 ref = data[time == ref_pre] + (dif * perc)
 
@@ -306,7 +309,7 @@ class Pointwize():
 
 
 
-    def plot_time_series(self, fig, ax, rema=False, unified_line=False, plot_range=None):
+    def plot_time_series(self, fig, ax, rema=False, unified_line=True, plot_range=None):
         if not self.results:
             self.get_data(rema)
         if not self.results:

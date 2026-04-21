@@ -297,7 +297,6 @@ class VelocityManager(FileManager):
                         if done or not Path(formats.format(str(x), str(int(x) + 1))).is_file():
                             continue
                         
-
                         f = self.get_tif_data(fname=formats.format(str(x), str(int(x) + 1)), source=sources)
 
                         found[sources] = f
