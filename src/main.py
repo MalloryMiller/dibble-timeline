@@ -5,7 +5,7 @@ from utils import *
 
 
 from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  plt
-
+from timeseries import VelTimeSeries
 from elevation_errpr import ElevationError
 from pointwise import Pointwize
 import matplotlib.pyplot as plt
@@ -92,6 +92,9 @@ class main():
 
 
         to_build = self.flags.rebuilding()
+
+        '''t = VelTimeSeries(self.flags, self.xlim, self.ylim, 'vel', years=[2000, 2025])
+        t.generate_charts("Velocity Trends")'''
 
         for x in to_build:
             print(x)
@@ -212,12 +215,12 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['vel', 'elev', 'grav'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['grav', 'vel', 'elev'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
             'elev': 'Elevation Change since 2020 (%)',
-            'grav': 'Gravimetry Change since 2020 (%)',
+            'grav': 'Gravimetry Change since 2020 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
         }
@@ -225,7 +228,7 @@ class main():
 
         can_change = {
             'vel': 'interp%',
-            'elev': 'interp',
+            'elev': 'interp%',
             'grav': True,
             'gl': False,
             'firn': False,
@@ -235,10 +238,10 @@ class main():
             labels['grav'] = 'Gravimetry Change since 2011 (kg/m²)',
             labels['elev'] = 'Elevation (m)'
             labels['vel'] = 'Velocity (m/y)'
-        elif type(change) == str and '%' not in change:
-            labels['grav'] = 'Gravimetry Change since 2020 (kg/m²)',
-            labels['elev'] = 'Elevation Change since 2020 (m)'
-            labels['vel'] = 'Velocity Change since 2020 (m/y)'
+        #elif type(change) == str and '%' not in change:
+        #    labels['grav'] = 'Gravimetry Change since 2020 (kg/m²)',
+        #    labels['elev'] = 'Elevation Change since 2020 (m)'
+        #   labels['vel'] = 'Velocity Change since 2020 (m/y)'
 
 
         gl_elevation_width = 0.45

@@ -252,15 +252,36 @@ class Plotting:
         plt.close('all')
 
 
+    def make_cartopy_plot(self):
+        fig = plt.figure()
+        ax = plt.axes(projection=self.crs)
+
+        return fig, ax
+
+    def add_cartopy_reference_info(self, fig, ax, extent=None):
+
+        if extent:
+            plt.xlim(extent[0], extent[1])
+            plt.ylim(extent[2],  extent[3])
+
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), 
+                  color='gray', 
+                  draw_labels=True, 
+                  dms=True, 
+                  x_inline=False, 
+                  y_inline=False,
+                  alpha=0.5)
+                  
+
+        ax.add_artist(ScaleBar(1))
+        north_arrow(ax, location="lower right", rotation={"crs": 3031, "reference": "center"}, scale=0.25)
+
+
     def plot_df_on_borders(self, df, cmap, norm, c_list, title, grounding_color='red', glacial_color='slategrey', extent=None, velocity=True, vel_a=.75):
         
         if extent == None:
             extent = self.extent
-        fig = plt.figure()
-
-        #ax = fig.axes(projection=self.crs)
-
-        ax = plt.axes(projection=self.crs)
+        fig, ax = self.make_cartopy_plot()
         
         if velocity:
             self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=vel_a, cmap="bone", label='Velocity from QAntarctica (m/y)')
@@ -300,26 +321,9 @@ class Plotting:
 
         fig.colorbar(sm, ax=ax)
 
-        
-        if extent:
-            plt.xlim(extent[0], extent[1])
-            plt.ylim(extent[2],  extent[3])
-        gl = ax.gridlines(crs=ccrs.PlateCarree(), 
-                  color='gray', 
-                  draw_labels=True, 
-                  dms=True, 
-                  x_inline=False, 
-                  y_inline=False)
-        #gl.top_labels = False
-        #gl.right_labels = False
-        #gl.xformatter = LONGITUDE_FORMATTER
-        #gl.yformatter = LATITUDE_FORMATTER
-        
+        self.add_cartopy_reference_info(fig, ax, extent=extent)
 
-        #ax.set_extent([133.919, 135.926 , -66, -65.478], ccrs.PlateCarree()) #,,-66.039,
 
-        ax.add_artist(ScaleBar(1))
-        north_arrow(ax, location="lower right", rotation={"crs": 3031, "reference": "center"}, scale=0.25)
         print("Saving image...")
         plt.savefig(title, dpi=200)
         print(title)
