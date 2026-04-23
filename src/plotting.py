@@ -376,17 +376,19 @@ class Plotting:
         print("Plotting ATL11_" + colm + ".png")
         
         
-        fig, ax = plt.subplots()
+        fig, ax = self.make_cartopy_plot()
+        fig.set_figheight(5.8)
 
         if extent == None:
             extent = self.extent
         
-        self.plot_glacier_borders(fig, ax, grounding_color=grounding_color, glacial_color=glacial_color)
+        self.plot_temporal_grounding_line(fig, ax, cmap='bone_r')
         
         colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
-        plt.title(' '.join(color_label.split(' ')[:-2] + ["(2010-2020)"]))
+        plt.title(' '.join(color_label.split(' ')[:-2]))
         
         gdf.to_crs("EPSG:3031")
+        gdf.plot(column=colm, vmax=vmax, vmin=vmin, cmap=cmap, markersize=3, ax=ax)
         
         
         if velocities == 'trend':
@@ -398,10 +400,7 @@ class Plotting:
         
         
         self.mask_outside(extent=extent)
-        
-        if extent:
-            plt.xlim(extent[0], extent[1])
-            plt.ylim(extent[2],  extent[3])
+        self.add_cartopy_reference_info(fig, ax, extent=extent)
         
         
         # Smith
@@ -409,7 +408,7 @@ class Plotting:
         #plt.xlim(-1.65e6, -1.3e6)
         
             
-        #fig.colorbar(colorb, orientation='vertical', label=color_label, ax=ax)
+        fig.colorbar(colorb, orientation='vertical', label=' '.join(color_label.split(' ')[-2:]), ax=ax)
             
         print("Saving image...")
         plt.savefig(str(velocities) + "ATL11_" + colm + ".png", dpi=200)
@@ -417,15 +416,16 @@ class Plotting:
         
         plt.close('all')
 
+p = Plotting()
 
-
-
+gdf = gpd.read_file(ELEVATION_LOCATION)
+p.plot_col(gdf, 'trend', 1, -1, 'bwr_r', "IceSAT2 (2018-2024) Elevation Trend (m/yr)", velocities=None)
 
 '''
 # EXAMPLE USES:
 
 
-#plot_col(gdf, 'trend', 1, -1, 'bwr_r', "Elevation Trend", velocities='trend')
+#
 #plot_col(gdf, 'uncert', 2, 0, 'Reds', "Elevation Trend", velocities='trend')
 
 
