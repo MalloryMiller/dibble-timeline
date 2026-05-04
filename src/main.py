@@ -233,11 +233,11 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['elev'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
-            'elev': 'Elevation Change since 2020 (%)',
+            'elev': 'Elevation Change since 2020 (m)',
             'grav': 'Gravimetry Change since 2020 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
