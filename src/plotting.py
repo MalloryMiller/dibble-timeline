@@ -146,16 +146,21 @@ class Plotting:
         self.plot_glacier_borders(fig, ax)
         return True
 
-    def plot_gpkg(self, fig, ax, gpkg, coloring=None, cmap='summer'):
+    def plot_gpkg(self, fig, ax, gpkg, coloring=None, cmap='summer', cbar=False):
         gdf = gpd.read_file(gpkg)
         gdf = gdf.to_crs(3031)
+        
         if coloring != None:
-            gdf.plot(ax=ax, column=coloring, cmap=cmap, autolim=False)
+            gdf.plot(ax=ax, column=coloring, cmap=cmap, autolim=False, label=coloring)
+            if cbar:
+                colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=min(gdf[coloring]), vmax=max(gdf[coloring])))
+                fig.colorbar(colorb, orientation='vertical', label=cbar + " " + coloring, ax=ax)
         else:
             gdf.plot(ax=ax, autolim=False)
 
-    def plot_temporal_grounding_line(self, fig, ax, cmap='summer'):
-        self.plot_gpkg(fig, ax, GL_GPKG_InSAR, 'Year', cmap=cmap)
+    def plot_temporal_grounding_line(self, fig, ax, cmap='summer', cbar=False):
+
+        self.plot_gpkg(fig, ax, GL_GPKG_InSAR, 'Year', cmap=cmap, cbar=cbar)
 
     def plot_raw_rema_data(self, na, year):
         try:
@@ -195,7 +200,7 @@ class Plotting:
         
         if legend:
             colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
-            #fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
+            fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
         
         
         plt.imshow(img, cmap=cmap, extent = extent, origin='upper', vmin=vmin, vmax=vmax, alpha=alpha, zorder=-10)
@@ -284,7 +289,7 @@ class Plotting:
         fig, ax = self.make_cartopy_plot()
         
         if velocity:
-            self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=vel_a, cmap="bone", label='Velocity from QAntarctica (m/y)')
+            self.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig, ax, alpha=vel_a, cmap="bone", label='MeASUREs Average Velocity (m/y)')
             self.mask_outside()
         self.plot_temporal_grounding_line(fig, ax)
         
@@ -372,7 +377,7 @@ class Plotting:
 
 
 
-    def plot_col(self, gdf, colm, vmax, vmin, cmap, color_label, grounding_color='black', glacial_color='slategrey', velocities=None, extent=None):
+    def plot_col(self, gdf, colm, vmax, vmin, cmap, color_label, grounding_color='black', glacial_color='slategrey', velocities=None, extent=None, g_cbar=False, g_cmap='bone_r'):
         print("Plotting ATL11_" + colm + ".png")
         
         
@@ -382,7 +387,7 @@ class Plotting:
         if extent == None:
             extent = self.extent
         
-        self.plot_temporal_grounding_line(fig, ax, cmap='bone_r')
+        self.plot_temporal_grounding_line(fig, ax, cmap=g_cmap, cbar=g_cbar)
         
         colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
         plt.title(' '.join(color_label.split(' ')[:-2]))
@@ -416,10 +421,62 @@ class Plotting:
         
         plt.close('all')
 
-p = Plotting()
+        
+    def plot_only_geotiff(self, fname, title, label, vmax, vmin, cmap='RdYlBu', extent=None, gl=True, legend=True):
+        if extent == None:
+            extent = self.extent
+        fig, ax = self.make_cartopy_plot()
+        fig.set_figheight(5.8)
 
-gdf = gpd.read_file(ELEVATION_LOCATION)
-p.plot_col(gdf, 'trend', 1, -1, 'bwr_r', "IceSAT2 (2018-2024) Elevation Trend (m/yr)", velocities=None)
+        colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=vmin, vmax=vmax))
+        plt.title(title)
+        if gl:
+            self.plot_temporal_grounding_line(fig, ax, cmap='bone_r')
+        
+        
+        if extent == None:
+            extent = self.extent
+
+        if gl != 'only':
+        
+            self.plot_geotiff(fname, fig, ax, alpha=1, cmap=cmap, vmin=vmin, vmax=vmax, legend=legend)
+
+
+        self.mask_outside(extent=extent)
+        self.add_cartopy_reference_info(fig, ax, extent=extent)
+        fig.colorbar(colorb, orientation='vertical', label=label, ax=ax)
+            
+        
+        print("Saving image...")
+        name = OUTPUT + "images/" + title + ".png"
+        plt.savefig(name, dpi=200)
+        print(name)
+        
+        plt.close('all')
+
+        
+    def frame(self):
+        p = Plotting()
+        for f in TO_FRAME.keys():
+            if f.strip() == '':
+                p.plot_only_geotiff(INPUT + 'to_frame/' + f, TO_FRAME[f]['title'], TO_FRAME[f]['label'],
+                                    TO_FRAME[f]['vmax'], TO_FRAME[f]['vmin'], cmap=TO_FRAME[f]['cmap'], gl=TO_FRAME[f]['gl'], legend=False)
+
+            else:
+                p.plot_only_geotiff(INPUT + 'to_frame/' + f, TO_FRAME[f]['title'], TO_FRAME[f]['label'],
+                                    TO_FRAME[f]['vmax'], TO_FRAME[f]['vmin'], cmap=TO_FRAME[f]['cmap'], gl=TO_FRAME[f]['gl'], legend=False)
+
+
+    def plot_IPR_range(self, fm, frame):
+        out = fm.get_ouput_files()
+
+        out = out[out['FRAME'] == frame]
+        total_dist=50
+        out['Distance'] = total_dist * ((out['UTCTIMESOD'] - min(out['UTCTIMESOD'])) / (max(out['UTCTIMESOD']) - min(out['UTCTIMESOD'])))
+        print(out) 
+        #8778, 8393,
+        self.plot_col(out, 'Distance', total_dist, 0, 'winter', 'Distance (km)',g_cbar='Grounding Line', g_cmap='magma')
+        
 
 '''
 # EXAMPLE USES:

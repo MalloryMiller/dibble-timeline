@@ -4,11 +4,12 @@ import os
 from utils import *
 
 
-from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  plt
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  IPRManager, plt
 from timeseries import VelTimeSeries
 from elevation_errpr import ElevationError
 from pointwise import Pointwize
 import matplotlib.pyplot as plt
+from plotting import Plotting
 
 
 class main():
@@ -108,6 +109,23 @@ class main():
                 print(self.build_files(data=x))
 
 
+
+        '''t = VelTimeSeries(self.flags, self.xlim, self.ylim, 'vel', years=[2000, 2025])
+        t.generate_charts("Velocity Trends")'''
+
+        '''t = Trends(self.flags, self.xlim, self.ylim, 'vel')
+        t.plot_trends()'''
+        
+        '''p = Profile(self.flags, POINT_LISTS[self.title][0]['point'], self.xlim, self.ylim)
+        p.plot_profile()'''
+        #fm = IPRManager([0,0], [0,0], self.flags, 'elev', 'IPR')
+        #p = Plotting()
+        #p.plot_IPR_range(fm, GL_IPR_FRAME)
+
+
+        if self.flags.chart_type() == 'frame':
+            p = Plotting()
+            p.frame()
 
         if self.flags.chart_type() == 'points':
             self.point_name = self.title
@@ -215,7 +233,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['grav', 'vel', 'elev'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel', 'grav', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
@@ -228,7 +246,7 @@ class main():
 
         can_change = {
             'vel': 'interp%',
-            'elev': 'interp%',
+            'elev': 'interp',
             'grav': True,
             'gl': False,
             'firn': False,

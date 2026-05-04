@@ -326,11 +326,31 @@ class Pointwize():
 
         all_results_time = self.results[list(self.results.keys())[0]]['time']
         all_results_values = self.results[list(self.results.keys())[0]][self.data]
+
+        
+
         for p in self.results.keys():
             if p == list(self.results.keys())[0]:
                 continue
             all_results_time =  np.concat([all_results_time, self.results[p]['time']])
             all_results_values = np.concat([all_results_values, self.results[p][self.data]])
+
+
+        print(all_results_time)
+        print(all_results_values)
+        '''
+
+        for j, p in enumerate(self.results.keys()):
+            self.results[p] = self.results[p].dropna()
+            ls = 'None'
+            color = sm.to_rgba(self.labels[j])
+            ax.plot(self.results[p]['time'], 
+                            self.results[p][self.data].values, marker= 'None', color=color)
+        
+        good_type = []
+        for x in range(len(all_results_time)):
+            good_type.append(pd.to_datetime(all_results_time[x]))'''
+        
 
         self.set_range_only_in_frame(ax, all_results_time, all_results_values, plot_range, 'y')
         ax.set_xlim((plot_range[0], plot_range[1]))
@@ -343,7 +363,7 @@ class Pointwize():
                 ax.plot([], [], label = s, marker= shapes_set[s], color=sm.to_rgba(0), linestyle='None')
 
 
-
+        print(self.results[p].columns)
 
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
@@ -418,6 +438,7 @@ class Pointwize():
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
+        print(out)
         bad_out = out.copy(deep=True)
         out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
 

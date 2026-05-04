@@ -29,6 +29,61 @@ POINT_LISTS = {
         },
     ]
 }
+
+TO_FRAME = {
+    'itslive_trends.tif': {
+        'title': 'ItsLive (2018-2024) Velocity Trends',
+        'label': 'Trend (m/yr²)',
+        'vmin': -10,
+        'vmax': 10,
+        'cmap': 'RdYlGn',
+        'gl': True
+    },
+    'itslive_r2.tif': {
+        'title': ' ItsLive (2018-2024) Velocity Trends ',
+        'label': 'R²',
+        'vmin': 0,
+        'vmax': 1,
+        'cmap': 'Greys_r',
+        'gl': False
+    },
+    'measures_trends.tif': {
+        'title': ' MEaSUREs (2018-2024) Velocity Trends ',
+        'label': 'Trend (m/yr²)',
+        'vmin': -10,
+        'vmax': 10,
+        'cmap': 'RdYlGn',
+        'gl': True
+    },
+    'measures_r2.tif': {
+        'title': ' MEaSUREs (2018-2024) Velocity Trends  ',
+        'label': 'R²',
+        'vmin': 0,
+        'vmax': 1,
+        'cmap': 'Greys_r',
+        'gl': False
+    },
+    '': {
+        'title': '   (2018-2024) Velocity Trends    ',
+        'label': 'Trend',
+        'vmin': 0,
+        'vmax': 1,
+        'cmap': 'Greys_r',
+        'gl': 'only'
+    },
+    ' ': {
+        'title': '  ItsLive (2018-2024) Velocity Trends  ',
+        'label': '',
+        'vmin': 0,
+        'vmax': 1,
+        'cmap': 'Greys_r',
+        'gl': 'only'
+    },
+}
+
+GL_IPR_FRAME = 2019102408003
+
+
 POINT_LISTS2 = {
 
     'Dibble' : [
@@ -161,6 +216,10 @@ MAX_ERR = 5000
 
 REMA_CLOUD_LEVEL = 10
 REMA_BACKGROUND_LEVEL = 0
+
+
+
+OPACITY_CMAP = [0,0,0]
 
 
 def overall_velocity(vx, vy):

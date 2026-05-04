@@ -528,7 +528,7 @@ class ElevationManager(FileManager):
                 continue
 
             if self.data + '_yerr' in df.columns:
-                found_err.append(df[self.data + '_yerr'].values)
+                found_err.append(df['elev_yerr'].values)
 
             found_files.append(df['band_data'].values)
             found_years.append(years[i])
@@ -537,9 +537,9 @@ class ElevationManager(FileManager):
 
         dataset = {'time': found_years,
                            'sources': found_sources,
-                           self.data: found_files}
+                           'elevation': found_files}
         if len(found_err) != 0:
-            dataset[[self.data + '_yerr']] = found_err
+            dataset[['elev_yerr']] = found_err
 
 
 
@@ -662,13 +662,13 @@ class ElevationManager(FileManager):
             dates = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype('M8[Y]')
             track['latitude'] = np.transpose([track['latitude']] * len(track['h_corr'][0]))
             track['longitude'] = np.transpose([track['longitude']] * len(track['h_corr'][0]))
-            track['datetime'] = track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")
+            track['datetime'] = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype('datetime64[s]').astype('int64')
 
             for c in self.file.keys():
                 df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
                                     'longitude': track['longitude'][dates == c].flatten(), 
                                     'elevation': track['h_corr'][dates == c].flatten(),
-                                    'elevation_yerr': track['h_corr_sigma'][dates == c].flatten(),
+                                    'elev_yerr': track['h_corr_sigma'][dates == c].flatten(),
                                     'date': track['datetime'][dates == c].flatten()})
                 df['geometry'] = df.apply(self.pointify, axis=1)
                 self.file[c] = pd.concat([self.file[c], df])
@@ -685,8 +685,9 @@ class ElevationManager(FileManager):
             try:
                 gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
                 gdf_final.to_file(TIF_LOCATION + self.get_elevation_fname(c), driver='GPKG')
-            except:
+            except Exception as e:
                     ('Saving year ' + str(c) + ' gpkg failed.')
+                    print(e)
             
             out_grid = make_geocube(
                 vector_data=gdf_final,
