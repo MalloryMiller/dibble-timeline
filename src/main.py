@@ -233,7 +233,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel', 'grav', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['elev'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",

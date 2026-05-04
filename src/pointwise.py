@@ -513,7 +513,7 @@ class Pointwize():
         type_info = {
             'vel': 'band_data',
             'grav': 'dm',
-            'elev': 'elevation',
+            'elev': 'elev',
             'firn': 'band_data',
         }
         

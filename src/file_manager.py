@@ -497,6 +497,21 @@ class ElevationManager(FileManager):
         return 'rema/raw/' + str(year) + "/"
     
 
+    def get_ouput_files(self):
+        super().get_ouput_files()
+
+        print(self.file)
+        self.file = self.file.rename(columns={'elevation': 'elev', 'elevation_yerr': 'elev_yerr'})
+
+        print(self.file)
+        new_dates = []
+        for x in self.file['date']:
+            new_dates.append(datetime.datetime.fromtimestamp(int(x)))
+
+        self.file['date'] = new_dates
+        print(self.file)
+        return self.file
+
 
     def build_files(self):
         
@@ -527,9 +542,6 @@ class ElevationManager(FileManager):
             if np.isnan(df['band_data'].values) or df['band_data'].values == 0:
                 continue
 
-            if self.data + '_yerr' in df.columns:
-                found_err.append(df['elev_yerr'].values)
-
             found_files.append(df['band_data'].values)
             found_years.append(years[i])
             found_sources.append('Coregistered REMA')
@@ -537,11 +549,7 @@ class ElevationManager(FileManager):
 
         dataset = {'time': found_years,
                            'sources': found_sources,
-                           'elevation': found_files}
-        if len(found_err) != 0:
-            dataset[['elev_yerr']] = found_err
-
-
+                           'elev': found_files}
 
         df = pd.DataFrame(dataset)
         
@@ -667,7 +675,7 @@ class ElevationManager(FileManager):
             for c in self.file.keys():
                 df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
                                     'longitude': track['longitude'][dates == c].flatten(), 
-                                    'elevation': track['h_corr'][dates == c].flatten(),
+                                    'elev': track['h_corr'][dates == c].flatten(),
                                     'elev_yerr': track['h_corr_sigma'][dates == c].flatten(),
                                     'date': track['datetime'][dates == c].flatten()})
                 df['geometry'] = df.apply(self.pointify, axis=1)
@@ -691,13 +699,13 @@ class ElevationManager(FileManager):
             
             out_grid = make_geocube(
                 vector_data=gdf_final,
-                measurements=["elevation"],
+                measurements=["elev"],
                 resolution=(-0.001, 0.001), 
                 output_crs=gdf_final.crs 
             )
 
 
-            out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
+            out_grid["elev"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
 
             gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c), 
                       TIF_LOCATION + self.get_tif_elevation_fname(c),
@@ -740,7 +748,7 @@ class ElevationManager(FileManager):
             
 
             
-            new_vals.append((float(r['elevation']) + float((offset_found))))
+            new_vals.append((float(r['elev']) + float((offset_found))))
             lat.append(r['latitude'])
             lon.append(r['longitude'])
 
@@ -772,7 +780,7 @@ class ElevationManager(FileManager):
 
         df = pd.DataFrame({'latitude': lat,
                             'longitude': lon, 
-                            'elevation': new_vals,
+                            'elev': new_vals,
                             'date': dates})
         df['geometry']  = df.apply(self.pointify, axis=1)
         df = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
@@ -783,13 +791,13 @@ class ElevationManager(FileManager):
 
         out_grid = make_geocube(
             vector_data=self.file[np.datetime64(str(to_build))],
-            measurements=["elevation"],
+            measurements=["elev"],
             resolution=(-0.001, 0.001), 
             output_crs=self.file[np.datetime64(str(to_build))].crs 
         )
 
 
-        out_grid["elevation"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(to_build))
+        out_grid["elev"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(to_build))
 
         gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(to_build), 
                     TIF_LOCATION + self.get_tif_elevation_fname(to_build),
