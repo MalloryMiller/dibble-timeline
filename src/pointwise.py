@@ -127,12 +127,12 @@ class Pointwize():
         pass
 
 
+    def round_date(self, date):
+        return date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=True, date_col='date'):
 
-        '''rename_for_datasource = {'elev': {'_xerr': '_xerr'},
-                                 'gl': {}}
-        out = out.rename(columns=rename_for_datasource[self.data])'''
+    def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date'):
+
         
         if type(index) == int:
             p = self.points[index]
@@ -164,19 +164,33 @@ class Pointwize():
             if x in df_ref.columns:
                 other_items[x] = []
 
-        for x in df_ref[date_col].unique():
-            val = df_ref[df_ref[date_col] == x][column_of_interest].dropna().mean()
+
+        rounded_dates = []
+        for i, x in enumerate(df_ref[date_col]):
+            rounded_dates.append(self.round_date(x))
+        rounded_dates = np.array(rounded_dates)
+        
+
+
+        print(rounded_dates)
+        print(np.unique(rounded_dates))
+
+        for x in np.unique(rounded_dates):
+            val = df_ref[rounded_dates == x][column_of_interest].dropna()
+            
+            val = val.median()
+            
             if np.isnan(val):
                 continue
             if 'sources' in df_ref.columns:
                 
-                src = list(df_ref[df_ref[date_col] == x]['sources'])[0]
+                src = list(df_ref[rounded_dates == x]['sources'])[0]
                 if type(src) != str:
                     src = list(src.values)[0]
                 sources.append(src)
                 
                 for y in other_items.keys():
-                    v = item_combiner[y](list(df_ref[df_ref[date_col] == x][y]))
+                    v = item_combiner[y](list(df_ref[rounded_dates == x][y]))
                     other_items[y].append(v)
                 
 
