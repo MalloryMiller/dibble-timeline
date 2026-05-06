@@ -58,6 +58,13 @@ class Flags():
             '-rebuild:rema',
         ]
 
+        self.point_panel_flags = [
+            '-vel',
+            '-elev',
+            '-grav',
+            '-gl',
+            '-firn',
+        ]
 
         self.all_flags = ['-datelabel']
         self.all_flags.extend(self.source_v_flags)
@@ -227,3 +234,11 @@ class Flags():
             return 'elev-error'
         
         return ''
+
+    def point_panels(self):
+        panels = []
+        for x in self.flags:
+            if x in self.point_panel_flags:
+                panels.append(x[1:])
+
+        return panels
