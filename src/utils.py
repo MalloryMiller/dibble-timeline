@@ -184,6 +184,7 @@ FILE_FORMATS = {
     'Measures': [
         "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.1.nc",
         "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.nc",
+        "../src/input/velocities/Antarctica_ice_velocity_{0}_{1}_1km_v01.2.nc",
     ]
 
 }

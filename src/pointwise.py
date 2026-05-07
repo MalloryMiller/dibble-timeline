@@ -136,7 +136,7 @@ class Pointwize():
         return date
 
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elevation', add_result=True, date_col='date'):
+    def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date'):
 
         '''rename_for_datasource = {'elev': {'_xerr': '_xerr'},
                                  'gl': {}}
@@ -183,10 +183,10 @@ class Pointwize():
                 continue 
             val_arr = val_arr.sort_values(by=date_col)
             val_arr = val_arr.reset_index(drop=True)
-            print(val_arr)
+            
 
             val_arr = val_arr.iloc[len(val_arr)//2]
-            print(val_arr)
+            
             
             val = val_arr[column_of_interest]
 

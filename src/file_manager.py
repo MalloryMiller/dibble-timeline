@@ -69,6 +69,12 @@ class FileManager:
 
         self.file = {}
 
+
+    def chack_valid_path(self, fname):
+        if '.' in fname.split('/')[-1]:
+            fname = '/'.join(fname.split('/')[:-1])
+        os.makedirs(fname,exist_ok=True)
+
     
     def get_ouput_files(self):
         f, years, sources = self.fnames()
@@ -142,8 +148,9 @@ class FileManager:
                 return
             
             #print("Saving image...")
-            plt.savefig('test.png', dpi=200)
-            plt.savefig(TEST_PNG_LOCATION + data_name.split('.')[0] + '.png', dpi=200)
+            path = TEST_PNG_LOCATION + data_name.split('.')[0] + '.png'
+            self.chack_valid_path(path)
+            plt.savefig(path, dpi=200)
             
             plt.close('all')
 
@@ -373,7 +380,6 @@ class VelocityManager(FileManager):
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
 
-                    
                     self.generate_image(tif_to_save, self.get_tif_velocity_fname(x), self.plotter.plot_velocity, x)
 
                 self.file[x] = self.get_velocity_fname(x)
@@ -669,7 +675,6 @@ class ElevationManager(FileManager):
             track['datetime'] = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype(str)
 
             for c in self.file.keys():
-                print(track['datetime'][dates == c])
                 df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
                                     'longitude': track['longitude'][dates == c].flatten(), 
                                     'elev': track['h_corr'][dates == c].flatten(),
@@ -686,7 +691,8 @@ class ElevationManager(FileManager):
             #print(gpd.GeoDataFrame(self.file[np.datetime64(str(c))]))
             if not len(self.file[c]):
                 continue
-
+            
+            self.chack_valid_path(OUTPUT + self.get_elevation_fname(c))
             gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
             gdf_final.to_file(OUTPUT + self.get_elevation_fname(c), driver='GPKG')
 
@@ -765,6 +771,7 @@ class ElevationManager(FileManager):
                             'elev': new_vals,
                             'date': dates})
         df['geometry']  = df.apply(self.pointify, axis=1)
+        self.chack_valid_path(OUTPUT + self.get_elevation_fname(to_build))
         df = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
         df.to_file(OUTPUT + self.get_elevation_fname(to_build), driver='GPKG')
         
@@ -773,7 +780,7 @@ class ElevationManager(FileManager):
 
         out_grid = make_geocube(
             vector_data=self.file[np.datetime64(str(to_build))],
-            measurements=["elevation"],
+            measurements=["elev"],
             resolution=(-0.001, 0.001), 
             output_crs=self.file[np.datetime64(str(to_build))].crs 
         )

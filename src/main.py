@@ -100,8 +100,16 @@ class main():
         for x in to_build:
             print(x)
             if x == 'velx':
-                print(self.build_files(dim='x'))
+                f = self.flags.copy()
+                f.all_flags.remove('-measures')
+                f.all_flags.remove('-itslive')
+                f.add('-itslive')
+                print(self.build_files(dim='x', special_flags=f))
             elif x == 'vely':
+                f = self.flags.copy()
+                f.all_flags.remove('-measures')
+                f.all_flags.remove('-itslive')
+                f.add('-itslive')
                 print(self.build_files(dim='y'))
             elif x == 'vel':
                 print(self.build_files())
@@ -233,11 +241,19 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel', 'grav', 'firn'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+
+
+        a =  self.flags.point_panels() 
+        print()
+        print(a)
+        print()
+        if len(a) != 0:
+            data = a
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
-            'elev': 'Elevation Change since 2020 (%)',
+            'elev': 'Elevation Change since 2020 (m)',
             'grav': 'Gravimetry Change since 2020 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
@@ -284,9 +300,7 @@ class main():
                 continue
 
             
-            f = Flags()
-            for fl in self.flags.flags:
-                f.add(fl)
+            f = self.flags.copy()
             f.add('-2000-2025')
             print(point)
             p = Pointwize(f, self.xlim, self.ylim, 
@@ -322,7 +336,7 @@ class main():
         plt.close('all')
 
 
-    def build_files(self, data='vel', dim=''):
+    def build_files(self, data='vel', dim='', special_flags=None):
         '''
         Generates a single file of the type specified by the dimension if any.
 
@@ -344,8 +358,13 @@ class main():
             'grav': GravimetryManager
         }
 
-        sources = self.flags.sources_v()
-        fm = managers[data](self.xlim, self.ylim, self.flags,
+
+        if special_flags != None:
+            flag = special_flags
+        else:
+            flag = self.flags
+        sources = flag.sources_v()
+        fm = managers[data](self.xlim, self.ylim, flag,
                         data=data+dim)
         fm.build_files()
         if data == 'elev':

@@ -71,8 +71,9 @@ class Flags():
         self.all_flags.extend(self.combo_flags)
         self.all_flags.extend(self.chart_flags)
         self.all_flags.extend(self.rebuild_flags)
-        self.YEARSTART = 2000
-        self.YEAREND = 2025
+        self.all_flags.extend(self.point_panel_flags)
+        self.YEARSTART = 2018
+        self.YEAREND = 2024
         
 
 
@@ -130,7 +131,7 @@ class Flags():
         '''
         
         SOURCES_V = [
-            #'Measures',
+            'Measures',
             'ItsLive',
         ]
                 
@@ -146,11 +147,10 @@ class Flags():
 
         sources = []
 
-        for x in self.flags:
-            if x == '-itslive':
-                sources.append("ItsLive")
-            if x == '-measures':
-                sources.append("Measures")
+        if x == '-itslive' in self.flags:
+            sources.append("ItsLive")
+        if '-measures' in self.flags:
+            sources.append("Measures")
 
         return sources
 
@@ -232,6 +232,8 @@ class Flags():
             return 'points'
         if '-elev-error' in self.flags:
             return 'elev-error'
+        if '-frame' in self.flags:
+            return 'frame'
         
         return ''
 
