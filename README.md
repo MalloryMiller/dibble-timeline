@@ -4,7 +4,7 @@ Python version 3.11
 
 ### Input Setup
 
-The velocity data must be downloaded locally into a folder called `input`. This folder should be directly inside the `src` folder. I also made use of a `shapefiles` folder directly inside the `src` folder.
+All input data must be downloaded locally into a folder called `input`. This folder should be directly inside the `src` folder. I also made use of a `shapefiles` folder directly inside the `src` folder.
 
 #### Velocity
 
