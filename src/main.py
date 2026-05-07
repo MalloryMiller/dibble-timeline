@@ -242,8 +242,6 @@ class main():
     
 
     def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
-<<<<<<< HEAD
-
 
         a =  self.flags.point_panels() 
         print()
@@ -251,8 +249,6 @@ class main():
         print()
         if len(a) != 0:
             data = a
-=======
->>>>>>> main
 
         labels = {
             'vel': "Velocity Change since 2020 (%)",
