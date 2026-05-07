@@ -126,7 +126,6 @@ class Pointwize():
         self.results[''] = self.results[''].sort_values(by='time')
         pass
 
-
     def round_dates(self, date):
         if type(date) != datetime.datetime:
             date = np.datetime64(date).astype(datetime.datetime)
@@ -138,9 +137,6 @@ class Pointwize():
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date'):
 
-        '''rename_for_datasource = {'elev': {'_xerr': '_xerr'},
-                                 'gl': {}}
-        out = out.rename(columns=rename_for_datasource[self.data])'''
         
         if type(index) == int:
             p = self.points[index]
@@ -190,18 +186,21 @@ class Pointwize():
             
             val = val_arr[column_of_interest]
 
-
             if np.isnan(val):
                 continue
             if 'sources' in df_ref.columns:
                 
+
                 src = val_arr['sources']
+
                 if type(src) != str:
                     src = src.values
                 sources.append(src)
                 
                 for y in other_items.keys():
+
                     v = val_arr[y]
+
                     other_items[y].append(v)
                 
 

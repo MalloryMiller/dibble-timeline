@@ -503,6 +503,21 @@ class ElevationManager(FileManager):
         return 'rema/raw/' + str(year) + "/"
     
 
+    def get_ouput_files(self):
+        super().get_ouput_files()
+
+        print(self.file)
+        self.file = self.file.rename(columns={'elevation': 'elev', 'elevation_yerr': 'elev_yerr'})
+
+        print(self.file)
+        new_dates = []
+        for x in self.file['date']:
+            new_dates.append(datetime.datetime.fromtimestamp(int(x)))
+
+        self.file['date'] = new_dates
+        print(self.file)
+        return self.file
+
 
     def build_files(self):
         
@@ -532,9 +547,6 @@ class ElevationManager(FileManager):
 
             if np.isnan(df['band_data'].values) or df['band_data'].values == 0:
                 continue
-
-            if self.data + '_yerr' in df.columns:
-                found_err.append(df['elev_yerr'].values)
 
             found_files.append(df['band_data'].values)
             found_years.append(years[i])
@@ -699,9 +711,10 @@ class ElevationManager(FileManager):
             '''to_tif = make_geocube(
                 vector_data=gdf_final,
                 measurements=["elev"],
+
                 resolution=(-0.1, 0.1),
             )'''
-            
+
             #self.generate_image(to_tif["elev"], TIF_LOCATION + self.get_tif_elevation_fname(cur_track))
 
 
