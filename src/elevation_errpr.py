@@ -99,7 +99,7 @@ class ElevationError():
        
 
         print('converting to dataframe')
-        dataframe = raw_file.to_dataframe(name='elevation').reset_index()
+        dataframe = raw_file.to_dataframe(name='elev').reset_index()
         print('done converting')
         self.raw_file = raw_file
         self.rema = gpd.GeoDataFrame(dataframe,
@@ -206,14 +206,10 @@ class ElevationError():
 
                 arr1 = rioxarray.open_rasterio(reference_pre)
                 arr2 = rioxarray.open_rasterio(reference_post)
-                print(arr1)
                 
                 arr = arr1.copy(deep=True)
                 arr += (arr2 - arr1) * (date_perc) # get % change from pre date to post date
-                print(arr)
                 arr.rio.write_crs("EPSG:3031", inplace=True)
-
-                print(arr)
 
                 arr.rio.to_raster(projected_ref, no_data=np.nan)
                 gdal.Warp(projected_ref, projected_ref,
@@ -281,7 +277,6 @@ class ElevationError():
         #combined.dropna(inplace=True)
 
         mixed = combined['elevation_icesat2'] - combined['elevation_rema']
-        print(mixed)
         combined.insert(0, 'diff', mixed)
 
 
@@ -292,7 +287,6 @@ class ElevationError():
             'left', self.sample_size,
             'combined', 'trend'
         )
-        print(combined)
 
 
         if len(combined) == 0:

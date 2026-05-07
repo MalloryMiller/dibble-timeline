@@ -7,13 +7,12 @@ class ComparisonPlot():
         self.x_data = x
         self.y_data = y
 
-    def get_file_manager(self, data):
     def get_data(self, rema=False, firn_source=-1):
 
         type_info = {
             'vel': 'band_data',
             'grav': 'dm',
-            'elev': 'elevation',
+            'elev': 'elev',
             'firn': 'band_data',
         }
         

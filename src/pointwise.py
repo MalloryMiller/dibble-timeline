@@ -126,9 +126,13 @@ class Pointwize():
         self.results[''] = self.results[''].sort_values(by='time')
         pass
 
+    def round_dates(self, date):
+        if type(date) != datetime.datetime:
+            date = np.datetime64(date).astype(datetime.datetime)
 
-    def round_date(self, date):
-        return date.replace(hour=0, minute=0, second=0, microsecond=0)
+        if type(date) == datetime.date:
+            date = datetime.datetime(date.year, date.month, date.day)
+        return date
 
 
     def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date'):
@@ -164,33 +168,39 @@ class Pointwize():
             if x in df_ref.columns:
                 other_items[x] = []
 
+        grouped_dates = []
+        for x in df_ref[date_col]:
+            grouped_dates.append(self.round_dates(x))
+        grouped_dates = np.array(grouped_dates)
 
-        rounded_dates = []
-        for i, x in enumerate(df_ref[date_col]):
-            rounded_dates.append(self.round_date(x))
-        rounded_dates = np.array(rounded_dates)
-        
-
-
-        print(rounded_dates)
-        print(np.unique(rounded_dates))
-
-        for x in np.unique(rounded_dates):
-            val = df_ref[rounded_dates == x][column_of_interest].dropna()
+        for x in np.unique(grouped_dates):
+            val_arr = df_ref[grouped_dates == x].dropna()
+            if len(val_arr) == 0:
+                continue 
+            val_arr = val_arr.sort_values(by=date_col)
+            val_arr = val_arr.reset_index(drop=True)
             
-            val = val.median()
+
+            val_arr = val_arr.iloc[len(val_arr)//2]
             
+            
+            val = val_arr[column_of_interest]
+
             if np.isnan(val):
                 continue
             if 'sources' in df_ref.columns:
                 
-                src = list(df_ref[rounded_dates == x]['sources'])[0]
+
+                src = val_arr['sources']
+
                 if type(src) != str:
-                    src = list(src.values)[0]
+                    src = src.values
                 sources.append(src)
                 
                 for y in other_items.keys():
-                    v = item_combiner[y](list(df_ref[rounded_dates == x][y]))
+
+                    v = val_arr[y]
+
                     other_items[y].append(v)
                 
 
@@ -198,7 +208,11 @@ class Pointwize():
             data.append(val)
             time.append(x)
 
-        time = np.array(time)
+
+        if type(time[0]) == str:
+            for x in range(len(time)):
+                time[x] = np.datetime64(time[x])
+        time = np.array(time).astype(datetime.datetime)
         data = np.array(data)
         sources = np.array(sources)
 
@@ -350,8 +364,6 @@ class Pointwize():
             all_results_values = np.concat([all_results_values, self.results[p][self.data]])
 
 
-        print(all_results_time)
-        print(all_results_values)
         '''
 
         for j, p in enumerate(self.results.keys()):
@@ -452,7 +464,7 @@ class Pointwize():
         out = df_ref = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
-        print(out)
+        
         bad_out = out.copy(deep=True)
         out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
 

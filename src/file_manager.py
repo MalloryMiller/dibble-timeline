@@ -69,6 +69,12 @@ class FileManager:
 
         self.file = {}
 
+
+    def chack_valid_path(self, fname):
+        if '.' in fname.split('/')[-1]:
+            fname = '/'.join(fname.split('/')[:-1])
+        os.makedirs(fname,exist_ok=True)
+
     
     def get_ouput_files(self):
         f, years, sources = self.fnames()
@@ -142,8 +148,9 @@ class FileManager:
                 return
             
             #print("Saving image...")
-            plt.savefig('test.png', dpi=200)
-            plt.savefig(TEST_PNG_LOCATION + data_name.split('.')[0] + '.png', dpi=200)
+            path = TEST_PNG_LOCATION + data_name.split('.')[0] + '.png'
+            self.chack_valid_path(path)
+            plt.savefig(path, dpi=200)
             
             plt.close('all')
 
@@ -373,7 +380,6 @@ class VelocityManager(FileManager):
                     tif_to_save = to_add.velocity
                     tif_to_save = tif_to_save.rio.set_spatial_dims(x_dim='x', y_dim='y')
 
-                    
                     self.generate_image(tif_to_save, self.get_tif_velocity_fname(x), self.plotter.plot_velocity, x)
 
                 self.file[x] = self.get_velocity_fname(x)
@@ -550,6 +556,10 @@ class ElevationManager(FileManager):
         dataset = {'time': found_years,
                            'sources': found_sources,
                            'elev': found_files}
+        if len(found_err) != 0:
+            dataset[['elev_yerr']] = found_err
+
+
 
         df = pd.DataFrame(dataset)
         
@@ -665,12 +675,16 @@ class ElevationManager(FileManager):
         cur_track = 0
         max = len(D11)
         progress.load_bar(cur_track, max)
+        
+        cur_track = 0
+        max = len(D11)
+        progress.load_bar(cur_track, max)
         for track in D11:
         
             dates = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype('M8[Y]')
             track['latitude'] = np.transpose([track['latitude']] * len(track['h_corr'][0]))
             track['longitude'] = np.transpose([track['longitude']] * len(track['h_corr'][0]))
-            track['datetime'] = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype('datetime64[s]').astype('int64')
+            track['datetime'] = (track['delta_time'].astype('timedelta64[s]') + np.datetime64("2018-01-01T00:00")).astype(str)
 
             for c in self.file.keys():
                 df = pd.DataFrame({'latitude': track['latitude'][dates == c].flatten(),
@@ -684,38 +698,25 @@ class ElevationManager(FileManager):
             cur_track += 1
             progress.load_bar(cur_track, max)
 
-
-        i = 0
-        for c in self.file.keys():
-            if not len(self.file[c]):
-                i+= 1
-                continue
-            try:
-                gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
-                gdf_final.to_file(TIF_LOCATION + self.get_elevation_fname(c), driver='GPKG')
-            except Exception as e:
-                    ('Saving year ' + str(c) + ' gpkg failed.')
-                    print(e)
             
-            out_grid = make_geocube(
+        for c in self.file.keys():
+            #print(gpd.GeoDataFrame(self.file[np.datetime64(str(c))]))
+            if not len(self.file[c]):
+                continue
+            
+            self.chack_valid_path(OUTPUT + self.get_elevation_fname(c))
+            gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+            gdf_final.to_file(OUTPUT + self.get_elevation_fname(c), driver='GPKG')
+
+            '''to_tif = make_geocube(
                 vector_data=gdf_final,
                 measurements=["elev"],
-                resolution=(-0.001, 0.001), 
-                output_crs=gdf_final.crs 
-            )
 
+                resolution=(-0.1, 0.1),
+            )'''
 
-            out_grid["elev"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
+            #self.generate_image(to_tif["elev"], TIF_LOCATION + self.get_tif_elevation_fname(cur_track))
 
-            gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c), 
-                      TIF_LOCATION + self.get_tif_elevation_fname(c),
-                      dstSRS='EPSG:3031')
-            print(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(c))
-            
-
-            #self.generate_image(False, self.get_elevation_fname(c), self.plotter.plot_elevation, c, reprojected=True)
-            i += 1
-            progress2.load_bar(i, len(list(self.file.keys())))
 
         self.build_supplementary_files()
 
@@ -755,7 +756,7 @@ class ElevationManager(FileManager):
             progress.load_bar(j, len(ref_file))
 
 
-        dates = [np.datetime64(str(to_build))] * len(new_vals)
+        dates = [str(np.datetime64(str(to_build)))] * len(new_vals)
 
         return lat, lon, new_vals, dates
 
@@ -783,6 +784,7 @@ class ElevationManager(FileManager):
                             'elev': new_vals,
                             'date': dates})
         df['geometry']  = df.apply(self.pointify, axis=1)
+        self.chack_valid_path(OUTPUT + self.get_elevation_fname(to_build))
         df = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
         df.to_file(OUTPUT + self.get_elevation_fname(to_build), driver='GPKG')
         

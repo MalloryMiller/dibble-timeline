@@ -105,7 +105,7 @@ class Plotting:
         fig, ax = plt.subplots()
         vmin, vmax = 0, 2000
         plt.title("Elevation (" + str(year) + ")")
-        gdf.plot(column='elevation', vmax=vmax, vmin=vmin, cmap='viridis', markersize=3, ax=ax)
+        gdf.plot(column='elev', vmax=vmax, vmin=vmin, cmap='viridis', markersize=3, ax=ax)
         plt.xlim(self.extent[0], self.extent[1])
         plt.ylim(self.extent[2],  self.extent[3])
         
@@ -146,12 +146,12 @@ class Plotting:
         self.plot_glacier_borders(fig, ax)
         return True
 
-    def plot_gpkg(self, fig, ax, gpkg, coloring=None, cmap='summer', cbar=False):
-        gdf = gpd.read_file(gpkg)
+    def plot_gpkg(self, fig, ax, gpkg, layer_name, coloring=None, cmap='summer', cbar=False):
+        gdf = gpd.read_file(gpkg, layer=layer_name)
         gdf = gdf.to_crs(3031)
         
         if coloring != None:
-            gdf.plot(ax=ax, column=coloring, cmap=cmap, autolim=False, label=coloring)
+            gdf.plot(ax=ax, column=coloring, cmap=cmap, autolim=False, label=coloring,)
             if cbar:
                 colorb = plt.cm.ScalarMappable(cmap=cmap, norm=colors.Normalize(vmin=min(gdf[coloring]), vmax=max(gdf[coloring])))
                 fig.colorbar(colorb, orientation='vertical', label=cbar + " " + coloring, ax=ax)
@@ -160,7 +160,7 @@ class Plotting:
 
     def plot_temporal_grounding_line(self, fig, ax, cmap='summer', cbar=False):
 
-        self.plot_gpkg(fig, ax, GL_GPKG_InSAR, 'Year', cmap=cmap, cbar=cbar)
+        self.plot_gpkg(fig, ax, GL_GPKG_InSAR, 'insar_gl_antarctica_v119922025_reprojected', 'Year', cmap=cmap, cbar=cbar)
 
     def plot_raw_rema_data(self, na, year):
         try:
