@@ -45,17 +45,18 @@ class Flags():
         ]
         self.chart_flags = [
             '-points',
+            '-profile',
             '-elev-error'
         ]
 
         self.rebuild_flags = [
             '-rebuild',
             '-rebuild:vel',
-            '-rebuild:firn',
-            '-rebuild:elev',
             '-rebuild:velx',
             '-rebuild:vely',
-            '-rebuild:rema',
+            '-rebuild:firn',
+            '-rebuild:elev',
+            #'-rebuild:rema',
         ]
 
         self.point_panel_flags = [
@@ -74,7 +75,20 @@ class Flags():
         self.all_flags.extend(self.point_panel_flags)
         self.YEARSTART = 2018
         self.YEAREND = 2024
+
+
+    def copy(self):
+        f = Flags()
+
+        for x in self.flags:
+            f.add(x)
+
+        return f
         
+
+    def remove(self, item):
+        if item in self.all_flags:
+            self.flags.remove(item)
 
 
 
@@ -147,7 +161,7 @@ class Flags():
 
         sources = []
 
-        if x == '-itslive' in self.flags:
+        if '-itslive' in self.flags:
             sources.append("ItsLive")
         if '-measures' in self.flags:
             sources.append("Measures")
@@ -230,6 +244,8 @@ class Flags():
 
         if '-points' in self.flags:
             return 'points'
+        if '-profile' in self.flags:
+            return 'profile'
         if '-elev-error' in self.flags:
             return 'elev-error'
         if '-frame' in self.flags:

@@ -1,6 +1,6 @@
 import datetime
 from utils import *
-from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager, FirnAirManager
+from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager, FirnAirManager, REMATileManager
 
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
@@ -128,15 +128,23 @@ class Pointwize():
 
     def round_dates(self, date):
         if type(date) != datetime.datetime:
-            date = np.datetime64(date).astype(datetime.datetime)
+            try:
+                date = np.datetime64(date).astype(datetime.datetime)
+            except:
+                return date
 
         if type(date) == datetime.date:
             date = datetime.datetime(date.year, date.month, date.day)
         return date
 
 
-    def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date'):
+    def gpd_geom_match(self, out, index, column_of_interest = 'elev', add_result=True, date_col='date', 
+                       force_index=False, closest_time=False):
 
+        key = self.get_label(index)
+        if force_index != False:
+            key = force_index
+        
         
         if type(index) == int:
             p = self.points[index]
@@ -177,6 +185,16 @@ class Pointwize():
             val_arr = df_ref[grouped_dates == x].dropna()
             if len(val_arr) == 0:
                 continue 
+            print('exists?', key in self.results.keys())
+            if closest_time and key in self.results.keys() and len(self.results[key]) != 0:
+                nearby_existing = self.get_closest_existing_value_dist(x, self.results[key]['time']) < closest_time
+                nearby_currentg = self.get_closest_existing_value_dist(x, time) < closest_time
+                print('checking if exists already')
+                print(nearby_existing, self.get_closest_existing_value_dist(x, self.results[key]['time']))
+                if nearby_existing or nearby_currentg:
+                    print('cont')
+                    continue
+
             val_arr = val_arr.sort_values(by=date_col)
             val_arr = val_arr.reset_index(drop=True)
             
@@ -185,9 +203,12 @@ class Pointwize():
             
             
             val = val_arr[column_of_interest]
-
-            if np.isnan(val):
-                continue
+            
+            try:
+                if np.isnan(val):
+                    continue
+            except:
+                pass
             if 'sources' in df_ref.columns:
                 
 
@@ -229,17 +250,18 @@ class Pointwize():
             df_contents[y] = other_items[y]
 
         df = pd.DataFrame(df_contents)
-        
+
         if add_result:
-            if self.get_label(index) not in self.results.keys():
-                self.results[self.get_label(index)] = pd.DataFrame()
+            if key not in self.results.keys():
+                self.results[key] = pd.DataFrame()
                 
-            if len(self.results[self.get_label(index)]) == 0:
-                self.results[self.get_label(index)] = df
-            self.results[self.get_label(index)] = pd.concat([self.results[self.get_label(index)], df], axis=0, ignore_index=True)
+            if len(self.results[key]) == 0:
+                self.results[key] = df
+            self.results[key] = pd.concat([self.results[key], df], axis=0, ignore_index=True)
         else:
 
-            self.results[self.get_label(index)] = df
+            self.results[key] = df
+        return df
 
     
     def geotiff_geom_match(self, out, index, column_of_interest = 'band_data', add_result=True):
@@ -290,6 +312,17 @@ class Pointwize():
             self.results[self.get_label(index)] = df
 
 
+    def get_closest_existing_date(self, date, date_array):
+        return np.array(sorted(date_array, key=lambda x: abs(np.datetime64(x) - np.datetime64(date))))
+
+
+    def get_closest_existing_value_dist(self, val, val_array):
+        ranked = np.array(sorted(np.abs(val_array - val)))
+        if len(ranked) != 0:
+            return ranked[0]
+        return 9999999999999
+
+
     def gpd_time_difference(self, time, data):
         time = np.array(time)
         data = np.array(data)
@@ -297,8 +330,8 @@ class Pointwize():
         ref_datetime = datetime.datetime(self.time_diff_year, 1, 1)
 
         if type(self.change) != bool and 'interp' in self.change and ref_datetime not in time and np.datetime64(ref_datetime) not in time:
-            ref_pre = np.array(sorted(time[data != np.nan], key=lambda x: abs(np.datetime64(x) - np.datetime64(ref_datetime))))
-            ref_post = np.array(sorted(time[data != np.nan], key=lambda x: abs(np.datetime64(x) - np.datetime64(ref_datetime))))
+            ref_pre = self.get_closest_existing_date(ref_datetime, time[data != np.nan])
+            ref_post = self.get_closest_existing_date(ref_datetime, time[data != np.nan])
             ref_pre = ref_pre[ref_pre < ref_datetime]
             ref_post = ref_post[ref_post > ref_datetime]
 
@@ -319,11 +352,12 @@ class Pointwize():
                 ref = data[time == ref_pre] + (dif * perc)
 
         else:
-            if self.time_diff_year == None:
-                ref_time = min(time[data != np.nan])
-            elif type(self.time_diff_year) == int:
+            
+            if type(self.time_diff_year) == int and type(time[0]) != int:
                 ref_time = sorted(time[data != np.nan], key=lambda x: abs(x - datetime.datetime(self.time_diff_year, 1, 1)))[0]
-
+            elif self.time_diff_year == None or type(time[0]) == int or type(time[0]) == float:
+                ref_time = min(time[data != np.nan])
+                
             ref = data[time == ref_time]
 
             
@@ -469,7 +503,7 @@ class Pointwize():
         out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] < 0)
 
 
-        ax.plot(bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom', ls = ':', alpha=0.5)
+        #ax.plot(bad_out['real_elevation1'] - bad_out['THICK'], bad_out['dist_from_grndline'].values, marker= 'None', color=color, label='Bottom', ls = ':', alpha=0.5)
         ax.plot(out['real_elevation1'] - out['THICK'], out['dist_from_grndline'].values, marker= 'None', color=color, label='Bed')
         
         ax.legend()
@@ -588,8 +622,8 @@ class Pointwize():
 
 class StreamFlow():
     def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist'):
-        f = Flags()
-        f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
+        f = flags.copy()
+        #f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
         f.add('-itslive')
         self.fmx = VelocityManager(xlims, ylims, f, 'velx')
         self.fmy = VelocityManager(xlims, ylims, f, 'vely')
@@ -737,6 +771,170 @@ class StreamFlow():
         return points, labels
 
         
+class FlowProfile(Pointwize):
+    def __init__(self, flags, xlim, ylim, points):
+        super().__init__(flags,xlim,ylim,points,'gl',pt_range = [-1, 3], point_spacing=2000)
+        self.change = False
+        self.max_dist = 50
+        self.dates = [datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1), datetime.datetime(2024, 1, 1)]
+
+    
+    def get_data(self, date):
+
+        f = self.flags.copy()
+        f.add('-' + str(date.year-1) + '-' + str(date.year + 1))
+        filemanager = ElevationManager(self.xlim, self.ylim, f, 'elev')
+        out = filemanager.get_ouput_files()
+
+        self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
+        
+        date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
+        self.results[date] = []
+        print(date)
+
+        closest = date_options[0]
+        seeking = True
+
+        date_range = [closest, closest]
+        
+        while seeking:
+            try:
+                out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
+                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
+                if len(ret) != 0:
+                    if closest < date_range[0]:
+                        date_range[0] = closest
+                    elif closest > date_range[1]:
+                        date_range[1] = closest
+            except IndexError as e:
+                pass
+            
+            print(self.results[date])
+            
+            out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
+            if len(out) == 0:
+                seeking = False
+            date_options = date_options[1:]
+            if len(date_options) == 0:
+                seeking = False
+                break
+            closest = date_options[0]
+
+        return date_range
+    
+    def geotiff_s_join(self, out, points, column_of_interest = 'band_data'):
+        dists = []
+        values = []
+        for pos in points.itertuples():
+            dists.append(pos.dist_from_grndline)
+            values.append(out.sel(x=pos.geometry.x, y=pos.geometry.y, method='nearest')[column_of_interest].values)
+
+        df = gpd.GeoDataFrame({
+            "dists": dists,
+            "vals": values
+        })
+        df = df.sort_values('dists')
+        return df
+    
+
+    def get_equilibrium(self, elevations, FAC=20):
+        sea_level_elevation = SEA_LEVEL_ELEVATION
+
+        elevations += sea_level_elevation
+
+        remaining_elevations = (elevations - FAC)
+        total_height = ((remaining_elevations) / 0.1)
+
+        return -(total_height - remaining_elevations)
+
+    def invert_equilibrium(self, elevations, FAC=20):
+        sea_level_elevation = SEA_LEVEL_ELEVATION
+
+        elevations += sea_level_elevation
+
+        total_height = (-elevations / 0.9)
+        print(total_height)
+        remaining_elevations = total_height - elevations
+        print(remaining_elevations)
+        
+        remaining_elevations += FAC
+
+        return remaining_elevations
+    
+
+    def get_simple_equilibrium(self, elevations):
+        total_height = (elevations / 0.1)
+        return -(total_height - elevations)
+
+    def plot(self):
+        p = Plotting()
+        fig, ax = p.elevation_profile_plot(self.pt_range)
+
+        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
+        out = rema_fm.get_ouput_files()
+        rema_vals = self.geotiff_s_join(out, self.fl)
+        ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
+        
+        for x in self.dates:
+            label = self.get_data(x)
+            for y in range(len(label)):
+                label[y] = str(label[y].month) + '/' + str(label[y].year)
+
+            label = '-'.join(label)
+
+            if len(self.results[x]) == 0:
+                continue
+
+            self.results[x] = self.results[x].sort_values(by='time')
+            p.plot_elevation_data(fig, ax, 
+                                  self.results[x]['time'], self.results[x]['gl'],
+                                  label=str(label))
+            
+
+        
+        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
+        out = fm.get_ouput_files()
+        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+
+        out = out.sort_values('dist_from_grndline')
+        bad_out = out.copy()
+        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
+        #out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] > 0)
+        ax[1].plot(bad_out['dist_from_grndline'].values, bad_out['real_elevation1'] - bad_out['THICK'], ls='dashed', marker= 'None', label='IPR Bottom')
+        
+        ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
+        
+        
+        lims = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'])
+        ax[1].set_ylim(lims)
+
+        FAC = 20
+        FAC2 = 18
+        
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
+        
+
+        '''IPR_mirror1 = self.invert_equilibrium(bad_out['real_elevation1'] - bad_out['THICK'], FAC)
+        ax[0].plot(bad_out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None', label='IPR Equilibrium, FAC=' + str(FAC))
+        IPR_mirror2 = self.invert_equilibrium(out['real_elevation1'] - out['THICK'], FAC)
+        ax[0].plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', label='IPR Equilibrium, FAC=' + str(FAC))'''
+        
+        
+
+        ax[0].legend()
+        ax[1].legend()
+        p.save_close(fig, ax, "profile")
+        
+        
+        
+
+
+        
+
+    
 
         
     

@@ -478,6 +478,43 @@ class Plotting:
         self.plot_col(out, 'Distance', total_dist, 0, 'winter', 'Distance (km)',g_cbar='Grounding Line', g_cmap='magma')
         
 
+    def elevation_profile_plot(self, dist_range):
+        fig, ax = plt.subplots(2, 1)
+        #ax.set_xlim(dist_range[0], dist_range[1])
+        ax[1].set_xlabel("Distance from IPR Grounding Line (m)")
+        ax[0].set_ylabel("WSG-84 Elevation (m)")  
+        ax[1].set_ylabel("WSG-84 Elevation (m)")  
+
+
+        ax[0].grid()
+        ax[1].grid()
+
+        return fig, ax
+        
+
+    def plot_elevation_data(self, fig, ax, dist, elevation, label=None):
+        if label == None:
+            ax[0].plot(dist, elevation, marker='o')
+        else:
+            ax[0].plot(dist, elevation, marker='o', label=label)
+
+        padding = (max(elevation) - min(elevation)) * 0.15
+
+        ax[0].set_ylim(min(elevation) - padding, max(elevation) + padding)
+        ax[0].set_xlim(min(dist), max(dist))
+        ax[1].set_xlim(min(dist), max(dist))
+
+
+    def save_close(self, fig, ax, title):
+
+        print("Saving image...")
+        plt.savefig(title + ".png", dpi=200)
+        print(title + ".png")
+        
+        plt.close('all')
+
+
+
 '''
 # EXAMPLE USES:
 

@@ -5,9 +5,8 @@ from utils import *
 
 
 from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  IPRManager, plt
-from timeseries import VelTimeSeries
 from elevation_errpr import ElevationError
-from pointwise import Pointwize
+from pointwise import Pointwize, FlowProfile
 import matplotlib.pyplot as plt
 from plotting import Plotting
 
@@ -94,9 +93,7 @@ class main():
 
         to_build = self.flags.rebuilding()
 
-        '''t = VelTimeSeries(self.flags, self.xlim, self.ylim, 'vel', years=[2000, 2025])
-        t.generate_charts("Velocity Trends")'''
-
+        
         for x in to_build:
             print(x)
             if x == 'velx':
@@ -141,6 +138,14 @@ class main():
             for i in points:
                 self.get_points_timeline(i)
             
+        if self.flags.chart_type() == 'profile':
+            self.point_name = self.title
+            points = POINT_LISTS[self.point_name]
+            for i in points:
+                t = FlowProfile(self.flags, self.xlim, self.ylim, i['point'])
+                t.plot()
+
+
         if self.flags.chart_type() == 'elev-error':
             self.get_elevation_error()
 
@@ -323,7 +328,7 @@ class main():
                 p.plot_elevation_summary(fig, ax[i][1])
                 ax[i][0].legend()
             else:
-                ax[i][0].legend(loc='lower left')
+                ax[i][0].legend(loc='upper left')
                 ax[i][1].set_visible(False)
 
 

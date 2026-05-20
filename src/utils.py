@@ -129,6 +129,8 @@ POINT_LISTS2 = {
 
 DEFAULT_AREA = 'Dibble'
 
+SEA_LEVEL_ELEVATION = 38
+
 
 DIVERGENT_CMAP = 'Spectral'
 DIVERGENT_CMAP_FIT_LINES = 'Spectral'
@@ -173,6 +175,7 @@ IPR_GPKG_LOCATION = INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg"
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
+REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_dem.tif"
 
 
 FILE_FORMATS = {

@@ -135,12 +135,15 @@ class FileManager:
         if type(data) != bool:
             os.makedirs(TIF_LOCATION + '/'.join(data_name.split('/')[:-1]), exist_ok=True)
             data.transpose('y', 'x').rio.to_raster(TIF_LOCATION + data_name)
+            if reprojected:
+                os.makedirs(TIF_LOCATION +'reprojected/' + '/'.join(data_name.split('/')[:-1]), exist_ok=True)
         
         if chart_function != None:
             fig, ax = plt.subplots()
             plt.title(data_name)
             location = TIF_LOCATION + data_name
             if reprojected:
+                os.makedirs(TIF_LOCATION +'reprojected/' + '/'.join(data_name.split('/')[:-1]), exist_ok=True)
                 location = TIF_LOCATION +'reprojected/' + data_name
 
             if not chart_function(location, year):
@@ -261,6 +264,8 @@ class VelocityManager(FileManager):
         
 
     def get_tif_velocity_fname(self, year, target_source=None):
+        if target_source == None:
+            target_source = "ItsLive"
         if target_source != None and len(self.sources) != 1:
             return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v.tif"
         return 'velocities/' + str(year) + self.label + "_v.tif"
@@ -506,16 +511,16 @@ class ElevationManager(FileManager):
     def get_ouput_files(self):
         super().get_ouput_files()
 
-        print(self.file)
-        self.file = self.file.rename(columns={'elevation': 'elev', 'elevation_yerr': 'elev_yerr'})
-
-        print(self.file)
+        #self.file = self.file.rename(columns={'elevation': 'elev', 'elevation_yerr': 'elev_yerr'})
+        
         new_dates = []
         for x in self.file['date']:
-            new_dates.append(datetime.datetime.fromtimestamp(int(x)))
+            try:
+                new_dates.append(datetime.datetime(year=int(x), day=1, month=1).replace(hour=0, second=0, minute=0))
+            except ValueError:
+                new_dates.append(np.datetime64(x).item().replace(hour=0, second=0, minute=0))
 
         self.file['date'] = new_dates
-        print(self.file)
         return self.file
 
 
@@ -718,8 +723,6 @@ class ElevationManager(FileManager):
             #self.generate_image(to_tif["elev"], TIF_LOCATION + self.get_tif_elevation_fname(cur_track))
 
 
-        self.build_supplementary_files()
-
 
     def apply_rate_(self, ref_file, rate_fname, floating, to_build=2011):
         # TODO: make this not suck
@@ -801,6 +804,8 @@ class ElevationManager(FileManager):
 
         out_grid["elev"].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(to_build))
 
+
+        os.makedirs(TIF_LOCATION +'reprojected/' + '/'.join(self.get_tif_elevation_fname(to_build).split('/')[:-1]), exist_ok=True)
         gdal.Warp(TIF_LOCATION +'reprojected/' + self.get_tif_elevation_fname(to_build), 
                     TIF_LOCATION + self.get_tif_elevation_fname(to_build),
                     dstSRS='EPSG:3031')
@@ -843,6 +848,28 @@ class GravimetryManager(FileManager):
             data = data_override
         return [GRAV_LOCATION], [], []
 
+
+
+class REMATileManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [REMA_TILE_DEM], [], []
 
 
 class IPRManager(FileManager):
