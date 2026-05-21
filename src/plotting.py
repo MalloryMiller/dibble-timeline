@@ -478,9 +478,17 @@ class Plotting:
         self.plot_col(out, 'Distance', total_dist, 0, 'winter', 'Distance (km)',g_cbar='Grounding Line', g_cmap='magma')
         
 
-    def elevation_profile_plot(self, dist_range):
+    def elevation_profile_plot_single(self):
+        fig, ax = plt.subplots(1, 1)
+        ax.set_xlabel("Distance from IPR Grounding Line (m)")
+        ax.set_ylabel("WSG-84 Elevation (m)")  
+
+        ax.grid()
+
+        return fig, ax
+
+    def elevation_profile_plot(self):
         fig, ax = plt.subplots(2, 1)
-        #ax.set_xlim(dist_range[0], dist_range[1])
         ax[1].set_xlabel("Distance from IPR Grounding Line (m)")
         ax[0].set_ylabel("WSG-84 Elevation (m)")  
         ax[1].set_ylabel("WSG-84 Elevation (m)")  
@@ -493,16 +501,20 @@ class Plotting:
         
 
     def plot_elevation_data(self, fig, ax, dist, elevation, label=None):
+        ax1 = ax
+        if type(ax) == np.ndarray:
+            ax1 = ax[0]
         if label == None:
-            ax[0].plot(dist, elevation, marker='o')
+            ax1.plot(dist, elevation, marker='o')
         else:
-            ax[0].plot(dist, elevation, marker='o', label=label)
+            ax1.plot(dist, elevation, marker='o', label=label)
 
         padding = (max(elevation) - min(elevation)) * 0.15
 
-        ax[0].set_ylim(min(elevation) - padding, max(elevation) + padding)
-        ax[0].set_xlim(min(dist), max(dist))
-        ax[1].set_xlim(min(dist), max(dist))
+        ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
+        ax1.set_xlim(min(dist), max(dist))
+        if type(ax) == np.array:
+            ax[1].set_xlim(min(dist), max(dist))
 
 
     def save_close(self, fig, ax, title):

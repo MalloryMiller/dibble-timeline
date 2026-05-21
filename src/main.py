@@ -144,6 +144,12 @@ class main():
             for i in points:
                 t = FlowProfile(self.flags, self.xlim, self.ylim, i['point'])
                 t.plot()
+        if self.flags.chart_type() == 'pairprofile':
+            self.point_name = self.title
+            points = POINT_LISTS[self.point_name]
+            for i in points:
+                t = FlowProfile(self.flags, self.xlim, self.ylim, i['point'])
+                t.plot_pair()
 
 
         if self.flags.chart_type() == 'elev-error':

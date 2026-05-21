@@ -46,6 +46,7 @@ class Flags():
         self.chart_flags = [
             '-points',
             '-profile',
+            '-pairprofile',
             '-elev-error'
         ]
 
@@ -246,6 +247,8 @@ class Flags():
             return 'points'
         if '-profile' in self.flags:
             return 'profile'
+        if '-pairprofile' in self.flags:
+            return 'pairprofile'
         if '-elev-error' in self.flags:
             return 'elev-error'
         if '-frame' in self.flags:
