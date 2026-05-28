@@ -34,6 +34,7 @@ class Flags():
 
     def __init__(self):
         self.flags=[]
+
         self.source_v_flags = [
             '-itslive',
             '-measures'
@@ -80,6 +81,8 @@ class Flags():
 
     def copy(self):
         f = Flags()
+        f.YEARSTART = self.YEARSTART
+        f.YEAREND = self.YEAREND
 
         for x in self.flags:
             f.add(x)
@@ -88,7 +91,7 @@ class Flags():
         
 
     def remove(self, item):
-        if item in self.all_flags:
+        if item in self.flags:
             self.flags.remove(item)
 
 

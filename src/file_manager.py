@@ -73,7 +73,7 @@ class FileManager:
     def chack_valid_path(self, fname):
         if '.' in fname.split('/')[-1]:
             fname = '/'.join(fname.split('/')[:-1])
-        os.makedirs(fname,exist_ok=True)
+        os.makedirs(fname, exist_ok=True)
 
     
     def get_ouput_files(self):
@@ -264,15 +264,14 @@ class VelocityManager(FileManager):
         
 
     def get_tif_velocity_fname(self, year, target_source=None):
-        if target_source == None:
-            target_source = "ItsLive"
+        
         if target_source != None and len(self.sources) != 1:
-            return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v.tif"
+            return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v." + self.ftype
         return 'velocities/' + str(year) + self.label + "_v.tif"
         
 
         
-    def build_velocity_files(self):
+    def build_velocity_files(self, rebuild=True):
         '''
         Opens all files from all sources in a range of years (self.yearStart through self.yearEnd inclusively)
         places relevant information from sourcs into self.file, one dataset where all other files have been concatonated
@@ -296,7 +295,7 @@ class VelocityManager(FileManager):
         self.get_tif_data(base=True)
 
         for x in list(range(self.yearStart, self.yearEnd+1)):
-            if not os.path.exists(self.get_velocity_fname(x)):
+            if not os.path.exists(self.get_velocity_fname(x) or rebuild):
 
                 found = {}
 
@@ -405,10 +404,10 @@ class VelocityManager(FileManager):
                 self.file[x] = self.get_velocity_fname(x)
 
             progress.load_bar(x - self.yearStart, self.yearEnd - self.yearStart)
-            '''
-        self.file = xr.concat(self.file, dim=years_found)
-        self.file = self.file.rename({'concat_dim': 'year'})
-        '''
+            
+        '''self.file = xr.concat(self.file, dim=years_found)
+        self.file = self.file.rename({'concat_dim': 'year'})'''
+        
         return self.file
 
     def build_files(self):

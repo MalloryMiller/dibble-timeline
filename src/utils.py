@@ -1,12 +1,13 @@
 from flags import *
 import time as t
 from numpy import abs # type: ignore
+from matplotlib.colors import ListedColormap
 
 AREAS = {
 
     'Dibble' : [
-        [1815595,1882493,],
-        [-1876131, -1748203]
+        [1808883,1882493,],
+        [-1876131, -1744165]
         
     ],
 
@@ -22,6 +23,31 @@ AREAS = {
 POINT_LISTS = {
 
     'Dibble' : [
+{
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-5, 5],
+            'point_spacing': 2000
+        },
+{
+            'point': [-1780344,1849424],
+            'point_range': [0, 1],
+            'point_spacing': 500,
+            'cmap': ListedColormap(['red'])# 'coolwarm'
+        },
+        {
+            'point': [-1784306,1842735],
+            'point_range': [0, 1],
+            'point_spacing': 500,
+            'cmap': ListedColormap(['mediumseagreen']) #'Wistia'
+        },
+        {
+            'point': [-1763293,1821722],
+            'point_range': [0, 1],
+            'point_spacing': 500,
+            'cmap': ListedColormap(['orange']) # 'vanimo'
+        },
+        
+        
         {
             'point': [-1806893.758, 1855363.783],
             'point_range': [-5, 5],
@@ -29,6 +55,18 @@ POINT_LISTS = {
         },
     ]
 }
+
+PROFILE_LOCATION = {
+    'Dibble': {
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-10, 10],
+            'point_spacing': 300
+
+    }
+}
+
+'''
+'''
 
 TO_FRAME = {
     'itslive_trends.tif': {
@@ -92,35 +130,25 @@ POINT_LISTS2 = {
             'point_range': [-2, 4],
             'point_spacing': 14000
         },
+        #{
+        #    'point': [-1806893.758, 1855363.783],
+        #    'point_range': [-5, 5],
+        #    'point_spacing': 2000
+        #},
         {
-            'point': [-1806893.758, 1855363.783],
-            'point_range': [-5, 5],
-            'point_spacing': 2000
-        },
-        
-        
-        {
-            'point': [-1815410,1852497],
-            'point_range': [-2, 4],
-            'point_spacing': 2000
+            'point': [-1780344,1849424],
+            'point_range': [0, 0],
+            'point_spacing': 0
         },
         {
-            'point': [-1805005.87,1855416.14],
-            'point_range': [-2, 4],
-            'point_spacing': 2000,
-            
-            #'point_range': [-2, 4],
-            #'point_spacing': 17000
+            'point': [-1784306,1842735],
+            'point_range': [0, 0],
+            'point_spacing': 0
         },
         {
-            'point': [-1835433,1850375],
-            'point_range': [-2, 4],
-            'point_spacing': 17000
-        },
-        {
-            'point': [-1830432,1861889],
-            'point_range': [-2, 4],
-            'point_spacing': 17000
+            'point': [-1763293,1821722],
+            'point_range': [0, 0],
+            'point_spacing': 0
         },
     ],
 

@@ -1,0 +1,12 @@
+<PAMDataset>
+  <PAMRasterBand band="1">
+    <Description>velocity</Description>
+    <Metadata>
+      <MDI key="STATISTICS_MINIMUM">4.2057161331177</MDI>
+      <MDI key="STATISTICS_MAXIMUM">1508.6900634766</MDI>
+      <MDI key="STATISTICS_MEAN">446.06769397423</MDI>
+      <MDI key="STATISTICS_STDDEV">272.07748522604</MDI>
+      <MDI key="STATISTICS_VALID_PERCENT">13.95</MDI>
+    </Metadata>
+  </PAMRasterBand>
+</PAMDataset>

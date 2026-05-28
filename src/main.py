@@ -98,34 +98,29 @@ class main():
             print(x)
             if x == 'velx':
                 f = self.flags.copy()
-                f.all_flags.remove('-measures')
-                f.all_flags.remove('-itslive')
+                f.remove('-measures')
+                f.remove('-itslive')
                 f.add('-itslive')
                 print(self.build_files(dim='x', special_flags=f))
             elif x == 'vely':
                 f = self.flags.copy()
-                f.all_flags.remove('-measures')
-                f.all_flags.remove('-itslive')
+                f.remove('-measures')
+                f.remove('-itslive')
                 f.add('-itslive')
-                print(self.build_files(dim='y'))
+                print(self.build_files(dim='y', special_flags=f))
             elif x == 'vel':
-                print(self.build_files())
+
+                for s in self.flags.source_v_flags:
+                    f = self.flags.copy()
+                    f.remove('-measures')
+                    f.remove('-itslive')
+                    f.add(s)
+                    print(self.build_files(special_flags=f))
             else:
                 print(self.build_files(data=x))
 
 
 
-        '''t = VelTimeSeries(self.flags, self.xlim, self.ylim, 'vel', years=[2000, 2025])
-        t.generate_charts("Velocity Trends")'''
-
-        '''t = Trends(self.flags, self.xlim, self.ylim, 'vel')
-        t.plot_trends()'''
-        
-        '''p = Profile(self.flags, POINT_LISTS[self.title][0]['point'], self.xlim, self.ylim)
-        p.plot_profile()'''
-        #fm = IPRManager([0,0], [0,0], self.flags, 'elev', 'IPR')
-        #p = Plotting()
-        #p.plot_IPR_range(fm, GL_IPR_FRAME)
 
 
         if self.flags.chart_type() == 'frame':
@@ -136,20 +131,22 @@ class main():
             self.point_name = self.title
             points = POINT_LISTS[self.point_name]
             for i in points:
-                self.get_points_timeline(i)
+                c = 'managua'
+                if 'cmap' in i.keys():
+                    c=i['cmap']
+                self.get_points_timeline(i, cmap=c)
             
         if self.flags.chart_type() == 'profile':
             self.point_name = self.title
-            points = POINT_LISTS[self.point_name]
-            for i in points:
-                t = FlowProfile(self.flags, self.xlim, self.ylim, i['point'])
-                t.plot()
+            point = PROFILE_LOCATION[self.point_name]
+            t = FlowProfile(self.flags, self.xlim, self.ylim, point['point'])
+            t.plot()
+
         if self.flags.chart_type() == 'pairprofile':
             self.point_name = self.title
-            points = POINT_LISTS[self.point_name]
-            for i in points:
-                t = FlowProfile(self.flags, self.xlim, self.ylim, i['point'])
-                t.plot_pair()
+            point = PROFILE_LOCATION[self.point_name]
+            t = FlowProfile(self.flags, self.xlim, self.ylim, point['point'])
+            t.plot_pair()
 
 
         if self.flags.chart_type() == 'elev-error':
@@ -252,12 +249,10 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False, cmap='managua'): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         a =  self.flags.point_panels() 
-        print()
-        print(a)
-        print()
+        
         if len(a) != 0:
             data = a
 
@@ -312,10 +307,9 @@ class main():
             
             f = self.flags.copy()
             f.add('-2000-2025')
-            print(point)
             p = Pointwize(f, self.xlim, self.ylim, 
                         point['point'], data = d, change=change and can_change[d],
-                        pt_range = point['point_range'], point_spacing=point['point_spacing'])
+                        pt_range = point['point_range'], point_spacing=point['point_spacing'], cmap=cmap)
             p.plot_time_series(fig, ax[i][0], rema=rema, plot_range=[datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)])
             if i == 0:
                 p.save_point_df() # save the points df after first one was made
@@ -373,7 +367,6 @@ class main():
             flag = special_flags
         else:
             flag = self.flags
-        sources = flag.sources_v()
         fm = managers[data](self.xlim, self.ylim, flag,
                         data=data+dim)
         fm.build_files()

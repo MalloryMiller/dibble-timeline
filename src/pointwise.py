@@ -16,7 +16,7 @@ from photutils.aperture import CircularAperture
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True, time_diff_year = 2020):
+    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True, time_diff_year = 2020, cmap='managua'):
         self.flags = flags
         self.xlim = xlim
         self.ylim = ylim
@@ -46,7 +46,7 @@ class Pointwize():
                 
         max_dist = max(max(self.labels), -min(self.labels))
         self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
-        self.cm = cm.get_cmap('managua', 256)
+        self.cm = cm.get_cmap(cmap, 256)
 
         self.point_df = None
         self.results = {}
@@ -474,7 +474,7 @@ class Pointwize():
                 return
 
 
-    def get_dataset_display_range(self, dataset):
+    def get_dataset_display_range(self, dataset, padding=0.05):
         dataset= np.array(dataset)
         dataset = dataset[~np.isnan(dataset)]
         if len(dataset) == 0:
@@ -483,7 +483,7 @@ class Pointwize():
         ymin = dataset.min()
         ymax = dataset.max()
 
-        ypadd = 0.05 * (ymax - ymin)
+        ypadd = padding * (ymax - ymin)
         if np.isnan(ypadd):
             return False
         return [ymin - np.abs(ypadd), ymax + np.abs(ypadd)]
@@ -621,12 +621,13 @@ class Pointwize():
 
 
 class StreamFlow():
-    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist'):
+    def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist', cmap='managua'):
         f = flags.copy()
         #f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
         f.add('-itslive')
         self.fmx = VelocityManager(xlims, ylims, f, 'velx')
         self.fmy = VelocityManager(xlims, ylims, f, 'vely')
+        self.cmap = cmap
 
         self.starting_pos = starting_pos
         self.pos = [0, 0]
@@ -772,8 +773,8 @@ class StreamFlow():
 
         
 class FlowProfile(Pointwize):
-    def __init__(self, flags, xlim, ylim, points):
-        super().__init__(flags,xlim,ylim,points,'gl',pt_range = [-1, 3], point_spacing=2000)
+    def __init__(self, flags, xlim, ylim, points,cmap='managua'):
+        super().__init__(flags,xlim,ylim,points,'gl',pt_range = [-1, 3], point_spacing=2000, cmap=cmap)
         self.change = False
         self.max_dist = 50
         self.dates = [datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1), datetime.datetime(2024, 1, 1)]
@@ -848,8 +849,6 @@ class FlowProfile(Pointwize):
         return -(total_height - remaining_elevations) - sea_level_elevation # total (+) - non-FAC above water (+) gives thickness underwater. This is made -, adjust back to WSG-84 from sea level
 
     def invert_equilibrium(self, elevations, FAC=20):
-        print()
-        print()
         sea_level_elevation = SEA_LEVEL_ELEVATION
 
         elevations += sea_level_elevation # adjust to local water level
@@ -857,8 +856,7 @@ class FlowProfile(Pointwize):
         total_height = (elevations / 0.9) # elevations represents 90% of total height(-) (not including firn)
         
         remaining_elevations = total_height - elevations #total(-) - elevations(-) gives us the 10% above water
-        print(remaining_elevations)
-        #remaining_elevations += FAC
+        
 
         return (-remaining_elevations) + FAC - sea_level_elevation #invert the height and add the FAC, adjust back to WSG-84 from sea level
     
@@ -907,8 +905,7 @@ class FlowProfile(Pointwize):
         ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
         
         
-        lims = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'])
-        ax[1].set_ylim(lims)
+
 
         FAC = 20
         FAC2 = 18
@@ -917,6 +914,11 @@ class FlowProfile(Pointwize):
         ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
         rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
         ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
+
+
+        limsy = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'], padding=0.1)
+        ax[1].set_ylim(limsy)
+        ax[1].set_xlim(ax[0].get_xlim())
 
         ax[0].legend()
         ax[1].legend()
