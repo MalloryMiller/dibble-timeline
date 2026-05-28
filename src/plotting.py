@@ -505,9 +505,9 @@ class Plotting:
         if type(ax) == np.ndarray:
             ax1 = ax[0]
         if label == None:
-            ax1.plot(dist, elevation, marker='o')
+            ax1.plot(dist, elevation, marker='o', linestyle='None')
         else:
-            ax1.plot(dist, elevation, marker='o', label=label)
+            ax1.plot(dist, elevation, marker='o', linestyle='None', label=label)
 
         padding = (max(elevation) - min(elevation)) * 0.15
 
