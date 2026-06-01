@@ -839,27 +839,31 @@ class FlowProfile(Pointwize):
     
 
     def get_equilibrium(self, elevations, FAC=20):
-        sea_level_elevation = SEA_LEVEL_ELEVATION
 
-        elevations += sea_level_elevation # adjust to local water level
+        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
+        new_elevations -= FAC # remove firn air content
 
-        remaining_elevations = (elevations - FAC) # remove FAC
-        total_height = (remaining_elevations) / 0.1 #above water represents 10% of total height(+)
+        total_elevation = new_elevations / 0.1 # remaining height is 10% of total, so this obtains the total
+        total_elevation -= new_elevations # remove the 10% above the surface
+        total_elevation = -total_elevation # INVERSION: now working with negative values
 
-        return -(total_height - remaining_elevations) - sea_level_elevation # total (+) - non-FAC above water (+) gives thickness underwater. This is made -, adjust back to WSG-84 from sea level
+        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
+        return final_elevations
+
+
 
     def invert_equilibrium(self, elevations, FAC=20):
-        sea_level_elevation = SEA_LEVEL_ELEVATION
 
-        elevations += sea_level_elevation # adjust to local water level
+        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
 
-        total_height = (elevations / 0.9) # elevations represents 90% of total height(-) (not including firn)
-        
-        remaining_elevations = total_height - elevations #total(-) - elevations(-) gives us the 10% above water
-        
+        total_elevation = new_elevations / 0.9 # Height is 90% of total, so this obtains the total
+        total_elevation -= new_elevations # remove the 90% under the surface
+        total_elevation = -total_elevation # INVERSION: now working with positive values
 
-        return (-remaining_elevations) + FAC - sea_level_elevation #invert the height and add the FAC, adjust back to WSG-84 from sea level
-    
+        total_elevation += FAC # add the firn air content to the height
+
+        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
+        return final_elevations
 
     def get_simple_equilibrium(self, elevations):
         total_height = (elevations / 0.1)
@@ -875,7 +879,7 @@ class FlowProfile(Pointwize):
         rema_vals = self.geotiff_s_join(out, self.fl)
         ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
-        for x in self.dates:
+        '''for x in self.dates:
             label = self.get_data(x)
             for y in range(len(label)):
                 label[y] = str(label[y].month) + '/' + str(label[y].year)
@@ -888,7 +892,7 @@ class FlowProfile(Pointwize):
             self.results[x] = self.results[x].sort_values(by='time')
             p.plot_elevation_data(fig, ax, 
                                   self.results[x]['time'], self.results[x]['gl'],
-                                  label=str(label))
+                                  label=str(label))'''
             
 
         
