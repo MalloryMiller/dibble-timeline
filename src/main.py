@@ -138,15 +138,24 @@ class main():
             
         if self.flags.chart_type() == 'profile':
             self.point_name = self.title
-            point = PROFILE_LOCATION[self.point_name]
-            t = FlowProfile(self.flags, self.xlim, self.ylim, point['point'])
-            t.plot()
+            point = GL_PROFILE_LOCATION[self.point_name]
+            for x in point:
+                t = FlowProfile(self.flags, self.xlim, self.ylim, x)
+                t.plot(x['fname'])
 
         if self.flags.chart_type() == 'pairprofile':
             self.point_name = self.title
+            point = GL_PROFILE_LOCATION[self.point_name]
+            for x in point:
+                t = FlowProfile(self.flags, self.xlim, self.ylim, x)
+                t.plot_pair(x['fname'])
+
+        if self.flags.chart_type() == 'diffprofile':
+            self.point_name = self.title
             point = PROFILE_LOCATION[self.point_name]
-            t = FlowProfile(self.flags, self.xlim, self.ylim, point['point'])
-            t.plot_pair()
+            for x in point:
+                t = FlowProfile(self.flags, self.xlim, self.ylim, x)
+                t.plot_diff(x['fname'])
 
 
         if self.flags.chart_type() == 'elev-error':

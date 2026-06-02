@@ -500,21 +500,29 @@ class Plotting:
         return fig, ax
         
 
-    def plot_elevation_data(self, fig, ax, dist, elevation, label=None):
+    def plot_elevation_data(self, fig, ax, cmap, norm, dist, elevation, label=None, change_lims=True, color_key=None):
         ax1 = ax
+        sm = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+
         if type(ax) == np.ndarray:
             ax1 = ax[0]
-        if label == None:
+        
+        
+        if label == None and color_key==None:
             ax1.plot(dist, elevation, marker='o', linestyle='None')
-        else:
+        elif color_key == None and label != None:
             ax1.plot(dist, elevation, marker='o', linestyle='None', label=label)
+        elif color_key != None and label == None:
+            ax1.plot(dist, elevation, marker='o', linestyle='None', color=sm.to_rgba(color_key))
+        elif color_key != None and label != None:
+            ax1.plot(dist, elevation, marker='o', linestyle='None', label=label, color=sm.to_rgba(color_key))
 
-        padding = (max(elevation) - min(elevation)) * 0.15
-
-        ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
-        ax1.set_xlim(min(dist), max(dist))
-        if type(ax) == np.array:
-            ax[1].set_xlim(min(dist), max(dist))
+        if change_lims:
+            padding = (max(elevation) - min(elevation)) * 0.15
+            ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
+            ax1.set_xlim(min(dist), max(dist))
+            if type(ax) == np.array:
+                ax[1].set_xlim(min(dist), max(dist))
 
 
     def save_close(self, fig, ax, title):

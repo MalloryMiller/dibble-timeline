@@ -11,22 +11,34 @@ import numpy as np
 from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib as mpl
+import matplotlib.dates as mdates
 from photutils.aperture import CircularAperture
 
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, pt_range = [-2, 4], point_spacing=17000, change=True, streamwise=True, time_diff_year = 2020, cmap='managua'):
+    def __init__(self, flags, xlim, ylim, points, data, change=True, time_diff_year = 2020, cmap='managua'):
         self.flags = flags
         self.xlim = xlim
         self.ylim = ylim
-        self.points = points
+        if 'point_labels' in points.keys():
+            self.title = '-'.join(points['point_labels'])
+            self.trend_adjustment = points['trend_adjustment']
+        else:
+            self.title = ''
+            self.trend_adjustment = 0
+        self.points = points['point']
         print(points)
-        self.point_label = str(int(points[0])) + '_' + str(int(points[1]))
+
+        if type(self.points) ==list and type(self.points[0]) == list:
+            temp = [str(self.points[0][0]), str(self.points[0][1])]
+        else:
+            temp = [str(self.points[0]), str(self.points[1])]
+        self.point_label = '_'.join(temp)
+
         self.data = data
         self.change = change
         self.time_diff_year = time_diff_year
-        self.pt_range = pt_range
         self.labels = []
 
 
@@ -34,18 +46,33 @@ class Pointwize():
         self.label_type = flags.label_type()
 
 
-        if streamwise:
+        if points['type'] == 'fl':
+            self.pt_range = points['point_range']
+            self.point_spacing = points['point_spacing']
             
-            s = StreamFlow(xlim, ylim, flags, self.points, point_spacing, pt_range, max_dist=self.max_dist, label_type = self.label_type)
-            self.point_spacing = point_spacing
-            e = ElevationManager(xlim, ylim, flags, 'elev')
-            if self.data == 'gl':
-                self.points, self.labels, self.fl = s.get_points(e.sample_source, include_all=True)
-            else:
-                self.points, self.labels = s.get_points(e.sample_source)
+            s = StreamFlow(xlim, ylim, flags, self.points, self.point_spacing, self.pt_range, max_dist=self.max_dist, label_type = self.label_type)
+
+        elif points['type'] == 'l':
+            labels = points['labels']
+            s = PointSeries(xlim, ylim, flags, self.points, labels) 
+
+        elif points['type'] == 'pl':
+            pt_cnt = points['point_spacing']
+            s = PolyLine(xlim, ylim, flags, self.points, points['point_labels'], pt_cnt, fname=points['fname'] + "_" + points['point_labels'][0]) 
+
+        
+        e = ElevationManager(xlim, ylim, flags, 'elev')
+        if self.data == 'gl':
+            self.points, self.labels, self.fl = s.get_points(e.sample_source, include_all=True)
+        else:
+            self.points, self.labels = s.get_points(e.sample_source)
                 
-        max_dist = max(max(self.labels), -min(self.labels))
+        if type(self.labels[0]) == int or type(self.labels[0]) == float:
+            max_dist = max(max(self.labels), -min(self.labels))
+        else:
+            max_dist = len(self.labels) // 2
         self.norm = mcolors.Normalize(vmin=-max_dist, vmax=max_dist)
+        self.cmap = cmap
         self.cm = cm.get_cmap(cmap, 256)
 
         self.point_df = None
@@ -229,7 +256,8 @@ class Pointwize():
             data.append(val)
             time.append(x)
 
-
+        if len(time) == 0:
+            return []
         if type(time[0]) == str:
             for x in range(len(time)):
                 time[x] = np.datetime64(time[x])
@@ -238,7 +266,7 @@ class Pointwize():
         sources = np.array(sources)
 
         if len(data) == 0:
-            return
+            return []
 
         if self.change:
             tiem, data = self.gpd_time_difference(time, data)
@@ -383,7 +411,7 @@ class Pointwize():
 
         shapes_set = {}
         shapes = ['s', '^', 'D']
-        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
 
 
         all_results_time = self.results[list(self.results.keys())[0]]['time']
@@ -490,7 +518,7 @@ class Pointwize():
 
     def plot_elevation_summary(self, fig, ax):
             
-        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cm)
+        sm = mpl.cm.ScalarMappable(norm=self.norm, cmap=self.cmap)
         color = sm.to_rgba(0)
 
         fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
@@ -618,15 +646,382 @@ class Pointwize():
 
 
 
+class FlowProfile(Pointwize):
+    def __init__(self, flags, xlim, ylim, points, cmap='winter'):
+        super().__init__(flags,xlim,ylim,points,'gl',cmap=cmap)
+        self.change = False
+        self.max_dist = 50
+        self.dates = [datetime.datetime(2020, 1, 1), datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1), datetime.datetime(2024, 1, 1)]
+        print(self.dates[0], self.dates[1])
+        self.norm = mcolors.Normalize(vmin=mdates.date2num(self.dates[0]), vmax=mdates.date2num(self.dates[-1]))
+        self.cmap = cmap
+        
+
+    
+    def get_data(self, date):
+
+        f = self.flags.copy()
+        f.add('-' + str(date.year-1) + '-' + str(date.year + 1))
+        filemanager = ElevationManager(self.xlim, self.ylim, f, 'elev')
+        out = filemanager.get_ouput_files()
+
+        self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
+        
+        print([date, date])
+        if date not in self.results.keys():
+            self.results[date] = []
+            return [date, date]
+        date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
+        self.results[date] = []
+        print(date)
+
+        closest = date_options[0]
+        seeking = True
+
+        date_range = [closest, closest]
+        
+        while seeking:
+            try:
+                out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
+                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
+                if len(ret) != 0:
+                    if closest < date_range[0]:
+                        date_range[0] = closest
+                    elif closest > date_range[1]:
+                        date_range[1] = closest
+            except IndexError as e:
+                pass
+            
+            print(self.results[date])
+            
+            out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
+            if len(out) == 0:
+                seeking = False
+            date_options = date_options[1:]
+            if len(date_options) == 0:
+                seeking = False
+                break
+            closest = date_options[0]
+
+        return date_range
+    
+    def geotiff_s_join(self, out, points, column_of_interest = 'band_data'):
+        dists = []
+        values = []
+    
+        for pos in points.itertuples():
+            dists.append(pos.dist_from_grndline)
+            values.append(out.sel(x=pos.geometry.x, y=pos.geometry.y, method='nearest')[column_of_interest].values)
+
+        df = gpd.GeoDataFrame({
+            "dists": dists,
+            "vals": values
+        })
+        df = df.sort_values('dists')
+        return df
+    
+
+    def get_equilibrium(self, elevations, FAC=20):
+
+        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
+        new_elevations -= FAC # remove firn air content
+
+        total_elevation = new_elevations / 0.1 # remaining height is 10% of total, so this obtains the total
+        total_elevation -= new_elevations # remove the 10% above the surface
+        total_elevation = -total_elevation # INVERSION: now working with negative values
+
+        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
+        return final_elevations
 
 
-class StreamFlow():
+
+    def invert_equilibrium(self, elevations, FAC=20):
+
+        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
+
+        total_elevation = new_elevations / 0.9 # Height is 90% of total, so this obtains the total
+        total_elevation -= new_elevations # remove the 90% under the surface
+        total_elevation = -total_elevation # INVERSION: now working with positive values
+
+        total_elevation += FAC # add the firn air content to the height
+
+        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
+        return final_elevations
+
+    def get_simple_equilibrium(self, elevations):
+        total_height = (elevations / 0.1)
+        return -(total_height - elevations)
+
+    
+    def plot_pair(self, fname):
+        p = Plotting()
+        fig, ax = p.elevation_profile_plot()
+
+        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
+        out = rema_fm.get_ouput_files()
+        rema_vals = self.geotiff_s_join(out, self.fl)
+        ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
+        
+        for x in self.dates:
+            label = self.get_data(x)
+            label = self.create_date_range_label(label)
+
+            if len(self.results[x]) == 0:
+                continue
+
+            self.results[x] = self.results[x].sort_values(by='time')
+            p.plot_elevation_data(fig, ax, self.cmap, self.norm,
+                                  self.results[x]['time'], self.results[x]['gl'],
+                                  label=str(label), color_key=mdates.date2num(x))
+            
+
+        
+        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
+        out = fm.get_ouput_files()
+        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+
+        out = out.sort_values('dist_from_grndline')
+        bad_out = out.copy()
+        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
+        #out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] > 0)
+        ax[1].plot(bad_out['dist_from_grndline'].values, bad_out['real_elevation1'] - bad_out['THICK'], ls='dashed', marker= 'None', label='IPR Bottom')
+        
+        ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
+        
+        
+
+
+        FAC = 20
+        FAC2 = 18
+        
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
+
+
+        limsy = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'], padding=0.1)
+        ax[1].set_ylim(limsy)
+        ax[1].set_xlim(ax[0].get_xlim())
+
+        ax[0].legend()
+        ax[1].legend()
+        p.save_close(fig, ax, OUTPUT + fname + "_profile_pair")
+        
+
+    def plot(self, fname):
+        p = Plotting()
+        fig, ax = p.elevation_profile_plot_single()
+
+        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
+        out = rema_fm.get_ouput_files()
+        rema_vals = self.geotiff_s_join(out, self.fl)
+        ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
+        
+        for x in self.dates:
+            label = self.get_data(x)
+            label = self.create_date_range_label(label)
+
+            if len(self.results[x]) == 0:
+                continue
+
+            self.results[x] = self.results[x].sort_values(by='time')
+            p.plot_elevation_data(fig, ax,  self.cmap, self.norm,
+                                  self.results[x]['time'], self.results[x]['gl'],
+                                  label=str(label), color_key=mdates.date2num(x))
+        
+            
+
+        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
+        out = fm.get_ouput_files()
+        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+
+        out = out.sort_values('dist_from_grndline')
+        bad_out = out.copy()
+        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
+   
+
+        FAC = 20
+        FAC2 = 18
+
+        IPR_mirror1 = self.invert_equilibrium(bad_out['real_elevation1'] - bad_out['THICK'], FAC)
+        a = ax.plot(bad_out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None')
+        IPR_mirror2 = self.invert_equilibrium(out['real_elevation1'] - out['THICK'], FAC)
+        ax.plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', color=a[0].get_color(), label='IPR Floatation Height, FAC=' + str(FAC))
+        
+        
+
+        IPR_mirror1 = self.invert_equilibrium(bad_out['real_elevation1'] - bad_out['THICK'], FAC2)
+        a = ax.plot(bad_out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None')
+        IPR_mirror2 = self.invert_equilibrium(out['real_elevation1'] - out['THICK'], FAC2)
+        ax.plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', color=a[0].get_color(), label='IPR Floatation Height, FAC=' + str(FAC2))
+        
+
+        ax.legend()
+        p.save_close(fig, ax, OUTPUT + fname + "_profile")
+        
+    def plot_diff(self, fname):
+        p = Plotting()
+        fig, ax = p.elevation_profile_plot_single()
+        labels = {}
+        
+        for x in self.dates:
+            label = self.get_data(x)
+            labels[x] = self.create_date_range_label(label)
+
+            if len(self.results[x]) == 0:
+                continue
+
+            self.results[x] = self.results[x].sort_values(by='time')
+        
+        start = min(self.results.keys())
+            
+        for x in self.dates:
+            if len(self.results[x]['gl']) == len(self.results[start]['gl']):
+                diffed = self.results[x]['gl'] - self.results[start]['gl']
+                projected = ((x.toordinal() - start.toordinal())/365) * self.trend_adjustment
+                diffed -= projected
+                p.plot_elevation_data(fig, ax, self.cmap, self.norm, 
+                                    self.results[x]['time'], diffed,
+                                    label=str(labels[x]), change_lims=False, color_key=mdates.date2num(x))
+            else:
+                del self.results[x]
+
+        ax.set_ylabel("WSG-84 Elevation Difference (m)")
+        ax.set_xlabel("Distance along profile line (m)")
+
+        ax.legend()
+        ax.set_title("Profile " + fname + " (" + self.title + ")")
+        p.save_close(fig, ax, OUTPUT + fname + "_profile")
+
+
+    def create_date_range_label(self, date_range):
+        date_labels = []
+        for y in range(len(date_range)):
+            date_labels.append(str(date_range[y].month) + '/' + str(date_range[y].year))
+
+        if date_labels[0] == date_labels[1]:
+            for y in range(len(date_labels)):
+                date_labels[y] = str(date_range[y].day) + '/' + date_labels[y]
+
+
+        if date_labels[0] == date_labels[1]:
+            date_labels = [date_labels[0]]
+
+
+        label = '-'.join(date_labels)
+        
+        return label
+
+        
+        
+        
+
+
+        
+
+    
+
+        
+    
+
+
+
+class PointSeries():
+    def __init__(self, xlims, ylims, flags, starting_poses, labels=None):
+        self.xlims = xlims
+        self.ylims = ylims
+        self.flags = flags
+        self.labels = labels
+        if type(starting_poses) == list and type(starting_poses[0]) == list:
+            self.points = starting_poses
+        else:
+            self.points = [starting_poses]
+
+        if self.labels == None:
+            labels = []
+            for x in range(len(self.points)):
+                labels.append(str(x+1))
+
+    def get_points(self, overlap_ds=False, include_all=True, index='index'):
+        if include_all:
+            points = []
+            for p in self.points:
+                points.append(Point(p[1], p[0]))
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.labels, 'vel_dates': self.labels}, geometry=points, crs='EPSG:3031')
+            return np.array(self.points), np.array(self.labels), gpd_df
+        return np.array(self.points), np.array(self.labels)
+
+class PolyLine(PointSeries):
+    def __init__(self, xlims, ylims, flags, starting_poses, pt_label, step_dist = 50, fname="POLYLINE_TEST"):
+        super().__init__(xlims, ylims, flags, starting_poses)
+
+        self.step_dist = step_dist
+        self.main_pts = starting_poses
+        self.pt_label = pt_label
+        self.points = []
+        self.labels = []
+
+        temp = []
+        for p in self.main_pts:
+            temp.append(Point(p[1], p[0]))
+        df_ref = pd.DataFrame({'geometry':temp, 'labels':self.pt_label})
+        df_ref = gpd.GeoDataFrame(df_ref, geometry=temp, crs='EPSG:3031')
+        df_ref.to_file(fname + '.gpkg', driver="GPKG")
+
+    def distance(self, pos1, pos2):
+        return overall_velocity(pos1[0] - pos2[0], pos1[1] - pos2[1])
+
+    def interpolation(self, pos1, pos2, perc):
+        pos = []
+        for x in range(len(pos1)):
+
+            cur = pos1[x] + ((pos2[x] - pos1[x]) * perc)
+
+            pos.append(cur)
+
+        return pos
+    
+    
+    def two_point_array(self, p1, p2, cur_dist=0):
+        total_dist = self.distance(p1, p2)
+        percs = self.step_dist / total_dist
+        cur = -percs
+
+        while cur <= 1:
+            cur += percs
+            print(cur)
+            self.points.append(self.interpolation(p1, p2, cur))
+            self.labels.append((cur * total_dist) + cur_dist)
+
+        return total_dist
+
+
+    def get_points(self, overlap_ds=False, include_all=True, index='index'):
+        
+        cur_dist = 0
+        for x in range(1, len(self.main_pts)):
+            cur_dist += self.two_point_array(self.main_pts[x-1], self.main_pts[x], cur_dist=cur_dist)
+
+        if include_all:
+            points = []
+            for p in self.points:
+                points.append(Point(p[1], p[0]))
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.labels, 'vel_dates': self.labels}, geometry=points, crs='EPSG:3031')
+            gpd_df.to_file('POLYLINE_TEST.gpkg', driver='GPKG')
+            return np.array(self.points), np.array(self.labels), gpd_df
+
+        return np.array(self.points), np.array(self.labels)
+
+
+class StreamFlow(PointSeries):
     def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist', cmap='managua'):
         f = flags.copy()
-        #f.add('-'+str(flags.YEARSTART)+'-'+str(flags.YEAREND))
         f.add('-itslive')
         self.fmx = VelocityManager(xlims, ylims, f, 'velx')
         self.fmy = VelocityManager(xlims, ylims, f, 'vely')
+        super().__init__(xlims, ylims, f, starting_pos)
+
         self.cmap = cmap
 
         self.starting_pos = starting_pos
@@ -772,226 +1167,3 @@ class StreamFlow():
         return points, labels
 
         
-class FlowProfile(Pointwize):
-    def __init__(self, flags, xlim, ylim, points,cmap='managua'):
-        super().__init__(flags,xlim,ylim,points,'gl',pt_range = [-1, 3], point_spacing=2000, cmap=cmap)
-        self.change = False
-        self.max_dist = 50
-        self.dates = [datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1), datetime.datetime(2024, 1, 1)]
-
-    
-    def get_data(self, date):
-
-        f = self.flags.copy()
-        f.add('-' + str(date.year-1) + '-' + str(date.year + 1))
-        filemanager = ElevationManager(self.xlim, self.ylim, f, 'elev')
-        out = filemanager.get_ouput_files()
-
-        self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
-        
-        date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
-        self.results[date] = []
-        print(date)
-
-        closest = date_options[0]
-        seeking = True
-
-        date_range = [closest, closest]
-        
-        while seeking:
-            try:
-                out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
-                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
-                if len(ret) != 0:
-                    if closest < date_range[0]:
-                        date_range[0] = closest
-                    elif closest > date_range[1]:
-                        date_range[1] = closest
-            except IndexError as e:
-                pass
-            
-            print(self.results[date])
-            
-            out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
-            if len(out) == 0:
-                seeking = False
-            date_options = date_options[1:]
-            if len(date_options) == 0:
-                seeking = False
-                break
-            closest = date_options[0]
-
-        return date_range
-    
-    def geotiff_s_join(self, out, points, column_of_interest = 'band_data'):
-        dists = []
-        values = []
-        for pos in points.itertuples():
-            dists.append(pos.dist_from_grndline)
-            values.append(out.sel(x=pos.geometry.x, y=pos.geometry.y, method='nearest')[column_of_interest].values)
-
-        df = gpd.GeoDataFrame({
-            "dists": dists,
-            "vals": values
-        })
-        df = df.sort_values('dists')
-        return df
-    
-
-    def get_equilibrium(self, elevations, FAC=20):
-
-        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
-        new_elevations -= FAC # remove firn air content
-
-        total_elevation = new_elevations / 0.1 # remaining height is 10% of total, so this obtains the total
-        total_elevation -= new_elevations # remove the 10% above the surface
-        total_elevation = -total_elevation # INVERSION: now working with negative values
-
-        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
-        return final_elevations
-
-
-
-    def invert_equilibrium(self, elevations, FAC=20):
-
-        new_elevations = elevations + SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
-
-        total_elevation = new_elevations / 0.9 # Height is 90% of total, so this obtains the total
-        total_elevation -= new_elevations # remove the 90% under the surface
-        total_elevation = -total_elevation # INVERSION: now working with positive values
-
-        total_elevation += FAC # add the firn air content to the height
-
-        final_elevations = total_elevation - SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
-        return final_elevations
-
-    def get_simple_equilibrium(self, elevations):
-        total_height = (elevations / 0.1)
-        return -(total_height - elevations)
-
-    
-    def plot_pair(self):
-        p = Plotting()
-        fig, ax = p.elevation_profile_plot()
-
-        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
-        out = rema_fm.get_ouput_files()
-        rema_vals = self.geotiff_s_join(out, self.fl)
-        ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
-        
-        '''for x in self.dates:
-            label = self.get_data(x)
-            for y in range(len(label)):
-                label[y] = str(label[y].month) + '/' + str(label[y].year)
-
-            label = '-'.join(label)
-
-            if len(self.results[x]) == 0:
-                continue
-
-            self.results[x] = self.results[x].sort_values(by='time')
-            p.plot_elevation_data(fig, ax, 
-                                  self.results[x]['time'], self.results[x]['gl'],
-                                  label=str(label))'''
-            
-
-        
-        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
-        out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
-
-        out = out.sort_values('dist_from_grndline')
-        bad_out = out.copy()
-        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
-        #out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] > 0)
-        ax[1].plot(bad_out['dist_from_grndline'].values, bad_out['real_elevation1'] - bad_out['THICK'], ls='dashed', marker= 'None', label='IPR Bottom')
-        
-        ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
-        
-        
-
-
-        FAC = 20
-        FAC2 = 18
-        
-        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC)
-        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
-        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
-        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
-
-
-        limsy = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'], padding=0.1)
-        ax[1].set_ylim(limsy)
-        ax[1].set_xlim(ax[0].get_xlim())
-
-        ax[0].legend()
-        ax[1].legend()
-        p.save_close(fig, ax, OUTPUT + "profile_pair")
-        
-
-    def plot(self):
-        p = Plotting()
-        fig, ax = p.elevation_profile_plot_single()
-
-        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
-        out = rema_fm.get_ouput_files()
-        rema_vals = self.geotiff_s_join(out, self.fl)
-        ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
-        
-        for x in self.dates:
-            label = self.get_data(x)
-            for y in range(len(label)):
-                label[y] = str(label[y].month) + '/' + str(label[y].year)
-
-            label = '-'.join(label)
-
-            if len(self.results[x]) == 0:
-                continue
-
-            self.results[x] = self.results[x].sort_values(by='time')
-            p.plot_elevation_data(fig, ax, 
-                                  self.results[x]['time'], self.results[x]['gl'],
-                                  label=str(label))
-        
-            
-
-        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
-        out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
-
-        out = out.sort_values('dist_from_grndline')
-        bad_out = out.copy()
-        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
-   
-
-        FAC = 20
-        FAC2 = 18
-
-        IPR_mirror1 = self.invert_equilibrium(bad_out['real_elevation1'] - bad_out['THICK'], FAC)
-        a = ax.plot(bad_out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None')
-        IPR_mirror2 = self.invert_equilibrium(out['real_elevation1'] - out['THICK'], FAC)
-        ax.plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', color=a[0].get_color(), label='IPR Floatation Height, FAC=' + str(FAC))
-        
-        
-
-        IPR_mirror1 = self.invert_equilibrium(bad_out['real_elevation1'] - bad_out['THICK'], FAC2)
-        a = ax.plot(bad_out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None')
-        IPR_mirror2 = self.invert_equilibrium(out['real_elevation1'] - out['THICK'], FAC2)
-        ax.plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', color=a[0].get_color(), label='IPR Floatation Height, FAC=' + str(FAC2))
-        
-
-        ax.legend()
-        p.save_close(fig, ax, OUTPUT + "profile")
-        
-        
-        
-
-
-        
-
-    
-
-        
-    
-
-

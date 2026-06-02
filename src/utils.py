@@ -23,50 +23,97 @@ AREAS = {
 POINT_LISTS = {
 
     'Dibble' : [
-{
+        {
+            'type': 'fl',
             'point': [-1806893.758, 1855363.783],
             'point_range': [-5, 5],
             'point_spacing': 2000
         },
-{
-            'point': [-1780344,1849424],
-            'point_range': [0, 1],
-            'point_spacing': 500,
-            'cmap': ListedColormap(['red'])# 'coolwarm'
-        },
         {
-            'point': [-1784306,1842735],
-            'point_range': [0, 1],
-            'point_spacing': 500,
-            'cmap': ListedColormap(['mediumseagreen']) #'Wistia'
+            'type': 'l',
+            'point': [[-1780344,1849424], [-1784306,1842735],[-1763293,1821722]],
+            'labels': ['C', 'B', 'A'],
+            'cmap': ListedColormap(['red', 'mediumseagreen', 'orange'])# 'coolwarm'
         },
-        {
-            'point': [-1763293,1821722],
-            'point_range': [0, 1],
-            'point_spacing': 500,
-            'cmap': ListedColormap(['orange']) # 'vanimo'
-        },
-        
-        
-        {
-            'point': [-1806893.758, 1855363.783],
-            'point_range': [-5, 5],
-            'point_spacing': 2000
-        },
+
     ]
 }
 
 PROFILE_LOCATION = {
-    'Dibble': {
-            'point': [-1806893.758, 1855363.783],
-            'point_range': [-10, 10],
-            'point_spacing': 300
-
-    }
+    'Dibble': [
+        
+        {
+            'fname': 'C2',
+            'type': 'pl',
+            'point': [[-1761990.0,1819970.7], [-1764530.5,1823283.7]],
+            'point_spacing': 60,
+            'point_labels': ['F', "F'"],
+            'trend_adjustment': 0.3,
+            'cmap': 'coolwarm' 
+        },
+        
+        {
+            'fname': 'C1',
+            'type': 'pl',
+            'point': [[-1762031.56,1820215.62], [-1765445.884,1823019.470]],
+            'point_spacing': 60,
+            'point_labels': ['E', "E'"],
+            'trend_adjustment': 0.3,
+            'cmap': 'coolwarm' 
+        },
+        
+        {
+            'fname': 'B2',
+            'type': 'pl',
+            'point': [[-1778995.7,1849053.4], [-1780963.6,1850678.6]],
+            'point_spacing': 60,
+            'point_labels': ['D', "D'"],
+            'trend_adjustment': 0.23,
+            'cmap': 'coolwarm' 
+        },
+        
+        {
+            'fname': 'B1',
+            'type': 'pl',
+            'point': [[-1779443.80,1848323.74], [-1781646.4,1851213.1]],
+            'point_spacing': 60,
+            'point_labels': ['C', "C'"],
+            'trend_adjustment': 0.23,
+            'cmap': 'coolwarm' 
+        },
+        
+        {
+            'fname': 'A2',
+            'type': 'pl',
+            'point': [[-1785408.2,1843757.5], [-1782737.1,1841559.7]],
+            'point_spacing': 60,
+            'point_labels': ['B', "B'"],
+            'trend_adjustment': 0.21,
+            'cmap': 'coolwarm' 
+        },
+        
+        {
+            'fname': 'A1',
+            'type': 'pl',
+            'point': [[-1782753.4,1841429.1], [-1785223.2,1844671.4]],
+            'point_spacing': 60,
+            'point_labels': ['A', "A'"],
+            'trend_adjustment': 0.21,
+            'cmap': 'coolwarm' 
+        },
+        ]
 }
 
-'''
-'''
+GL_PROFILE_LOCATION = {
+    'Dibble': [{
+            'fname': 'grounding_line_profile',
+            'type': 'fl',
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-10, 10],
+            'point_spacing': 400
+        },]
+        }
+
 
 TO_FRAME = {
     'itslive_trends.tif': {
@@ -126,6 +173,7 @@ POINT_LISTS2 = {
 
     'Dibble' : [
         {
+            'type': 'fl',
             'point': [-1806893.758, 1855363.783],
             'point_range': [-2, 4],
             'point_spacing': 14000
@@ -136,16 +184,19 @@ POINT_LISTS2 = {
         #    'point_spacing': 2000
         #},
         {
+            'type': 'fl',
             'point': [-1780344,1849424],
             'point_range': [0, 0],
             'point_spacing': 0
         },
         {
+            'type': 'fl',
             'point': [-1784306,1842735],
             'point_range': [0, 0],
             'point_spacing': 0
         },
         {
+            'type': 'fl',
             'point': [-1763293,1821722],
             'point_range': [0, 0],
             'point_spacing': 0
