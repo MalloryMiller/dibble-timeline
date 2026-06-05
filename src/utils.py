@@ -116,7 +116,7 @@ GL_PROFILE_LOCATION = {
 
 
 TO_FRAME = {
-    'itslive_trends.tif': {
+    'itslive_trends_2km.tif': {
         'title': 'ItsLive (2018-2024) Velocity Trends',
         'label': 'Trend (m/yr²)',
         'vmin': -10,
@@ -124,7 +124,7 @@ TO_FRAME = {
         'cmap': 'RdYlGn',
         'gl': True
     },
-    'itslive_r2.tif': {
+    'itslive_r2_2km.tif': {
         'title': ' ItsLive (2018-2024) Velocity Trends ',
         'label': 'R²',
         'vmin': 0,
@@ -132,7 +132,7 @@ TO_FRAME = {
         'cmap': 'Greys_r',
         'gl': False
     },
-    'measures_trends.tif': {
+    'measures_trends_2km.tif': {
         'title': ' MEaSUREs (2018-2024) Velocity Trends ',
         'label': 'Trend (m/yr²)',
         'vmin': -10,
@@ -140,7 +140,7 @@ TO_FRAME = {
         'cmap': 'RdYlGn',
         'gl': True
     },
-    'measures_r2.tif': {
+    'measures_r2_2km.tif': {
         'title': ' MEaSUREs (2018-2024) Velocity Trends  ',
         'label': 'R²',
         'vmin': 0,

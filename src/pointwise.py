@@ -212,14 +212,11 @@ class Pointwize():
             val_arr = df_ref[grouped_dates == x].dropna()
             if len(val_arr) == 0:
                 continue 
-            print('exists?', key in self.results.keys())
             if closest_time and key in self.results.keys() and len(self.results[key]) != 0:
                 nearby_existing = self.get_closest_existing_value_dist(x, self.results[key]['time']) < closest_time
                 nearby_currentg = self.get_closest_existing_value_dist(x, time) < closest_time
-                print('checking if exists already')
                 print(nearby_existing, self.get_closest_existing_value_dist(x, self.results[key]['time']))
                 if nearby_existing or nearby_currentg:
-                    print('cont')
                     continue
 
             val_arr = val_arr.sort_values(by=date_col)
@@ -647,61 +644,85 @@ class Pointwize():
 
 
 class FlowProfile(Pointwize):
-    def __init__(self, flags, xlim, ylim, points, cmap='winter'):
+    def __init__(self, flags, xlim, ylim, points, cmap='winter', dates=False):
         super().__init__(flags,xlim,ylim,points,'gl',cmap=cmap)
         self.change = False
         self.max_dist = 50
-        self.dates = [datetime.datetime(2020, 1, 1), datetime.datetime(2021, 1, 1), datetime.datetime(2022, 1, 1), datetime.datetime(2023, 1, 1), datetime.datetime(2024, 1, 1)]
-        print(self.dates[0], self.dates[1])
+        self.specific_dates = dates
+        if dates:
+            self.dates = [datetime.datetime(2020, 1, 1), 
+                        datetime.datetime(2021, 1, 1), 
+                        datetime.datetime(2022, 1, 1), 
+                        datetime.datetime(2023, 1, 1), 
+                        datetime.datetime(2024, 1, 1),]
+        else:
+            self.dates = [datetime.datetime(flags.YEARSTART, 1, 1), datetime.datetime(flags.YEAREND, 1, 1),]
         self.norm = mcolors.Normalize(vmin=mdates.date2num(self.dates[0]), vmax=mdates.date2num(self.dates[-1]))
         self.cmap = cmap
         
 
     
-    def get_data(self, date):
+    def get_data(self, date, seek=True):
+        if date == None:
+            f=self.flags.copy()
+        else:
+            f = self.flags.copy()
+            f.add('-' + str(date.year-1) + '-' + str(date.year + 1))
 
-        f = self.flags.copy()
-        f.add('-' + str(date.year-1) + '-' + str(date.year + 1))
         filemanager = ElevationManager(self.xlim, self.ylim, f, 'elev')
         out = filemanager.get_ouput_files()
 
         self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
         
-        print([date, date])
-        if date not in self.results.keys():
+        if date != None:
+            print([date, date])
+            if date not in self.results.keys():
+                self.results[date] = []
+                return [date, date]
+            date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
             self.results[date] = []
-            return [date, date]
-        date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
-        self.results[date] = []
-        print(date)
+            print(date)
 
-        closest = date_options[0]
-        seeking = True
-
-        date_range = [closest, closest]
-        
-        while seeking:
-            try:
-                out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
-                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
-                if len(ret) != 0:
-                    if closest < date_range[0]:
-                        date_range[0] = closest
-                    elif closest > date_range[1]:
-                        date_range[1] = closest
-            except IndexError as e:
-                pass
-            
-            print(self.results[date])
-            
-            out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
-            if len(out) == 0:
-                seeking = False
-            date_options = date_options[1:]
-            if len(date_options) == 0:
-                seeking = False
-                break
             closest = date_options[0]
+            seeking = True
+
+            date_range = [closest, closest]
+            
+            while seeking:
+                try:
+                    out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
+                    ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
+                    if len(ret) != 0:
+                        if closest < date_range[0]:
+                            date_range[0] = closest
+                        elif closest > date_range[1]:
+                            date_range[1] = closest
+                except IndexError as e:
+                    seeking |= seek
+                    pass
+                
+                print(self.results[date])
+                
+                out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
+                if len(out) == 0:
+                    seeking = False
+                date_options = date_options[1:]
+                if len(date_options) == 0:
+                    seeking = False
+                    break
+                closest = date_options[0]
+                seeking |= seek
+
+        else:
+            dates = self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy()
+            
+            for d in dates:
+                out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == d]
+                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=d,closest_time=1000)
+            date_range=[datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1),]
+                    
+
+
 
         return date_range
     
@@ -751,6 +772,33 @@ class FlowProfile(Pointwize):
     def get_simple_equilibrium(self, elevations):
         total_height = (elevations / 0.1)
         return -(total_height - elevations)
+    
+
+    def plot_specific_date(self, fig, ax, p, x):
+        label = self.get_data(x)
+        label = self.create_date_range_label(label)
+
+        if len(self.results[x]) == 0:
+            return
+
+        self.results[x] = self.results[x].sort_values(by='time')
+        p.plot_elevation_data(fig, ax, self.cmap, self.norm,
+                            self.results[x]['time'], self.results[x]['gl'],
+                            label=str(label), color_key=mdates.date2num(x))
+
+    def plot_all_by_date(self, fig, ax, p):
+        label = self.get_data(None)
+        
+
+        if len(self.results.keys()) == 0:
+            return
+
+        for x in self.results.keys():
+            label = self.create_date_range_label([x, x])
+            #self.results[x] = self.results[x].sort_values(by='time')
+            p.plot_elevation_data(fig, ax, self.cmap, self.norm,
+                                self.results[x]['time'], self.results[x]['gl'],
+                                label=str(label), color_key=mdates.date2num(x))
 
     
     def plot_pair(self, fname):
@@ -762,17 +810,12 @@ class FlowProfile(Pointwize):
         rema_vals = self.geotiff_s_join(out, self.fl)
         ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
-        for x in self.dates:
-            label = self.get_data(x)
-            label = self.create_date_range_label(label)
 
-            if len(self.results[x]) == 0:
-                continue
-
-            self.results[x] = self.results[x].sort_values(by='time')
-            p.plot_elevation_data(fig, ax, self.cmap, self.norm,
-                                  self.results[x]['time'], self.results[x]['gl'],
-                                  label=str(label), color_key=mdates.date2num(x))
+        if self.specific_dates:
+            for x in self.dates:
+                self.plot_specific_date(fig, ax, p, x)
+        else:
+            self.plot_all_by_date(fig, ax, p)
             
 
         
@@ -818,17 +861,11 @@ class FlowProfile(Pointwize):
         rema_vals = self.geotiff_s_join(out, self.fl)
         ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
-        for x in self.dates:
-            label = self.get_data(x)
-            label = self.create_date_range_label(label)
-
-            if len(self.results[x]) == 0:
-                continue
-
-            self.results[x] = self.results[x].sort_values(by='time')
-            p.plot_elevation_data(fig, ax,  self.cmap, self.norm,
-                                  self.results[x]['time'], self.results[x]['gl'],
-                                  label=str(label), color_key=mdates.date2num(x))
+        if self.specific_dates:
+            for x in self.dates:
+                self.plot_specific_date(fig, ax, p, x)
+        else:
+            self.plot_all_by_date(fig, ax, p)
         
             
 
@@ -860,32 +897,60 @@ class FlowProfile(Pointwize):
         ax.legend()
         p.save_close(fig, ax, OUTPUT + fname + "_profile")
         
+
     def plot_diff(self, fname):
         p = Plotting()
         fig, ax = p.elevation_profile_plot_single()
         labels = {}
         
-        for x in self.dates:
-            label = self.get_data(x)
-            labels[x] = self.create_date_range_label(label)
-
-            if len(self.results[x]) == 0:
-                continue
-
-            self.results[x] = self.results[x].sort_values(by='time')
-        
-        start = min(self.results.keys())
+        if self.specific_dates:
             
-        for x in self.dates:
+            for x in self.dates:
+                label = self.get_data(x)
+                labels[x] = self.create_date_range_label(label)
+
+                if len(self.results[x]) == 0:
+                    continue
+
+                self.results[x] = self.results[x].sort_values(by='time')
+        else:
+            self.get_data(None, seek=False)
+            self.dates = self.results.keys()
+            for dates in self.dates:
+                if dates == None:
+                    continue
+                labels[dates] = self.create_date_range_label([dates, dates])
+
+        print(self.results.keys())
+        print(self.results[None])
+        del self.results[None]
+
+        full_track_length = 0
+        remove = []
+        for x in self.results.keys():
+            if len(self.results[x]['gl']) > full_track_length:
+                full_track_length = len(self.results[x]['gl'])
+        for x in self.results.keys():
+            if len(self.results[x]['gl']) < full_track_length:
+                remove.append(x)
+        for x in remove:
+            print(x, "does not have enough points, ", len(self.results[x]['gl']), '/',  full_track_length)
+            del self.results[x]
+        start = min(self.results.keys())
+
+        
+            
+        for x in sorted(self.dates):
             if len(self.results[x]['gl']) == len(self.results[start]['gl']):
                 diffed = self.results[x]['gl'] - self.results[start]['gl']
                 projected = ((x.toordinal() - start.toordinal())/365) * self.trend_adjustment
                 diffed -= projected
                 p.plot_elevation_data(fig, ax, self.cmap, self.norm, 
-                                    self.results[x]['time'], diffed,
+                                    self.results[x]['time'], diffed, 
                                     label=str(labels[x]), change_lims=False, color_key=mdates.date2num(x))
             else:
-                del self.results[x]
+                continue
+                
 
         ax.set_ylabel("WSG-84 Elevation Difference (m)")
         ax.set_xlabel("Distance along profile line (m)")
@@ -990,7 +1055,6 @@ class PolyLine(PointSeries):
 
         while cur <= 1:
             cur += percs
-            print(cur)
             self.points.append(self.interpolation(p1, p2, cur))
             self.labels.append((cur * total_dist) + cur_dist)
 

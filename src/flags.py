@@ -49,7 +49,8 @@ class Flags():
             '-profile',
             '-diffprofile',
             '-pairprofile',
-            '-elev-error'
+            '-elev-error',
+            '-frame'
         ]
 
         self.rebuild_flags = [
