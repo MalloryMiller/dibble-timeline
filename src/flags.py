@@ -60,6 +60,7 @@ class Flags():
             '-rebuild:vely',
             '-rebuild:firn',
             '-rebuild:elev',
+            '-rebuild:smb',
             #'-rebuild:rema',
         ]
 

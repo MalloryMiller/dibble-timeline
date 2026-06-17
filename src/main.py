@@ -4,7 +4,7 @@ import os
 from utils import *
 
 
-from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager,  IPRManager, plt
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager, SMBManager, IPRManager, plt
 from elevation_errpr import ElevationError
 from pointwise import Pointwize, FlowProfile
 import matplotlib.pyplot as plt
@@ -140,14 +140,14 @@ class main():
             self.point_name = self.title
             point = GL_PROFILE_LOCATION[self.point_name]
             for x in point:
-                t = FlowProfile(self.flags, self.xlim, self.ylim, x)
+                t = FlowProfile(self.flags, self.xlim, self.ylim, x, dates=True)
                 t.plot(x['fname'])
 
         if self.flags.chart_type() == 'pairprofile':
             self.point_name = self.title
             point = GL_PROFILE_LOCATION[self.point_name]
             for x in point:
-                t = FlowProfile(self.flags, self.xlim, self.ylim, x)
+                t = FlowProfile(self.flags, self.xlim, self.ylim, x, dates=True)
                 t.plot_pair(x['fname'])
 
         if self.flags.chart_type() == 'diffprofile':
@@ -317,8 +317,7 @@ class main():
             f = self.flags.copy()
             f.add('-2000-2025')
             p = Pointwize(f, self.xlim, self.ylim, 
-                        point['point'], data = d, change=change and can_change[d],
-                        pt_range = point['point_range'], point_spacing=point['point_spacing'], cmap=cmap)
+                        point, data = d, change=change and can_change[d], cmap=cmap)
             p.plot_time_series(fig, ax[i][0], rema=rema, plot_range=[datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1)])
             if i == 0:
                 p.save_point_df() # save the points df after first one was made
@@ -368,7 +367,8 @@ class main():
             'vel': VelocityManager,
             'elev': ElevationManager,
             'firn': FirnAirManager,
-            'grav': GravimetryManager
+            'grav': GravimetryManager,
+            'smb': SMBManager,
         }
 
 

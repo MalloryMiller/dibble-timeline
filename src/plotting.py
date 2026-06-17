@@ -517,12 +517,21 @@ class Plotting:
         elif color_key != None and label != None:
             ax1.plot(dist, elevation, marker='o', linestyle='None', label=label, color=sm.to_rgba(color_key))
 
+        padding = (max(elevation) - min(elevation)) * 0.3
+        padding_x = (max(elevation) - min(elevation)) * 0.15
         if change_lims:
-            padding = (max(elevation) - min(elevation)) * 0.15
             ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
-            ax1.set_xlim(min(dist), max(dist))
+            ax1.set_xlim(min(dist) - padding_x, max(dist) + padding_x)
             if type(ax) == np.array:
-                ax[1].set_xlim(min(dist), max(dist))
+                ax[1].set_xlim(min(dist) - padding_x, max(dist) + padding_x)
+        if change_lims == 'x':
+            ax1.set_xlim(min(dist) - padding_x, max(dist) + padding_x)
+            if type(ax) == np.array:
+                ax[1].set_xlim(min(dist) - padding_x, max(dist) + padding_x)
+        if change_lims == 'y':
+            ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
+            if type(ax) == np.array:
+                ax[1].set_ylim(min(elevation) - padding, max(elevation) + padding)
 
 
     def save_close(self, fig, ax, title):

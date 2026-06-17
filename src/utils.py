@@ -29,15 +29,15 @@ POINT_LISTS = {
             'point_range': [-5, 5],
             'point_spacing': 2000
         },
-        {
-            'type': 'l',
-            'point': [[-1780344,1849424], [-1784306,1842735],[-1763293,1821722]],
-            'labels': ['C', 'B', 'A'],
-            'cmap': ListedColormap(['red', 'mediumseagreen', 'orange'])# 'coolwarm'
-        },
 
     ]
 }
+'''{
+    'type': 'l',
+    'point': [[-1780344,1849424], [-1784306,1842735],[-1763293,1821722]],
+    'labels': ['C', 'B', 'A'],
+    'cmap': ListedColormap(['red', 'mediumseagreen', 'orange'])# 'coolwarm'
+},'''
 
 PROFILE_LOCATION = {
     'Dibble': [
@@ -45,7 +45,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'C2',
             'type': 'pl',
-            'point': [[-1761990.0,1819970.7], [-1764530.5,1823283.7]],
+            'point': [[-1760905,1818514], [-1765246,1824253]],
             'point_spacing': 60,
             'point_labels': ['F', "F'"],
             'trend_adjustment': 0.3,
@@ -55,7 +55,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'C1',
             'type': 'pl',
-            'point': [[-1762031.56,1820215.62], [-1765445.884,1823019.470]],
+            'point': [[-1761041,1819437], [-1766250,1823683]],
             'point_spacing': 60,
             'point_labels': ['E', "E'"],
             'trend_adjustment': 0.3,
@@ -65,7 +65,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'B2',
             'type': 'pl',
-            'point': [[-1778995.7,1849053.4], [-1780963.6,1850678.6]],
+            'point': [[-1778338,1848510], [-1782300,1851753]],
             'point_spacing': 60,
             'point_labels': ['D', "D'"],
             'trend_adjustment': 0.23,
@@ -75,7 +75,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'B1',
             'type': 'pl',
-            'point': [[-1779443.80,1848323.74], [-1781646.4,1851213.1]],
+            'point': [[-1778895,1847601], [-1782531,1852377]],
             'point_spacing': 60,
             'point_labels': ['C', "C'"],
             'trend_adjustment': 0.23,
@@ -85,7 +85,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'A2',
             'type': 'pl',
-            'point': [[-1785408.2,1843757.5], [-1782737.1,1841559.7]],
+            'point': [[-1782124,1841049], [-1786166,1844400]],
             'point_spacing': 60,
             'point_labels': ['B', "B'"],
             'trend_adjustment': 0.21,
@@ -95,7 +95,7 @@ PROFILE_LOCATION = {
         {
             'fname': 'A1',
             'type': 'pl',
-            'point': [[-1782753.4,1841429.1], [-1785223.2,1844671.4]],
+            'point': [[-1782246,1840791], [-1785922,1845621]],
             'point_spacing': 60,
             'point_labels': ['A', "A'"],
             'trend_adjustment': 0.21,
@@ -208,7 +208,7 @@ POINT_LISTS2 = {
 
 DEFAULT_AREA = 'Dibble'
 
-SEA_LEVEL_ELEVATION = 38
+SEA_LEVEL_ELEVATION = 39
 
 
 DIVERGENT_CMAP = 'Spectral'
@@ -245,16 +245,28 @@ SHAPEFILES = {
     'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.shp",
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
+    'dibblebasins': "shapefiles/DibbleBasin.shp",
 }
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
+GL_GPKG_manual = "shapefiles/Manual_grounding_lines.gpkg"
 GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
 
 IPR_GPKG_LOCATION = INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg"
+ADJUSTED_IPR = INPUT + "ipr/firnair_.gpkg"
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
 REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_dem.tif"
+SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #
+
+
+SMB_LOCATION = INPUT + 'smb/'
+SMB_FILE_LOCATION = SMB_LOCATION + "ramco_smb.tif"
+SMB_AREA_LOCATION = SMB_LOCATION + "ramco_areas.tif"
+SMB_MASK_LOCATION = SMB_LOCATION + "ramco_mask.tif"
+SMB_MASK_NC_LOCATION = SMB_LOCATION + "ANT11_masks.nc"
+SMB_NC_LOCATION = SMB_LOCATION + "smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc"
 
 
 FILE_FORMATS = {

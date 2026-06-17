@@ -15,8 +15,15 @@ import matplotlib.pyplot as plt
 from shapely.geometry import Point
 import pandas as pd
 import geopandas as gpd
+from functools import partial
 from geocube.api.core import make_geocube
+from geocube.rasterize import rasterize_image
 from osgeo import gdal
+from osgeo_utils import gdal_calc
+
+from rasterstats import zonal_stats
+import rasterio as rs
+from dateutil.relativedelta import relativedelta
 
 import h5py
 
@@ -513,6 +520,8 @@ class ElevationManager(FileManager):
         #self.file = self.file.rename(columns={'elevation': 'elev', 'elevation_yerr': 'elev_yerr'})
         
         new_dates = []
+        if len(self.file) == 0:
+            return self.file
         for x in self.file['date']:
             try:
                 new_dates.append(datetime.datetime(year=int(x), day=1, month=1).replace(hour=0, second=0, minute=0))
@@ -710,14 +719,19 @@ class ElevationManager(FileManager):
             
             self.chack_valid_path(OUTPUT + self.get_elevation_fname(c))
             gdf_final = gpd.GeoDataFrame(self.file[c], geometry='geometry', crs='EPSG:4326')
+            gdf_final.to_crs('EPSG:3031')
             gdf_final.to_file(OUTPUT + self.get_elevation_fname(c), driver='GPKG')
 
-            '''to_tif = make_geocube(
+            to_tif = make_geocube(
                 vector_data=gdf_final,
                 measurements=["elev"],
 
                 resolution=(-0.1, 0.1),
-            )'''
+                rasterize_function=rasterize_image,
+            )
+            print(TIF_LOCATION + self.get_tif_elevation_fname(c))
+            to_tif['elev'].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
+
 
             #self.generate_image(to_tif["elev"], TIF_LOCATION + self.get_tif_elevation_fname(cur_track))
 
@@ -873,11 +887,12 @@ class REMATileManager(FileManager):
 
 class IPRManager(FileManager):
 
-    def __init__(self, xlims, ylims, flags, data, label=''):
+    def __init__(self, xlims, ylims, flags, data, label='', corrected=False):
         
         ftype='csv'
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
         self.gpkg_source = "Open Polar Radar, 2024"
+        self.corrected = corrected
         
     
 
@@ -889,10 +904,8 @@ class IPRManager(FileManager):
 
 
     def fnames(self, data_override=None):
-        if data_override == None:
-            data = self.data
-        else:
-            data = data_override
+        if self.corrected:
+            return [ADJUSTED_IPR], [], []
         return [IPR_GPKG_LOCATION], [], []
 
 
@@ -965,3 +978,134 @@ class FirnAirManager(FileManager):
             
         return fnames, found_years, sources
     
+class SMBManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='csv'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+
+        self.start_band_time = datetime.datetime(1979, 1, 16)
+        self.band_steps = relativedelta(month=1)
+
+        self.source_file = SMB_FILE_LOCATION
+        self.mask_file = SMB_FILE_LOCATION
+        self.area_file = SMB_FILE_LOCATION
+        self.tif_source = "RACMO SMB"
+        
+    
+
+    def build_files(self):
+        return self.build_smb_files()
+
+    def get_smb_fname(self, date):
+        return OUTPUT + 'smb/' + str(date) + "_" + self.label + ".tif"
+
+    def get_temp_fname(self):
+        return OUTPUT + 'smb/temp.tif'
+
+    
+    def build_smb_files(self):
+        '''
+        splits firn file into years with each band of the image being a year offset from the last.
+
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        String[]
+            list of the generated data files
+        '''
+        dates = []
+        sums = []
+
+        for x in range(self.yearStart, self.yearEnd):
+            for m in range(1, 13):
+                if ((((x * 12) + m) - (self.start_band_time.year * 12))) < 0:
+                    pass
+                #try:
+                gdal.Translate( self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), self.source_file, bandList=[(((x * 12) + m) - (self.start_band_time.year * 12))])
+                #self.get_temp_fname()
+                '''gdal_calc.Calc(
+                    calc='A * B * C',
+                    A=self.get_temp_fname(),
+                    B='NETCDF:"""'+ SMB_MASK_NC_LOCATION + '""":Area',
+                    C='NETCDF:"""'+ SMB_MASK_NC_LOCATION + '""":IceMask',
+                    outfile=self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)),
+                    overwrite=True
+                ) # -a_ullr -39.3499999999999943 -31.0500000000000043 33.2500000000000071 28.0500000000000007'''
+                '''except RuntimeError as e:
+                    print("No smb data for " + self.tif_source + " at year " + str(x))
+                    print(e)'''
+                # -39.3499999999999943,-31.0500000000000043 : 33.2500000000000071,28.0500000000000007
+
+                sums.append(self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'])
+                dates.append(datetime.datetime(x, m, self.start_band_time.day))
+
+        plt.plot(dates, sums)
+        plt.xlabel('Date')
+        plt.ylabel('Surface Mass Balance Basin Sum (kg m-2)')
+        plt.savefig('SMBs.png')
+        '''
+        
+        Geolocation:
+  SRS=GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]
+  X_DATASET=NETCDF:"/Users/millemal/Documents/repos/dibble-timeline/src/input/smb/smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc":lon
+  X_BAND=1
+  Y_DATASET=NETCDF:"/Users/millemal/Documents/repos/dibble-timeline/src/input/smb/smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc":lat
+  Y_BAND=1
+  PIXEL_OFFSET=0
+  PIXEL_STEP=1
+  LINE_OFFSET=0
+  LINE_STEP=1
+  GEOREFERENCING_CONVENTION=PIXEL_CENTER
+Corner Coordinates:
+Upper Left  ( -39.3500000,  28.0500000) ( 26d40' 0.47"W, 39d42'28.40"S)
+Lower Left  ( -39.3500000, -31.0500000) (110d 1' 2.12"W, 44d49'23.50"S)
+Upper Right (  33.2500000,  28.0500000) ( 62d14'48.92"E, 43d58' 6.13"S)
+Lower Right (  33.2500000, -31.0500000) (153d51'30.77"E, 49d20'55.33"S)
+Center      (  -3.0500000,  -1.5000000) ( 21d 7'18.41"W, 85d21'39.85"S)
+        '''
+        self.close()
+
+    def get_zonal_data(self, fname, mask):
+
+        dataset = rs.open(fname)
+        arr = dataset.read(1)
+        affine=dataset.transform
+
+        zone = gpd.read_file(SHAPEFILES[mask])
+        print(zone)
+        # Set CRS to the default if needed. This does not
+        # transform the shapefile to a difference CRS.
+        if zone.crs is None:
+            zone = zone.set_crs(dataset.crs)
+
+        # Transform to a difference CRS.
+        zone = zone.to_crs(dataset.crs)
+        stats = zonal_stats(zone, arr, affine=affine,
+                            stats=['sum', 'mean', 'count'],)
+        print(stats)
+        return stats[0]
+
+    def fnames(self):
+
+        fnames = []
+        found_years = []
+        sources = []
+
+        for x in range(self.yearStart, self.yearEnd):
+            for m in range(1, 13):
+                f = self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day))
+                if not Path(f).is_file():
+                    continue
+
+                fnames.append(f)
+                found_years.append(datetime.datetime(x, m, self.start_band_time.day))
+                sources.append(self.tif_source)
+
+            
+        return fnames, found_years, sources
