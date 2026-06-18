@@ -937,7 +937,7 @@ class FlowProfile(Pointwize):
         out = out.dropna()
         sea_level['dist_from_grndline'] = sea_level['dists']
         out = out.merge(sea_level, on='dist_from_grndline', how='inner')
-        out['atm_height'] += out['vals']
+        #out['guess_surface'] += out['vals']
         #out['firnair'] = out['firnair'].apply(lambda x: sum(x) / len(x) if len(x) > 0 else None)
 
 
@@ -946,9 +946,9 @@ class FlowProfile(Pointwize):
         FAC2 =  14 #out['firnair'].quantile(.4)
 
 
-        IPR_mirror1 = self.invert_equilibrium(out['atm_height'] - out['corrected_thickness'], FAC1, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
-        IPR_mirror2 = self.invert_equilibrium(out['atm_height'] - out['corrected_thickness'], FAC2, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
-        IPR_mirror_med = self.invert_equilibrium(out['atm_height'] - out['corrected_thickness'], FAC_med, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
+        IPR_mirror1 = self.invert_equilibrium(out['guess_surface'] - out['corrected_thickness'], FAC1, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
+        IPR_mirror2 = self.invert_equilibrium(out['guess_surface'] - out['corrected_thickness'], FAC2, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
+        IPR_mirror_med = self.invert_equilibrium(out['guess_surface'] - out['corrected_thickness'], FAC_med, SEA_LEVEL_ELEVATION=-out['vals'], in_ellipsoid=geoid)
         print(FAC1)
         print(FAC2)
         
@@ -960,8 +960,8 @@ class FlowProfile(Pointwize):
 
 
         if geoid:
-            out['atm_height'] -= out['vals']
-        ax.plot(out['dist_from_grndline'], out['atm_height'], marker= 'None', color='black', label='Corrected IPR Surface Elevation')
+            out['guess_surface'] -= out['vals']
+        ax.plot(out['dist_from_grndline'], out['guess_surface'], marker= 'None', color='black', label='Corrected IPR Surface Elevation')
 
 
         

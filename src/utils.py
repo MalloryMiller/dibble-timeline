@@ -246,6 +246,7 @@ SHAPEFILES = {
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
     'dibblebasins': "shapefiles/DibbleBasin.shp",
+    'dibble_large_basins': "shapefiles/dibble_large_basins.shp",
 }
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
@@ -262,7 +263,7 @@ SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_
 
 
 SMB_LOCATION = INPUT + 'smb/'
-SMB_FILE_LOCATION = SMB_LOCATION + "ramco_smb.tif"
+SMB_FILE_LOCATION = SMB_LOCATION + "ramco_smb_pole.tif"
 SMB_AREA_LOCATION = SMB_LOCATION + "ramco_areas.tif"
 SMB_MASK_LOCATION = SMB_LOCATION + "ramco_mask.tif"
 SMB_MASK_NC_LOCATION = SMB_LOCATION + "ANT11_masks.nc"

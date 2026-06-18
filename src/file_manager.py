@@ -23,6 +23,8 @@ from osgeo_utils import gdal_calc
 
 from rasterstats import zonal_stats
 import rasterio as rs
+
+import xvec
 from dateutil.relativedelta import relativedelta
 
 import h5py
@@ -1021,54 +1023,73 @@ class SMBManager(FileManager):
         '''
         dates = []
         sums = []
+        year_dates = []
+        year_sums = []
+        mask = rioxarray.open_rasterio(SMB_MASK_LOCATION)
+        area = rioxarray.open_rasterio(SMB_AREA_LOCATION)
+        
+        self.crs_wkt = """GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]"""
+        
+        #mask["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
+        #mask.attrs["grid_mapping"] = "spatial_ref"
+
+        #area["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
+        #area.attrs["grid_mapping"] = "spatial_ref"
+        print(mask.variable)
+        print(area.variable)
+
+        mask *= (area * 1000000) # convert km2 to m2 and multiplty it w mask
+        
 
         for x in range(self.yearStart, self.yearEnd):
+            cur_smb = 0
+            
             for m in range(1, 13):
                 if ((((x * 12) + m) - (self.start_band_time.year * 12))) < 0:
                     pass
-                #try:
-                gdal.Translate( self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), self.source_file, bandList=[(((x * 12) + m) - (self.start_band_time.year * 12))])
-                #self.get_temp_fname()
-                '''gdal_calc.Calc(
-                    calc='A * B * C',
-                    A=self.get_temp_fname(),
-                    B='NETCDF:"""'+ SMB_MASK_NC_LOCATION + '""":Area',
-                    C='NETCDF:"""'+ SMB_MASK_NC_LOCATION + '""":IceMask',
-                    outfile=self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)),
-                    overwrite=True
-                ) # -a_ullr -39.3499999999999943 -31.0500000000000043 33.2500000000000071 28.0500000000000007'''
-                '''except RuntimeError as e:
-                    print("No smb data for " + self.tif_source + " at year " + str(x))
-                    print(e)'''
-                # -39.3499999999999943,-31.0500000000000043 : 33.2500000000000071,28.0500000000000007
+                try:
+                    self.get_temp_fname()
+                    fname = self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day))
+                    gdal.Translate( self.get_temp_fname(), self.source_file, bandList=[(((x * 12) + m) - (self.start_band_time.year * 12))])
+                    cur = rioxarray.open_rasterio(self.get_temp_fname(), masked=True)
 
-                sums.append(self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'])
-                dates.append(datetime.datetime(x, m, self.start_band_time.day))
+                    cur["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
+                    cur.attrs["grid_mapping"] = "spatial_ref"
 
-        plt.plot(dates, sums)
+                    print()
+                    print()
+                    print()
+                    cur.values *= mask
+
+                    cur = cur.rio.write_crs(self.crs_wkt)
+                    '''cur = cur.rio.reproject(dst_crs="epsg:3031")
+                    print(np.nansum(cur.values))'''
+                    
+                    cur.rio.to_raster(fname)
+
+
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
+                    sums.append(sum_smb * 12)
+                    print(sum_smb)
+
+                    cur_smb += sum_smb
+                    dates.append(datetime.datetime(x, m, self.start_band_time.day))
+                except RuntimeError as e:
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
+                    print(e)
+            year_sums.append(cur_smb)
+            print(cur_smb)
+            year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
+
+
+        plt.plot(dates, np.array(sums), label='Monthly')
+        plt.plot(year_dates, np.array(year_sums), label='Yearly')
+        plt.legend()
         plt.xlabel('Date')
-        plt.ylabel('Surface Mass Balance Basin Sum (kg m-2)')
+        plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
         plt.savefig('SMBs.png')
-        '''
         
-        Geolocation:
-  SRS=GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]
-  X_DATASET=NETCDF:"/Users/millemal/Documents/repos/dibble-timeline/src/input/smb/smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc":lon
-  X_BAND=1
-  Y_DATASET=NETCDF:"/Users/millemal/Documents/repos/dibble-timeline/src/input/smb/smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc":lat
-  Y_BAND=1
-  PIXEL_OFFSET=0
-  PIXEL_STEP=1
-  LINE_OFFSET=0
-  LINE_STEP=1
-  GEOREFERENCING_CONVENTION=PIXEL_CENTER
-Corner Coordinates:
-Upper Left  ( -39.3500000,  28.0500000) ( 26d40' 0.47"W, 39d42'28.40"S)
-Lower Left  ( -39.3500000, -31.0500000) (110d 1' 2.12"W, 44d49'23.50"S)
-Upper Right (  33.2500000,  28.0500000) ( 62d14'48.92"E, 43d58' 6.13"S)
-Lower Right (  33.2500000, -31.0500000) (153d51'30.77"E, 49d20'55.33"S)
-Center      (  -3.0500000,  -1.5000000) ( 21d 7'18.41"W, 85d21'39.85"S)
-        '''
         self.close()
 
     def get_zonal_data(self, fname, mask):
@@ -1078,16 +1099,12 @@ Center      (  -3.0500000,  -1.5000000) ( 21d 7'18.41"W, 85d21'39.85"S)
         affine=dataset.transform
 
         zone = gpd.read_file(SHAPEFILES[mask])
-        print(zone)
-        # Set CRS to the default if needed. This does not
-        # transform the shapefile to a difference CRS.
         if zone.crs is None:
-            zone = zone.set_crs(dataset.crs)
+            zone = zone.set_crs('EPSG:3031')
 
-        # Transform to a difference CRS.
-        zone = zone.to_crs(dataset.crs)
+        zone = zone.to_crs(self.crs_wkt)
         stats = zonal_stats(zone, arr, affine=affine,
-                            stats=['sum', 'mean', 'count'],)
+                            stats=['sum', 'count'])
         print(stats)
         return stats[0]
 
