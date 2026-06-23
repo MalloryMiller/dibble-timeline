@@ -3,6 +3,8 @@ import time as t
 from numpy import abs # type: ignore
 from matplotlib.colors import ListedColormap
 
+from shapely.geometry import Point
+
 AREAS = {
 
     'Dibble' : [
@@ -208,8 +210,10 @@ POINT_LISTS2 = {
 
 DEFAULT_AREA = 'Dibble'
 
-SEA_LEVEL_ELEVATION = 39
+SEA_LEVEL_ELEVATION = -39
 
+GLACIAL_ICE_DENSITY = 917
+WATER_DENSITY = 1027
 
 DIVERGENT_CMAP = 'Spectral'
 DIVERGENT_CMAP_FIT_LINES = 'Spectral'
@@ -255,6 +259,7 @@ GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
 
 IPR_GPKG_LOCATION = INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg"
 ADJUSTED_IPR = INPUT + "ipr/firnair_.gpkg"
+BEDMAP_FILE = INPUT + 'bed/bedmachine_bed.tif'
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 
@@ -269,6 +274,8 @@ SMB_MASK_LOCATION = SMB_LOCATION + "ramco_mask.tif"
 SMB_MASK_NC_LOCATION = SMB_LOCATION + "ANT11_masks.nc"
 SMB_NC_LOCATION = SMB_LOCATION + "smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc"
 
+
+MB_OUTPUT = OUTPUT + "mb/"
 
 FILE_FORMATS = {
     'ItsLive': [
@@ -317,6 +324,9 @@ REMA_BACKGROUND_LEVEL = 0
 
 OPACITY_CMAP = [0,0,0]
 
+def pointify(row):
+    #Dr. Lilien code
+    return Point(row['longitude'],row['latitude'])
 
 def overall_velocity(vx, vy):
     return (vx**2 + vy**2)**(.5)

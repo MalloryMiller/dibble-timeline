@@ -9,6 +9,7 @@ from elevation_errpr import ElevationError
 from pointwise import Pointwize, FlowProfile
 import matplotlib.pyplot as plt
 from plotting import Plotting
+from mb import MBCalculation
 
 
 class main():
@@ -97,17 +98,23 @@ class main():
         for x in to_build:
             print(x)
             if x == 'velx':
-                f = self.flags.copy()
-                f.remove('-measures')
-                f.remove('-itslive')
-                f.add('-itslive')
-                print(self.build_files(dim='x', special_flags=f))
+                for s in self.flags.source_v_flags:
+                    f = self.flags.copy()
+                    f.remove('-measures')
+                    f.remove('-itslive')
+                    f.add(s)
+                    print(self.build_files(dim='y', special_flags=f))
+                #print(self.build_files(dim='x', special_flags=f))
             elif x == 'vely':
-                f = self.flags.copy()
-                f.remove('-measures')
-                f.remove('-itslive')
-                f.add('-itslive')
-                print(self.build_files(dim='y', special_flags=f))
+
+                for s in self.flags.source_v_flags:
+                    f = self.flags.copy()
+                    f.remove('-measures')
+                    f.remove('-itslive')
+                    f.add(s)
+                    
+                    print(self.build_files(dim='y', special_flags=f))
+                #print(self.build_files(dim='y', special_flags=f))
             elif x == 'vel':
 
                 for s in self.flags.source_v_flags:
@@ -157,6 +164,9 @@ class main():
                 t = FlowProfile(self.flags, self.xlim, self.ylim, x)
                 t.plot_diff(x['fname'])
 
+        if self.flags.chart_type() == 'mb':
+            mb_manager = MBCalculation(self.xlim, self.ylim, self.flags)
+            mb_manager.plot_MB()
 
         if self.flags.chart_type() == 'elev-error':
             self.get_elevation_error()

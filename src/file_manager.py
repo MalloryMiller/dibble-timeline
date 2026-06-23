@@ -23,6 +23,7 @@ from osgeo_utils import gdal_calc
 
 from rasterstats import zonal_stats
 import rasterio as rs
+from exactextract import exact_extract
 
 import xvec
 from dateutil.relativedelta import relativedelta
@@ -114,7 +115,7 @@ class FileManager:
                     
                     
             all_files.append(cur_df)
-
+        print(all_files)
 
         if len(all_files) == 0:
             return
@@ -212,9 +213,6 @@ class FileManager:
         return self.special_prep(sample_file, source)
     
 
-    def pointify(self, row):
-        #Dr. Lilien code
-        return Point(row['longitude'],row['latitude'])
     
     def build_gravimetry_files(self):
         return
@@ -267,16 +265,16 @@ class VelocityManager(FileManager):
 
 
     def get_velocity_fname(self, year, target_source=None):
-        if target_source != None and len(self.sources) != 1:
-            return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v." + self.ftype
-        return 'velocities/' + str(year) + self.label + "_v." + self.ftype
+        #if target_source != None and len(self.sources) != 1:
+        return 'velocities/' + str(year) + "_" + self.label + "_v." + self.ftype
+        #return 'velocities/' + str(year) + self.label + "_v." + self.ftype
         
 
     def get_tif_velocity_fname(self, year, target_source=None):
         
-        if target_source != None and len(self.sources) != 1:
-            return 'velocities/' + str(year) + "_" + target_source[0] + self.label + "_v." + self.ftype
-        return 'velocities/' + str(year) + self.label + "_v.tif"
+        #if target_source != None and len(self.sources) != 1:
+        return 'velocities/' + str(year) + "_" + self.label + "_v." + self.ftype
+        #return 'velocities/' + str(year) + self.label + "_v.tif"
         
 
         
@@ -447,12 +445,13 @@ class VelocityManager(FileManager):
         fnames = []
         found_years = []
         sources = []
-
+        print(self.sources)
         for s in self.sources:
             for year in range(self.yearStart, self.yearEnd):
                 location = fname_data[s]
 
                 f = fname_prefix[data] + location(year, target_source=s)
+                print(f)
                 if not Path(f).is_file():
                     continue
 
@@ -707,7 +706,7 @@ class ElevationManager(FileManager):
                                     'elev': track['h_corr'][dates == c].flatten(),
                                     'elev_yerr': track['h_corr_sigma'][dates == c].flatten(),
                                     'date': track['datetime'][dates == c].flatten()})
-                df['geometry'] = df.apply(self.pointify, axis=1)
+                df['geometry'] = df.apply(pointify, axis=1)
                 self.file[c] = pd.concat([self.file[c], df])
             
             cur_track += 1
@@ -801,7 +800,7 @@ class ElevationManager(FileManager):
                             'longitude': lon, 
                             'elev': new_vals,
                             'date': dates})
-        df['geometry']  = df.apply(self.pointify, axis=1)
+        df['geometry']  = df.apply(pointify, axis=1)
         self.chack_valid_path(OUTPUT + self.get_elevation_fname(to_build))
         df = gpd.GeoDataFrame(df, geometry='geometry', crs='EPSG:4326')
         df.to_file(OUTPUT + self.get_elevation_fname(to_build), driver='GPKG')
@@ -862,6 +861,54 @@ class GravimetryManager(FileManager):
         else:
             data = data_override
         return [GRAV_LOCATION], [], []
+
+
+
+class BedmapManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [BEDMAP_FILE], [], []
+
+
+
+
+
+class GeoidManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [SEA_LEVEL_TIF], [], []
 
 
 
@@ -994,6 +1041,8 @@ class SMBManager(FileManager):
         self.mask_file = SMB_FILE_LOCATION
         self.area_file = SMB_FILE_LOCATION
         self.tif_source = "RACMO SMB"
+        self.crs_wkt = """GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]"""
+        
         
     
 
@@ -1027,8 +1076,6 @@ class SMBManager(FileManager):
         year_sums = []
         mask = rioxarray.open_rasterio(SMB_MASK_LOCATION)
         area = rioxarray.open_rasterio(SMB_AREA_LOCATION)
-        
-        self.crs_wkt = """GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]"""
         
         #mask["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
         #mask.attrs["grid_mapping"] = "spatial_ref"
@@ -1089,11 +1136,75 @@ class SMBManager(FileManager):
         plt.xlabel('Date')
         plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
         plt.savefig('SMBs.png')
+
+        print("Mean (GT/yr): ", np.mean(sums))
+        print("Std. Dev. (GT/yr): ", np.std(sums))
+        print("Median (GT/yr): ", np.median(sums))
         
         self.close()
 
-    def get_zonal_data(self, fname, mask):
+    def get_surface_balance_df(self, yearly=True):
+        dates = []
+        sums = []
+        year_dates = []
+        year_sums = []
 
+        for x in range(self.yearStart, self.yearEnd):
+            cur_smb = 0
+            
+            for m in range(1, 13):
+                if ((((x * 12) + m) - (self.start_band_time.year * 12))) < 0:
+                    pass
+                try:
+                    fname = self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day))
+                    cur = rioxarray.open_rasterio(fname, masked=True)
+
+                    cur = cur.rio.write_crs(self.crs_wkt)
+                    
+                    cur.rio.to_raster(fname)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
+                    sums.append(sum_smb * 12)
+                    print(sum_smb)
+
+                    cur_smb += sum_smb
+                    dates.append(datetime.datetime(x, m, self.start_band_time.day))
+                except RuntimeError as e:
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
+                    print(e)
+            year_sums.append(cur_smb)
+            print(cur_smb)
+            year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
+
+
+        plt.plot(dates, np.array(sums), label='Monthly')
+        plt.plot(year_dates, np.array(year_sums), label='Yearly')
+        plt.legend()
+        plt.xlabel('Date')
+        plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
+        plt.savefig('SMBs.png')
+
+
+        if yearly:
+            df = pd.DataFrame(
+            {
+                "smb": year_sums,
+                "dt": year_dates,
+            })
+        else:
+            df = pd.DataFrame(
+            {
+                "smb": sums,
+                "dt": dates,
+            })
+
+        return df
+
+        
+        
+
+    def get_zonal_data(self, fname, mask):
+        '''
         dataset = rs.open(fname)
         arr = dataset.read(1)
         affine=dataset.transform
@@ -1104,9 +1215,22 @@ class SMBManager(FileManager):
 
         zone = zone.to_crs(self.crs_wkt)
         stats = zonal_stats(zone, arr, affine=affine,
-                            stats=['sum', 'count'])
+                            stats=['sum', 'count'], all_touched=True)
         print(stats)
         return stats[0]
+    '''
+
+        zone = gpd.read_file(SHAPEFILES[mask])
+        if zone.crs is None:
+            zone = zone.set_crs('EPSG:3031')
+
+        zone = zone.to_crs(self.crs_wkt)
+        raster = rs.open(fname)
+        stats = exact_extract(raster, zone, ['count', 'sum'])
+
+        print(stats)
+
+        return stats[0]['properties']
 
     def fnames(self):
 

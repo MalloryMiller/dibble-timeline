@@ -50,7 +50,8 @@ class Flags():
             '-diffprofile',
             '-pairprofile',
             '-elev-error',
-            '-frame'
+            '-frame',
+            '-mb'
         ]
 
         self.rebuild_flags = [
@@ -122,6 +123,7 @@ class Flags():
         
         if string not in self.all_flags:
             print("Urecognized flag: '" + string + "'")
+            print(self.all_flags)
 
         else:
             self.flags.append(string)
@@ -261,6 +263,8 @@ class Flags():
             return 'frame'
         if '-diffprofile' in self.flags:
             return 'diffprofile'
+        if '-mb' in self.flags:
+            return 'mb'
         
         return ''
 
