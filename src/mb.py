@@ -5,21 +5,32 @@ import numpy as np
 from pointwise import FlowProfile
 import math
 from shapely.ops import linemerge
+import datetime
+import matplotlib.pyplot as plt
 
 
 '''
-   id     Date_1     Date_2     Date_3     Date_4                                              layer                           path  IPR_agreement                                           geometry  discharge  discharges_total_vel
-0   1 2026-01-10 2026-01-11 2026-02-27 2026-02-28  T069_A2_phase_difference_27Feb2026_28Feb2026_1...  /home/mallory/gl_feb_2026.shp           True  MULTILINESTRING ((135.35726 -66.10097, 135.346...   0.913152              1.604109
-1   2 2026-01-10 2026-01-11 2026-02-03 2026-02-04  T069_A2_phase_difference_10Jan2026_11Jan2026_0...                        gl4.shp          False  MULTILINESTRING ((135.38143 -66.10341, 135.362...   4.806796              7.783742
-2   3 2026-02-03 2026-02-04 2026-02-27 2026-02-28  T069_A2_phase_difference_03Feb2026_04Feb2026_2...                         gl.shp           True  MULTILINESTRING ((135.35854 -66.10094, 135.349...   8.267287             20.083571
-3   4 2026-02-03 2026-02-04 2026-03-11 2026-03-12  T069_A2_phase_difference_03Feb2026_04Feb2026_1...                        gl3.shp          False  MULTILINESTRING ((135.39237 -66.10397, 135.381...   5.890144             21.604217
-4   5 2026-02-27 2026-02-28 2026-03-11 2026-03-12  T069_A2_phase_difference_27Feb2026_28Feb2026_1...                        gl2.shp           True  MULTILINESTRING ((135.39282 -66.10375, 135.383...   3.059803              4.684091
+REMA & Bedmap:
+   id     Date_1     Date_2     Date_3  ...                           path IPR_agreement                                           geometry  discharges
+0   1 2026-01-10 2026-01-11 2026-02-27  ...  /home/mallory/gl_feb_2026.shp          True  MULTILINESTRING ((135.35726 -66.10097, 135.346...   29.646589
+1   2 2026-01-10 2026-01-11 2026-02-03  ...                        gl4.shp         False  MULTILINESTRING ((135.38143 -66.10341, 135.362...   28.852910
+2   3 2026-02-03 2026-02-04 2026-02-27  ...                         gl.shp          True  MULTILINESTRING ((135.35854 -66.10094, 135.349...   29.694725
+3   4 2026-02-03 2026-02-04 2026-03-11  ...                        gl3.shp         False  MULTILINESTRING ((135.39237 -66.10397, 135.381...   29.173067
+4   5 2026-02-27 2026-02-28 2026-03-11  ...                        gl2.shp          True  MULTILINESTRING ((135.39282 -66.10375, 135.383...   29.856185
+
+Equilibrium:
+   id     Date_1     Date_2     Date_3  ...                           path IPR_agreement                                           geometry  discharges
+0   1 2026-01-10 2026-01-11 2026-02-27  ...  /home/mallory/gl_feb_2026.shp          True  MULTILINESTRING ((135.35726 -66.10097, 135.346...   17.684126
+1   2 2026-01-10 2026-01-11 2026-02-03  ...                        gl4.shp         False  MULTILINESTRING ((135.38143 -66.10341, 135.362...   15.323299
+2   3 2026-02-03 2026-02-04 2026-02-27  ...                         gl.shp          True  MULTILINESTRING ((135.35854 -66.10094, 135.349...   18.220929
+3   4 2026-02-03 2026-02-04 2026-03-11  ...                        gl3.shp         False  MULTILINESTRING ((135.39237 -66.10397, 135.381...   14.813213
+4   5 2026-02-27 2026-02-28 2026-03-11  ...                        gl2.shp          True  MULTILINESTRING ((135.39282 -66.10375, 135.383...   17.807347
 '''
 
 class MBCalculation():
     def __init__(self, xlims, ylims, flags):
 
-        self.thickness_calculator = ThicknessBedmapREMA(xlims, ylims, flags)
+        self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
 
@@ -30,22 +41,18 @@ class MBCalculation():
         final_df = self.results
         return final_df
 
-    def get_results(self, id = 1):
+    def get_discharge_results(self, id = 1, year = 2019):
 
 
         df = self.results[self.results['id'] == id]
-        '''df = gpd.read_file(GL_GPKG_InSAR)
-        print(df)
-        df = df[df['Glac_Name'] == 'Dibble']
-        print(df)'''
+        
 
         thickness = self.thickness_calculator.get_thickness(df)
-        vels = self.flux_calculator.get_velocity(df)
+        vels = self.flux_calculator.get_velocity(df, year=year)
         print(thickness)
         vels.to_file(
             'PROGRESS.gpkg'
         )
-        #smb_df = self.SMB.get_surface_balance_df()
         discharges = []
 
         for x in df['id'].unique():
@@ -62,16 +69,52 @@ class MBCalculation():
         return discharges[0]
     
 
-    def plot_MB(self):
-        self.get_results()
+    def plot_MB(self, id=[1, 3, 5]):
 
-        discharges = []
+        smb_df = self.SMB.get_surface_balance_df()
+        print(smb_df)
+
+
+        for ids in id:
+
+            discharges = []
+            discharges_dt = []
+            for dt in smb_df.dt:
+                dis = self.get_discharge_results(id=ids, year = dt.year)
+                if dis == 0:
+                    continue
+                discharges.append(dis)
+                print(datetime.datetime(dt.year, 1, 1))
+                discharges_dt.append(datetime.datetime(dt.year, 1, 1))
+
+            plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(ids))
+
+
+
+        print(discharges)
+
+
+        '''discharges = []
         for x in self.results['id'].unique():
             d = self.get_results(x)
-            discharges.append(d)
+            discharges.append(d)'''
 
-        self.results['discharges'] = discharges
         print(self.results)
+
+        title = 'Inland GL Location'
+
+        plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB')
+        plt.legend()
+        plt.xlabel('Date')
+        plt.ylabel('Sum Total Mass (GT/yr)')
+        plt.title(title)
+        plt.savefig(title + '_SMBs.png')
+
+
+
+        plt.savefig(
+            'MB_ALL.png'
+        )
 
         return
 
@@ -84,10 +127,20 @@ class VelocityFlux(FlowProfile):
         super().__init__(flags, xlims, ylims, 
                          {'point': [0,0], 'type':'fl', 'point_range':[0,0], 'point_spacing': 0},
                           'pink')
-        self.velx_manager = VelocityManager(xlims, ylims, flags, 'velx')
-        self.vely_manager = VelocityManager(xlims, ylims, flags, 'vely')
+        self.xlim = xlims
+        self.ylim = ylims
 
-    def get_velocity(self, gdp):
+    def get_velocity(self, gdp, year = None):
+        if year != None:
+            new_flags = self.flags.copy()
+            new_flags.YEARSTART = year
+            new_flags.YEAREND = year + 1
+            self.flags = new_flags
+
+        self.velx_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'velx')
+        self.vely_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'vely')
+        print(self.flags)
+
         out_x = self.velx_manager.get_ouput_files()
         out_y = self.vely_manager.get_ouput_files()
         print(out_x)
@@ -101,7 +154,7 @@ class VelocityFlux(FlowProfile):
         vel_df['discharge_vely'] = np.sin(vel_df['vel_angle_diff']) * vel_df['vely']
         #vel_df['discharge_vel'] = vel_df['discharge_velx'] + vel_df['discharge_vely']
         vel_df['discharge_vel'] = np.abs(np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel'])
-        vel_df['discharge_vel'][vel_df['discharge_vel'] < 0] = 0 
+        #vel_df['discharge_vel'][vel_df['discharge_vel'] < 0] = 0 
         #vel_df['discharge_vel2'] = np.sin(vel_df['vel_angle_diff']) * vel_df['total_vel']
         print(vel_df)
         return vel_df

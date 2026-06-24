@@ -92,6 +92,9 @@ class Flags():
             f.add(x)
 
         return f
+    
+    def __str__(self):
+        return str(self.flags)
         
 
     def remove(self, item):

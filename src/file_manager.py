@@ -1136,6 +1136,7 @@ class SMBManager(FileManager):
         plt.xlabel('Date')
         plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
         plt.savefig('SMBs.png')
+        plt.close()
 
         print("Mean (GT/yr): ", np.mean(sums))
         print("Std. Dev. (GT/yr): ", np.std(sums))
@@ -1183,6 +1184,7 @@ class SMBManager(FileManager):
         plt.xlabel('Date')
         plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
         plt.savefig('SMBs.png')
+        plt.close()
 
 
         if yearly:
