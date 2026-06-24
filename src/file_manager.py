@@ -258,8 +258,8 @@ class VelocityManager(FileManager):
         super().__init__(xlims, ylims, flags, data, ftype, fname_formats=fname_formats, h5_location=h5_location,
                             source_override=source_override, label=label, 
                             further_processing=further_processing, base_drop_vars=base_drop_vars)
-        if self.sources != None and len(self.sources) == 1 and self.data == 'vel':
-            self.label += "_" + self.sources[0][0]
+        for x in flags.sources_v():
+            self.label += "_" + x[0]
         
         
 
@@ -273,7 +273,7 @@ class VelocityManager(FileManager):
     def get_tif_velocity_fname(self, year, target_source=None):
         
         #if target_source != None and len(self.sources) != 1:
-        return 'velocities/' + str(year) + "_" + self.label + "_v." + self.ftype
+        return 'velocities/' + str(year) + "_" + self.label + "_v.tif"
         #return 'velocities/' + str(year) + self.label + "_v.tif"
         
 

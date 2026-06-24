@@ -30,9 +30,10 @@ Equilibrium:
 class MBCalculation():
     def __init__(self, xlims, ylims, flags):
 
-        self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
+        self.thickness_calculator = ThicknessBedmapREMA(xlims, ylims, flags)
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
+        self.flags = flags
 
         self.results = gpd.read_file(GL_GPKG_manual)
         pass
@@ -49,49 +50,42 @@ class MBCalculation():
 
         thickness = self.thickness_calculator.get_thickness(df)
         vels = self.flux_calculator.get_velocity(df, year=year)
-        print(thickness)
-        vels.to_file(
-            'PROGRESS.gpkg'
-        )
+        if len(vels['velx'].dropna()) != 0:
+            vels.to_file(
+                'DISCHARGE_SAMPLE.gpkg'
+            )
         discharges = []
 
         for x in df['id'].unique():
             discharge = (vels[vels['id'] == x]['discharge_vel'] * thickness[thickness['id'] == x]['thickness'] * thickness[thickness['id'] == x]['lens'] * GLACIAL_ICE_DENSITY) / 1e12
-            print(np.sum(discharge))
+            
             discharges.append(np.sum(discharge))
 
         df['discharge'] = discharges
 
         df['discharges_total_vel'] = discharges
-        print(df)
         self.calculate_discharge()
 
         return discharges[0]
     
 
-    def plot_MB(self, id=[1, 3, 5]):
+    def plot_MB(self, ids=[1, 2, 3, 4, 5], title='All GL Locations'):
 
         smb_df = self.SMB.get_surface_balance_df()
-        print(smb_df)
 
 
-        for ids in id:
+        for id in ids:
 
             discharges = []
             discharges_dt = []
             for dt in smb_df.dt:
-                dis = self.get_discharge_results(id=ids, year = dt.year)
+                dis = self.get_discharge_results(id=id, year = dt.year)
                 if dis == 0:
                     continue
                 discharges.append(dis)
-                print(datetime.datetime(dt.year, 1, 1))
                 discharges_dt.append(datetime.datetime(dt.year, 1, 1))
 
-            plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(ids))
-
-
-
-        print(discharges)
+            plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(id))
 
 
         '''discharges = []
@@ -99,16 +93,14 @@ class MBCalculation():
             d = self.get_results(x)
             discharges.append(d)'''
 
-        print(self.results)
 
-        title = 'Inland GL Location'
 
         plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB')
         plt.legend()
         plt.xlabel('Date')
         plt.ylabel('Sum Total Mass (GT/yr)')
         plt.title(title)
-        plt.savefig(title + '_SMBs.png')
+        plt.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.png')
 
 
 
@@ -139,11 +131,10 @@ class VelocityFlux(FlowProfile):
 
         self.velx_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'velx')
         self.vely_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'vely')
-        print(self.flags)
 
         out_x = self.velx_manager.get_ouput_files()
         out_y = self.vely_manager.get_ouput_files()
-        print(out_x)
+        
         vel_df = gl_geotiff_s_join(out_x, gdp, label='velx')
         vel_df = vel_df.merge(gl_geotiff_s_join(out_y, gdp, label='vely'))
 
@@ -156,7 +147,7 @@ class VelocityFlux(FlowProfile):
         vel_df['discharge_vel'] = np.abs(np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel'])
         #vel_df['discharge_vel'][vel_df['discharge_vel'] < 0] = 0 
         #vel_df['discharge_vel2'] = np.sin(vel_df['vel_angle_diff']) * vel_df['total_vel']
-        print(vel_df)
+        
         return vel_df
 
 
@@ -196,6 +187,9 @@ class ThicknessEquilibrium(ThicknessCalculation):
         self.geoid = GeoidManager(xlims, ylims, flags, '2008')
         pass
 
+    def __str__(self):
+        return 'equilibrium'
+
     def get_thickness(self, gdp):
         rema = self.REMA.get_ouput_files()
         geoid = self.geoid.get_ouput_files()
@@ -218,6 +212,9 @@ class ThicknessBedmapREMA(ThicknessCalculation):
         self.REMA = REMATileManager(xlims, ylims, flags, 'rema')
         self.bed = BedmapManager(xlims, ylims, flags, 'bedmachine')
         pass
+
+    def __str__(self):
+        return 'bedmapREMA'
 
     def get_thickness(self, gdp):
         rema = self.REMA.get_ouput_files()

@@ -103,7 +103,7 @@ class main():
                     f.remove('-measures')
                     f.remove('-itslive')
                     f.add(s)
-                    print(self.build_files(dim='y', special_flags=f))
+                    print(self.build_files(dim='x', special_flags=f))
                 #print(self.build_files(dim='x', special_flags=f))
             elif x == 'vely':
 
@@ -167,6 +167,8 @@ class main():
         if self.flags.chart_type() == 'mb':
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags)
             mb_manager.plot_MB()
+            mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
+            mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
 
         if self.flags.chart_type() == 'elev-error':
             self.get_elevation_error()
