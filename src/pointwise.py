@@ -909,8 +909,8 @@ class FlowProfile(Pointwize):
         out_thick_col = 'THICK'
 
 
-        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC1, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
-        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC2, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         
         print(FAC1)
         print(FAC2)
