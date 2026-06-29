@@ -747,28 +747,55 @@ class FlowProfile(Pointwize):
         return df
     
 
-    def get_equilibrium(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION,  in_ellipsoid=False):
+    def get_equilibrium(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
 
-        new_elevations = elevations - SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
+
+        if not from_geoid:
+            geoid_elevation = elevations - SEA_LEVEL_ELEVATION # from WSG-84 to relative local sea level
+        else:
+            geoid_elevation = elevations
         new_elevations -= FAC # remove firn air content
 
-        total_elevation = new_elevations / 0.1 # remaining height is 10% of total, so this obtains the total
+        total_elevation = new_elevations / ((WATER_DENSITY - GLACIAL_ICE_DENSITY) / (WATER_DENSITY)) # remaining height is 10% of total, so this obtains the total
         total_elevation -= new_elevations # remove the 10% above the surface
         total_elevation = -total_elevation # INVERSION: now working with negative values
 
         final_elevations = total_elevation
-        if not in_ellipsoid:
+        if not to_geoid:
             final_elevations = total_elevation + SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
             
         return final_elevations
 
 
-    def invert_equilibrium(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
+    def invert_equilibrium(self, elevations, FAC=20, sea_level_elevation=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
+        '''
+        Returns the estimated height of the ice at equilibrium based on the elevation of the ice bottom 
+
+
+        Parameters
+        ----------
+        elevations : List[Float]
+            List of ice bottom elevations
+        FAC : Float | Integer | List[Float | Integer]
+            Charactaristic FAC value or array of FAC values with same length as elevations
+        sea_level_elevation : Float | Integer | List[Float | Integer]
+            Charactaristic geoid adjustment value or array of geoid adjustment values with same length as elevations
+        from_geoid : Boolean
+            if the output is in reference to the geoid instead of ellisoidal height
+        to_geoid : Boolean
+            if the output should be in reference to the geoid instead of ellisoidal height
+
+        Returns
+        -------
+        np.NDArray[Float]
+            Estimated height of the ice at equilibrium
+        '''
+
         if type(FAC) == list:
             FAC = np.array(FAC)
 
         if not from_geoid:
-            geoid_elevation = elevations - SEA_LEVEL_ELEVATION # from WSG-84 to relative local sea level
+            geoid_elevation = elevations - sea_level_elevation # from WSG-84 to relative local sea level
         else:
             geoid_elevation = elevations
         
@@ -786,7 +813,7 @@ class FlowProfile(Pointwize):
 
 
         if not to_geoid :
-            final_elevations = final_elevations + SEA_LEVEL_ELEVATION # Adjust from local sea level back to WSG-84
+            final_elevations = final_elevations + sea_level_elevation # Adjust from local sea level back to WSG-84
 
         return final_elevations
 
@@ -809,33 +836,29 @@ class FlowProfile(Pointwize):
                             label=str(label), color_key=mdates.date2num(x))
         
 
-    def plot_all_by_date(self, fig, ax, p):
-        label = self.get_data(None)
-        
-
-        if len(self.results.keys()) == 0:
-            return
-
-        for x in self.results.keys():
-            label = self.create_date_range_label([x, x])
-            #self.results[x] = self.results[x].sort_values(by='time')
-            p.plot_elevation_data(fig, ax, self.cmap, self.norm,
-                                self.results[x]['time'], self.results[x]['gl'],
-                                label=str(label), color_key=mdates.date2num(x))
-
     
-    def plot(self, fname):
+    def plot(self, fname, geoid=True):
+        '''
+        Plots and saves an elevation profile along the flowline in addition to an estimation of the profile at flotation.
+
+
+        Parameters
+        ----------
+        fname : String
+            will be included in the name of the saved image
+        geoid : Boolean
+            if the output should be in reference to the geoid instead of ellisoidal height
+
+        Returns
+        -------
+        None
+        '''
         p = Plotting()
-
-        geoid = True
-
 
         fig, ax = p.elevation_profile_plot_single()
 
         out = xr.open_dataset(SEA_LEVEL_TIF)
-        sea_level = self.geotiff_s_join(out, self.fl)
-        
-        general_sea_level = sea_level['vals'].mean()
+        sea_level = self.geotiff_s_join(out, self.fl) # self.fl are the points along the profile
 
         rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
         out = rema_fm.get_ouput_files()
@@ -844,7 +867,11 @@ class FlowProfile(Pointwize):
             rema_vals['vals'] -= sea_level['vals']
         ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
-        '''for x in self.dates:
+        '''
+        # ICESAT2 POINTS (take longer to plot)
+
+        general_sea_level = sea_level['vals'].mean()
+        for x in self.dates:
             label = self.get_data(x)
             label = self.create_date_range_label(label)
             if x not in self.results.keys():
@@ -862,17 +889,6 @@ class FlowProfile(Pointwize):
                                 self.results[x]['time'], self.results[x]['gl'],
                                 label=str(label), color_key=mdates.date2num(x))'''
         
-            
-
-        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
-        out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
-
-        out = out.sort_values('dist_from_grndline')
-        bad_out = out.copy()
-        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
-   
-
 
         fm = IPRManager(self.xlim, self.ylim, self.flags, self.data, corrected=True)
         out = fm.get_ouput_files()
@@ -883,22 +899,19 @@ class FlowProfile(Pointwize):
 
         out = out.dropna()
         sea_level['dist_from_grndline'] = sea_level['dists']
-        out = out.merge(sea_level, on='dist_from_grndline', how='inner')
-        #out['guess_surface'] += out['vals']
-        #out['firnair'] = out['firnair'].apply(lambda x: sum(x) / len(x) if len(x) > 0 else None)
-
+        out = out.merge(sea_level, on='dist_from_grndline', how='inner') # combine gp dataframes
 
         FAC_med = out['firnair'].quantile(.5)
-        FAC1 =  22 #out['firnair'].quantile(.6)
-        FAC2 =  14 #out['firnair'].quantile(.4)
+        FAC1 =  22
+        FAC2 =  14
         out = out.merge(rema_vals, on='dists', how='inner', suffixes=('_sea_level', '_rema'))
+
         out_thick_col = 'THICK'
 
 
         IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC1, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC2, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
-        IPR_mirror_med = out['atm_height'] #self.invert_equilibrium(+out['guess_surface'], 0, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
-        IPR_mirror_med_2 = out['guess_surface'] #self.invert_equilibrium(+out['guess_surface'], 0, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
+        
         print(FAC1)
         print(FAC2)
         
@@ -906,20 +919,38 @@ class FlowProfile(Pointwize):
         IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
         
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='lightgray', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
+        
+        IPR_mirror_med = out['atm_height']
+        IPR_mirror_med_2 = out['guess_surface']
         ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='atm_height')
         ax.plot(out['dist_from_grndline'], IPR_mirror_med_2, color='lightgray', label='guess_surface')
 
 
-
-
         #ax.set_ylim([ax.get_ylim()[0] - 20, ax.get_ylim()[1]])
         if geoid:
-            ax.set_ylabel('Geoid Elevation (m)')
+            ax.set_ylabel('Elevation relative to Geoid (m)')
 
         ax.legend()
         p.save_close(fig, ax, OUTPUT + fname + "_profile")
         
+
+        
     def plot_pair(self, fname):
+        '''
+        Plots and saves an elevation profile along the flowline in addition to an estimation of the profile at flotation.
+
+
+        Parameters
+        ----------
+        fname : String
+            will be included in the name of the saved image
+        geoid : Boolean
+            if the output should be in reference to the geoid instead of ellisoidal height
+
+        Returns
+        -------
+        None
+        '''
         p = Plotting()
         fig, ax = p.elevation_profile_plot()
 
@@ -969,6 +1000,37 @@ class FlowProfile(Pointwize):
         ax[1].legend()
         p.save_close(fig, ax, OUTPUT + fname + "_profile_pair")
         
+
+    def plot_all_by_date(self, fig, ax, p):
+        '''
+        Plots current contents of self.results by time and distance from the grounding line 
+
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            List of ice bottom elevations
+        ax : matplotlib.axes._axes.Axes
+            Charactaristic FAC value or array of FAC values with same length as elevations
+        p : Plotting
+            Charactaristic geoid adjustment value or array of geoid adjustment values with same length as elevations
+
+        Returns
+        -------
+        None
+        '''
+        label = self.get_data(None)
+        
+
+        if len(self.results.keys()) == 0:
+            return
+
+        for x in self.results.keys():
+            label = self.create_date_range_label([x, x])
+            #self.results[x] = self.results[x].sort_values(by='time')
+            p.plot_elevation_data(fig, ax, self.cmap, self.norm,
+                                self.results[x]['time'], self.results[x]['gl'],
+                                label=str(label), color_key=mdates.date2num(x))
 
 
     def plot_diff(self, fname):
