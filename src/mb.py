@@ -28,14 +28,17 @@ Equilibrium:
 '''
 
 class MBCalculation():
-    def __init__(self, xlims, ylims, flags):
+    def __init__(self, xlims, ylims, flags, method='gl'):
 
-        self.thickness_calculator = ThicknessBedmapREMA(xlims, ylims, flags)
+        self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
         self.flags = flags
+        if method == 'gl':
+            self.results = gpd.read_file(GL_GPKG_manual)
+        elif method == 'flux':
+            self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
 
-        self.results = gpd.read_file(GL_GPKG_manual)
         pass
 
     def calculate_discharge(self):
@@ -50,6 +53,8 @@ class MBCalculation():
 
         thickness = self.thickness_calculator.get_thickness(df)
         vels = self.flux_calculator.get_velocity(df, year=year)
+        if vels == None:
+            return
         if len(vels['velx'].dropna()) != 0:
             vels.to_file(
                 'DISCHARGE_SAMPLE.gpkg'
@@ -80,11 +85,17 @@ class MBCalculation():
             discharges_dt = []
             for dt in smb_df.dt:
                 dis = self.get_discharge_results(id=id, year = dt.year)
-                if dis == 0:
+                if dis == 0 or dis == None:
                     continue
                 discharges.append(dis)
                 discharges_dt.append(datetime.datetime(dt.year, 1, 1))
 
+            print()
+            print()
+            print()
+            print()
+            print(discharges)
+            input()
             plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(id))
 
 
@@ -134,6 +145,8 @@ class VelocityFlux(FlowProfile):
 
         out_x = self.velx_manager.get_ouput_files()
         out_y = self.vely_manager.get_ouput_files()
+        if out_x == None or out_y == None:
+            return
         
         vel_df = gl_geotiff_s_join(out_x, gdp, label='velx')
         vel_df = vel_df.merge(gl_geotiff_s_join(out_y, gdp, label='vely'))
@@ -169,15 +182,19 @@ class ThicknessCalculation(FlowProfile):
     def get_thickness(self, gdp):
         pass
 
-class ThicknessCentralIPR(ThicknessCalculation):
+class ThicknessIPR(ThicknessCalculation):
     def __init__(self, xlims, ylims, flags):
         super().__init__(xlims, ylims, flags)
         self.IPR = IPRManager(xlims, ylims, flags, 'ipr')
         self.max_dist = 10
 
+    def __str__(self):
+        return 'IPR'
+
     def get_thickness(self, gdp):
         out = self.IPR.get_ouput_files()
-        out = gpd.sjoin_nearest(gdp, out, max_distance=self.max_dist*10)
+        out = gl_geotiff_s_join(out, gdp, column_of_interest='THICK', label='thickness')
+        return out
         
 
 class ThicknessEquilibrium(ThicknessCalculation):
@@ -245,6 +262,8 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
     progress = LoadingBar()
     points = points.to_crs('EPSG:3031')
     line_spacing_m = 100
+    print(points)
+    print(type(points))
 
     for line in points.itertuples():
         gl = max(line.geometry.geoms, key=lambda line: line.length)
@@ -252,13 +271,19 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
         distances = np.arange(0, gl.length, line_spacing_m)
         poses = [gl.interpolate(distance) for distance in distances]
         last_pos = None
+        if type(out) == gpd.geodataframe.GeoDataFrame:
+            poses_gdf = gpd.GeoDataFrame({'geometry': poses})
+            print(gpd.sjoin_nearest(poses_gdf, out,how='left'))
+            values.extend(gpd.sjoin_nearest(poses_gdf, out, max_distance=line_spacing_m, how='left')[column_of_interest].astype(dtype=dtype)[1:-1])
+            print(len(values))
         for i, pos in enumerate(poses):
             if i == len(poses) - 1 or i == 0:
                 last_pos = pos
                 continue
             next_pos = poses[i+1]
             dists.append(i)
-            values.append(dtype(out.sel(x=pos.x, y=pos.y, method='nearest')[column_of_interest].mean()))
+            if type(out) != gpd.geodataframe.GeoDataFrame:
+                values.append(dtype(out.sel(x=pos.x, y=pos.y, method='nearest')[column_of_interest].mean()))
             ids.append(line.id)
             lats.append(pos.y)
             lons.append(pos.x)
@@ -267,6 +292,7 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
                 angle.append(math.degrees(math.atan2(next_pos.y - last_pos.y, next_pos.x - last_pos.x))  % 360)
             last_pos = pos
             progress.load_bar(i, len(poses))
+        print(len(lats))
 
     if not record_angle:
         df = gpd.GeoDataFrame({

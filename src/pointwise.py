@@ -762,47 +762,34 @@ class FlowProfile(Pointwize):
             
         return final_elevations
 
-    def invert_equilibrium2(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, in_ellipsoid=False):
-        new_elevations = elevations - SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
-        GLACIAL_ICE_DENSITY = 917
-        WATER_DENSITY = 1027
 
-        proportion = (WATER_DENSITY - GLACIAL_ICE_DENSITY) / (WATER_DENSITY)
-        thickness = new_elevations * proportion
-        floatation = new_elevations + thickness
-        floatation += FAC
-
-        if not in_ellipsoid:
-            floatation = floatation + SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
-
-        return floatation
-
-
-    def invert_equilibrium(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, in_ellipsoid=False):
+    def invert_equilibrium(self, elevations, FAC=20, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
         if type(FAC) == list:
-            FAC = np.array(FAC) # add the firn air content to the height
+            FAC = np.array(FAC)
 
-        new_elevations = elevations - SEA_LEVEL_ELEVATION # Rise from WSG-84 to relative to local sea level
+        if not from_geoid:
+            geoid_elevation = elevations - SEA_LEVEL_ELEVATION # from WSG-84 to relative local sea level
+        else:
+            geoid_elevation = elevations
         
 
         proportion = 1 - ((WATER_DENSITY - GLACIAL_ICE_DENSITY) / (WATER_DENSITY))
+        print(proportion)
 
-        total_elevation = new_elevations / proportion # Height is 90% of total, so this obtains the total
-        total_elevation -= new_elevations # remove the 90% under the surface
-
-        total_elevation = -total_elevation # INVERSION: now working with positive values
+        total_height = np.abs(geoid_elevation) / proportion # Height is proportion% of total, so this obtains the total height
         
-        total_elevation = np.array(total_elevation)
+        surface_height = total_height - np.abs(geoid_elevation) # remove the meters that were originally under the surface
+
         
-        total_elevation += FAC # add the firn air content to the height
+        final_elevations = np.array(surface_height)
+        final_elevations += FAC # add the firn air content to the height
 
 
-        final_elevations = total_elevation
-        if not in_ellipsoid:
-            print('floatin')
-            final_elevations = total_elevation + SEA_LEVEL_ELEVATION # Adjust from local sea level to WSG-84
+        if not to_geoid :
+            final_elevations = final_elevations + SEA_LEVEL_ELEVATION # Adjust from local sea level back to WSG-84
 
         return final_elevations
+
 
     def get_simple_equilibrium(self, elevations):
         total_height = (elevations / 0.1)
@@ -837,67 +824,15 @@ class FlowProfile(Pointwize):
                                 label=str(label), color_key=mdates.date2num(x))
 
     
-    def plot_pair(self, fname):
-        p = Plotting()
-        fig, ax = p.elevation_profile_plot()
-
-        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
-        out = rema_fm.get_ouput_files()
-        rema_vals = self.geotiff_s_join(out, self.fl)
-        ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
-        
-
-        if self.specific_dates:
-            for x in self.dates:
-                self.plot_specific_date(fig, ax, p, x)
-        else:
-            self.plot_all_by_date(fig, ax, p)
-            
-
-        
-        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
-        out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
-
-        out = out.sort_values('dist_from_grndline')
-        bad_out = out.copy()
-        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
-        #out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] > 0)
-        ax[1].plot(bad_out['dist_from_grndline'].values, bad_out['real_elevation1'] - bad_out['THICK'], ls='dashed', marker= 'None', label='IPR Bottom')
-        
-        ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
-        
-        
-
-
-        FAC = 20
-        FAC2 = 16
-        
-        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC)
-        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
-        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
-        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
-
-
-        limsy = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'], padding=0.1)
-        ax[1].set_ylim(limsy)
-        ax[1].set_xlim(ax[0].get_xlim())
-
-        ax[0].legend()
-        ax[1].legend()
-        p.save_close(fig, ax, OUTPUT + fname + "_profile_pair")
-        
-
     def plot(self, fname):
         p = Plotting()
 
-        geoid = False
+        geoid = True
 
 
         fig, ax = p.elevation_profile_plot_single()
 
         out = xr.open_dataset(SEA_LEVEL_TIF)
-
         sea_level = self.geotiff_s_join(out, self.fl)
         
         general_sea_level = sea_level['vals'].mean()
@@ -957,11 +892,13 @@ class FlowProfile(Pointwize):
         FAC1 =  22 #out['firnair'].quantile(.6)
         FAC2 =  14 #out['firnair'].quantile(.4)
         out = out.merge(rema_vals, on='dists', how='inner', suffixes=('_sea_level', '_rema'))
+        out_thick_col = 'THICK'
 
 
-        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out['guess_thickness'], FAC1, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
-        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out['guess_thickness'], FAC2, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
-        IPR_mirror_med = self.invert_equilibrium(out['vals_rema'] - out['guess_thickness'], 0, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
+        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC1, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC2, SEA_LEVEL_ELEVATION=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror_med = out['atm_height'] #self.invert_equilibrium(+out['guess_surface'], 0, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
+        IPR_mirror_med_2 = out['guess_surface'] #self.invert_equilibrium(+out['guess_surface'], 0, SEA_LEVEL_ELEVATION=out['vals_sea_level'], in_ellipsoid=geoid)
         print(FAC1)
         print(FAC2)
         
@@ -969,34 +906,10 @@ class FlowProfile(Pointwize):
         IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
         
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='lightgray', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
-        #ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray')
+        ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='atm_height')
+        ax.plot(out['dist_from_grndline'], IPR_mirror_med_2, color='lightgray', label='guess_surface')
 
 
-
-        '''
-        
-
-        
-        if geoid:
-            out['vals_rema'] += out['vals_sea_level']
-            
-        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out['THICK'], FAC1, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, in_ellipsoid=geoid)
-        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out['THICK'], FAC2, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, in_ellipsoid=geoid)
-        IPR_mirror_med = self.invert_equilibrium(out['vals_rema'] - out['THICK'], FAC_med, SEA_LEVEL_ELEVATION=SEA_LEVEL_ELEVATION, in_ellipsoid=geoid)
-            
-        '''
-
-        #IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
-        #IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
-        '''IPR_range = out['dist_from_grndline'].values[~np.isnan(IPR_mirror1)]
-        IPR_mirror2 = IPR_mirror2[~np.isnan(IPR_mirror2)]
-        IPR_mirror1 = IPR_mirror1[~np.isnan(IPR_mirror1)]'''
-
-        
-        #a = ax.plot(out['dist_from_grndline'].values, IPR_mirror1, ls='dashed', marker= 'None', label='IPR Floatation Height, FAC=' + str(FAC1))
-        #ax.plot(out['dist_from_grndline'].values, IPR_mirror2, marker= 'None', color=a[0].get_color(), label='IPR Floatation Height, FAC=' + str(FAC2))
-        
-        #ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray')
 
 
         #ax.set_ylim([ax.get_ylim()[0] - 20, ax.get_ylim()[1]])
@@ -1006,6 +919,57 @@ class FlowProfile(Pointwize):
         ax.legend()
         p.save_close(fig, ax, OUTPUT + fname + "_profile")
         
+    def plot_pair(self, fname):
+        p = Plotting()
+        fig, ax = p.elevation_profile_plot()
+
+        rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
+        out = rema_fm.get_ouput_files()
+        rema_vals = self.geotiff_s_join(out, self.fl)
+        ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
+        
+
+        if self.specific_dates:
+            for x in self.dates:
+                self.plot_specific_date(fig, ax, p, x)
+        else:
+            self.plot_all_by_date(fig, ax, p)
+            
+
+        
+        fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
+        out = fm.get_ouput_files()
+        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+
+        out = out.sort_values('dist_from_grndline')
+        bad_out = out.copy()
+        out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] <= 0)
+        #out['real_elevation1'] = out['real_elevation1'].where(out['dist_from_grndline'] > 0)
+        ax[1].plot(bad_out['dist_from_grndline'].values, bad_out['real_elevation1'] - bad_out['THICK'], ls='dashed', marker= 'None', label='IPR Bottom')
+        
+        ax[1].plot(out['dist_from_grndline'].values, out['real_elevation1'] - out['THICK'], marker= 'None', label='IPR Bed')
+        
+        
+
+
+        FAC = 20
+        FAC2 = 16
+        
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC))
+        rema_vals_bottom = self.get_equilibrium(rema_vals['vals'], FAC2)
+        ax[1].plot(rema_vals['dists'], rema_vals_bottom, ls='dotted', marker= 'None', label='REMA Equilibrium, FAC=' + str(FAC2))
+
+
+        limsy = self.get_dataset_display_range(out['real_elevation1'] - out['THICK'], padding=0.1)
+        ax[1].set_ylim(limsy)
+        ax[1].set_xlim(ax[0].get_xlim())
+
+        ax[0].legend()
+        ax[1].legend()
+        p.save_close(fig, ax, OUTPUT + fname + "_profile_pair")
+        
+
 
     def plot_diff(self, fname):
         p = Plotting()

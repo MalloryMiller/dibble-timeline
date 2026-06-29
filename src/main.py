@@ -166,6 +166,8 @@ class main():
 
         if self.flags.chart_type() == 'mb':
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags)
+
+            #mb_manager.plot_MB(ids=[0], title='Inland IPR Location')
             mb_manager.plot_MB()
             mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
             mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
@@ -378,6 +380,7 @@ class main():
         managers = {
             'vel': VelocityManager,
             'elev': ElevationManager,
+            'elev_old': ElevationManager,
             'firn': FirnAirManager,
             'grav': GravimetryManager,
             'smb': SMBManager,
@@ -390,9 +393,9 @@ class main():
             flag = self.flags
         fm = managers[data](self.xlim, self.ylim, flag,
                         data=data+dim)
+        if data == 'elev_old':
+            return fm.build_supplementary_files()
         fm.build_files()
-        if data == 'elev':
-            fm.build_supplementary_files()
 
 
 

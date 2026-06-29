@@ -49,7 +49,9 @@ Where Title is the area name.
 
 ### Running the Program
 
-If the area you want is in the preset area list, run `python3 main.py Title` from the `src` folder where `Title` is the name of the area preset you want to analyze.
+First, you need to install dependencies. To do this quickly, run the `./quickstart.sh` shell script from the `src` directory. This will create a virtual environment with the necessary dependencies installed and build whatever files are in your input folder at the time. To activate the virtual environment, run `source venv/bin/activate`. You will need to do this now and any time you close and reopen the terminal window. If the shell script gives you issues, refer to the `src/requirements.txt` file for
+
+If the area you want is in the preset area list, run `python3 main.py Title` from the `src` folder where `Title` is the name of the area preset you want to analyze. The default location is `Dibble`.
 
 If the area you want is not a preset area, you can run `python3 main.py x_min x_max y_min y_max` from the `src` folder with `x_min`, `x_max`, `y_min`, and `y_max` being the EPSG:3031 coordinates you would have used in the preset to define the desired area instead.
 

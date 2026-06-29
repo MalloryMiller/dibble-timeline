@@ -60,8 +60,9 @@ class Flags():
             '-rebuild:velx',
             '-rebuild:vely',
             '-rebuild:firn',
-            '-rebuild:elev',
             '-rebuild:smb',
+            '-rebuild:elev',
+            '-rebuild:elev_old',
             #'-rebuild:rema',
         ]
 
@@ -233,6 +234,8 @@ class Flags():
             cur = x.split(':')[-1]
 
             if x in self.flags or build_all:
+                if x == '-rebuild:elev_old':
+                    continue
                 to_build.append(cur)
 
         

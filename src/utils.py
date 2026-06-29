@@ -251,6 +251,7 @@ SHAPEFILES = {
     'basins': "shapefiles/a_lot_of_basins.shp",
     'dibblebasins': "shapefiles/DibbleBasin.shp",
     'dibble_large_basins': "shapefiles/dibble_large_basins.shp",
+    'fluxgate': 'shapefiles/flux_gate.gpkg'
 }
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
