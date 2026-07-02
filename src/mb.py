@@ -1,12 +1,15 @@
 from utils import * 
-from file_manager import IPRManager ,REMATileManager, BedmapManager, GeoidManager, VelocityManager, SMBManager
+from file_manager import IPRManager ,REMATileManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, AvgXVelManager, AvgYVelManager
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 from pointwise import FlowProfile
 import math
 from shapely.ops import linemerge
 import datetime
 import matplotlib.pyplot as plt
+import rioxarray # used by xarray for some reason, must be first
+import xarray as xr
 
 
 '''
@@ -28,9 +31,12 @@ Equilibrium:
 '''
 
 class MBCalculation():
-    def __init__(self, xlims, ylims, flags, method='gl'):
+    def __init__(self, xlims, ylims, flags, method='flux'):
 
-        self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
+        if method == 'flux':
+            self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
+        else:
+            self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
         self.flags = flags
@@ -39,6 +45,9 @@ class MBCalculation():
         elif method == 'flux':
             self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
 
+        self.vels = []
+        self.thickness = []
+        self.lengths = []
         pass
 
     def calculate_discharge(self):
@@ -53,39 +62,54 @@ class MBCalculation():
 
         thickness = self.thickness_calculator.get_thickness(df)
         vels = self.flux_calculator.get_velocity(df, year=year)
-        if vels == None:
+
+        if type(vels) != gpd.GeoDataFrame:
             return
         if len(vels['velx'].dropna()) != 0:
             vels.to_file(
                 'DISCHARGE_SAMPLE.gpkg'
             )
-        discharges = []
 
-        for x in df['id'].unique():
-            discharge = (vels[vels['id'] == x]['discharge_vel'] * thickness[thickness['id'] == x]['thickness'] * thickness[thickness['id'] == x]['lens'] * GLACIAL_ICE_DENSITY) / 1e12
-            
-            discharges.append(np.sum(discharge))
+
+        discharge = (vels['discharge_vel'] * thickness['thickness'] * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
+        df['discharge'] = discharge
+        print(vels['discharge_vel'])
+        print(thickness['thickness'])
+        print(thickness['lens'])
+        print(np.nansum(discharge))
+
+        self.vels.append(np.nansum(vels['discharge_vel']))
+        self.thickness.append(np.nansum(thickness['thickness']))
+        self.lengths.append(np.nansum(thickness['lens']))
+        
+        '''discharges.append(np.nansum(discharge))
 
         df['discharge'] = discharges
 
         df['discharges_total_vel'] = discharges
-        self.calculate_discharge()
+        self.calculate_discharge()'''
 
-        return discharges[0]
+        return np.nansum(discharge)
     
 
-    def plot_MB(self, ids=[1, 2, 3, 4, 5], title='All GL Locations'):
+    def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations'):
+
 
         smb_df = self.SMB.get_surface_balance_df()
 
 
         for id in ids:
+            self.vels = []
+            self.thickness = []
+            self.lengths = []
 
             discharges = []
             discharges_dt = []
             for dt in smb_df.dt:
                 dis = self.get_discharge_results(id=id, year = dt.year)
                 if dis == 0 or dis == None:
+                    #print(dt.year)
+                    #input(str(id))
                     continue
                 discharges.append(dis)
                 discharges_dt.append(datetime.datetime(dt.year, 1, 1))
@@ -95,14 +119,17 @@ class MBCalculation():
             print()
             print()
             print(discharges)
-            input()
+            discharges = np.array(discharges)
+            discharges_dt = np.array(discharges_dt)[discharges != np.nan]
+            discharges = discharges[discharges != np.nan]
+            print(discharges)
+            #input("WAITING FOR INPUT")
             plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(id))
 
 
-        '''discharges = []
-        for x in self.results['id'].unique():
-            d = self.get_results(x)
-            discharges.append(d)'''
+            #plt.plot(discharges_dt, self.vels, label='Total Velocity')
+            #plt.plot(discharges_dt, self.thickness, label='Total Thickness')
+            #plt.plot(discharges_dt, self.lengths, label='Total length')
 
 
 
@@ -140,16 +167,32 @@ class VelocityFlux(FlowProfile):
             new_flags.YEAREND = year + 1
             self.flags = new_flags
 
+        
+
         self.velx_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'velx')
         self.vely_manager = VelocityManager(self.xlim, self.ylim, self.flags, 'vely')
+        self.avg_velx_manager = AvgXVelManager(self.xlim, self.ylim, self.flags, 'velx')
+        self.avg_vely_manager = AvgYVelManager(self.xlim, self.ylim, self.flags, 'vely')
 
         out_x = self.velx_manager.get_ouput_files()
         out_y = self.vely_manager.get_ouput_files()
-        if out_x == None or out_y == None:
-            return
+        avg_out_x = self.avg_velx_manager.get_ouput_files()
+        avg_out_y = self.avg_vely_manager.get_ouput_files()
         
+        #input("INPUT")
+        if type(out_y) != xr.Dataset or type(out_x) != xr.Dataset:
+            #input("BAD")
+            return
+        #print(out_y['band_data'])
+        #print(out_x['band_data'])
+        
+        avg_vel_df = gl_geotiff_s_join(avg_out_x, gdp, label='velx')
+        avg_vel_df = avg_vel_df.merge(gl_geotiff_s_join(avg_out_y, gdp, label='vely'))
+        
+
         vel_df = gl_geotiff_s_join(out_x, gdp, label='velx')
         vel_df = vel_df.merge(gl_geotiff_s_join(out_y, gdp, label='vely'))
+        vel_df = vel_df.combine_first(avg_vel_df) # fill with averages
 
         vel_df['vel_angle'] = np.degrees(np.arctan2(vel_df['vely'], vel_df['velx']))  % 360
         vel_df['vel_angle_diff'] = ((vel_df['angle'] - vel_df['vel_angle']) % 360) #% 360
@@ -161,6 +204,7 @@ class VelocityFlux(FlowProfile):
         #vel_df['discharge_vel'][vel_df['discharge_vel'] < 0] = 0 
         #vel_df['discharge_vel2'] = np.sin(vel_df['vel_angle_diff']) * vel_df['total_vel']
         
+        print(vel_df)
         return vel_df
 
 
@@ -186,7 +230,7 @@ class ThicknessIPR(ThicknessCalculation):
     def __init__(self, xlims, ylims, flags):
         super().__init__(xlims, ylims, flags)
         self.IPR = IPRManager(xlims, ylims, flags, 'ipr')
-        self.max_dist = 10
+        self.max_dist = 50
 
     def __str__(self):
         return 'IPR'
@@ -248,7 +292,6 @@ class ThicknessBedmapREMA(ThicknessCalculation):
 
 
 
-
 def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle = True, label='vals', dtype=float):
     
     dists = []
@@ -262,8 +305,6 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
     progress = LoadingBar()
     points = points.to_crs('EPSG:3031')
     line_spacing_m = 100
-    print(points)
-    print(type(points))
 
     for line in points.itertuples():
         gl = max(line.geometry.geoms, key=lambda line: line.length)
@@ -273,9 +314,11 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
         last_pos = None
         if type(out) == gpd.geodataframe.GeoDataFrame:
             poses_gdf = gpd.GeoDataFrame({'geometry': poses})
+            poses_gdf = poses_gdf.set_crs('EPSG:3031')
             print(gpd.sjoin_nearest(poses_gdf, out,how='left'))
-            values.extend(gpd.sjoin_nearest(poses_gdf, out, max_distance=line_spacing_m, how='left')[column_of_interest].astype(dtype=dtype)[1:-1])
+            values.extend(gpd.sjoin_nearest(poses_gdf, out, max_distance=line_spacing_m*4, how='left')[column_of_interest].astype(dtype=dtype)[1:-1])
             print(len(values))
+
         for i, pos in enumerate(poses):
             if i == len(poses) - 1 or i == 0:
                 last_pos = pos
@@ -292,19 +335,23 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
                 angle.append(math.degrees(math.atan2(next_pos.y - last_pos.y, next_pos.x - last_pos.x))  % 360)
             last_pos = pos
             progress.load_bar(i, len(poses))
-        print(len(lats))
+
+    #values = np.nan_to_num(values)
+    #to_fill_with = np.nanmean(values)
+    #values = np.array(values)
+    #values[values == np.nan] = to_fill_with
 
     if not record_angle:
-        df = gpd.GeoDataFrame({
+        df = {
             "dists": dists,
             label: values,
             "id": ids,
             "lens": lens,
             "latitude": lats,
             "longitude": lons,
-        })
+        }
     else:
-        df = gpd.GeoDataFrame({
+        df = {
             "dists": dists,
             label: values,
             "id": ids,
@@ -312,11 +359,17 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
             "angle": angle,
             "latitude": lats,
             "longitude": lons,
-        })
+        }
 
+    geom = []
+    for x in range(len(df['latitude'])):
+        geom.append(pointify({'latitude': df['latitude'][x], 'longitude': df['longitude'][x]}))
+    df['geometry'] = geom #df.apply(pointify, axis=1)
+    df = gpd.GeoDataFrame(df, geometry='geometry')
 
-    df['geometry'] = df.apply(pointify, axis=1)
     df = df.set_geometry('geometry')
+    df = df.set_crs('EPSG:3031')
+    
 
     df = df.sort_values('dists')
     df.to_file(f'TEST DATA{label}.gpkg')

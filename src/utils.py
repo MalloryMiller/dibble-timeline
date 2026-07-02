@@ -111,7 +111,7 @@ GL_PROFILE_LOCATION = {
             'fname': 'grounding_line_profile',
             'type': 'fl',
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-10, 10],
+            'point_range': [-10, 40],
             'point_spacing': 400
         },]
         }
@@ -212,8 +212,8 @@ DEFAULT_AREA = 'Dibble'
 
 SEA_LEVEL_ELEVATION = -39
 
-GLACIAL_ICE_DENSITY = 917
-WATER_DENSITY = 1027
+GLACIAL_ICE_DENSITY = 917.0
+WATER_DENSITY = 1028.0
 
 DIVERGENT_CMAP = 'Spectral'
 DIVERGENT_CMAP_FIT_LINES = 'Spectral'
@@ -263,6 +263,9 @@ ADJUSTED_IPR = INPUT + "ipr/firnair_.gpkg"
 BEDMAP_FILE = INPUT + 'bed/bedmachine_bed.tif'
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
+AVG_VEL_TIF_FORMAT = "shapefiles/velocities_measures.tif" # 0=year, 1=direction
+MEASURES_X_VELOCITY = INPUT + "velocities/measures_x_vel.tif"
+MEASURES_Y_VELOCITY = INPUT + "velocities/measures_y_vel.tif"
 
 REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_dem.tif"
 SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #

@@ -165,12 +165,13 @@ class main():
                 t.plot_diff(x['fname'])
 
         if self.flags.chart_type() == 'mb':
-            mb_manager = MBCalculation(self.xlim, self.ylim, self.flags)
+            mb_manager = MBCalculation(self.xlim, self.ylim, self.flags,method='flux')
 
-            #mb_manager.plot_MB(ids=[0], title='Inland IPR Location')
-            mb_manager.plot_MB()
-            mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
-            mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
+            mb_manager.plot_MB(ids=[0, 2], title='Inland IPR Location')
+            #mb_manager = MBCalculation(self.xlim, self.ylim, self.flags,method='gl')
+            #mb_manager.plot_MB()
+            #mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
+            #mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
 
         if self.flags.chart_type() == 'elev-error':
             self.get_elevation_error()

@@ -922,8 +922,8 @@ class FlowProfile(Pointwize):
         
         IPR_mirror_med = out['atm_height']
         IPR_mirror_med_2 = out['guess_surface']
-        ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='atm_height')
-        ax.plot(out['dist_from_grndline'], IPR_mirror_med_2, color='lightgray', label='guess_surface')
+        #ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='atm_height')
+        #ax.plot(out['dist_from_grndline'], IPR_mirror_med_2, color='lightgray', label='guess_surface')
 
 
         #ax.set_ylim([ax.get_ylim()[0] - 20, ax.get_ylim()[1]])

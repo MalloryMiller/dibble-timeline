@@ -115,7 +115,7 @@ class FileManager:
                     
                     
             all_files.append(cur_df)
-        print(all_files)
+        #print(all_files)
 
         if len(all_files) == 0:
             return
@@ -445,13 +445,13 @@ class VelocityManager(FileManager):
         fnames = []
         found_years = []
         sources = []
-        print(self.sources)
+        
         for s in self.sources:
             for year in range(self.yearStart, self.yearEnd):
                 location = fname_data[s]
 
                 f = fname_prefix[data] + location(year, target_source=s)
-                print(f)
+                
                 if not Path(f).is_file():
                     continue
 
@@ -887,6 +887,48 @@ class BedmapManager(FileManager):
 
 
 
+class AvgXVelManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [MEASURES_X_VELOCITY], [], []
+
+
+class AvgYVelManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [MEASURES_Y_VELOCITY], [], []
 
 
 class GeoidManager(FileManager):
@@ -1082,8 +1124,6 @@ class SMBManager(FileManager):
 
         #area["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
         #area.attrs["grid_mapping"] = "spatial_ref"
-        print(mask.variable)
-        print(area.variable)
 
         mask *= (area * 1000000) # convert km2 to m2 and multiplty it w mask
         
@@ -1103,9 +1143,6 @@ class SMBManager(FileManager):
                     cur["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
                     cur.attrs["grid_mapping"] = "spatial_ref"
 
-                    print()
-                    print()
-                    print()
                     cur.values *= mask
 
                     cur = cur.rio.write_crs(self.crs_wkt)
@@ -1118,7 +1155,6 @@ class SMBManager(FileManager):
                     sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
                     sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
-                    print(sum_smb)
 
                     cur_smb += sum_smb
                     dates.append(datetime.datetime(x, m, self.start_band_time.day))
@@ -1126,7 +1162,6 @@ class SMBManager(FileManager):
                     print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
                     print(e)
             year_sums.append(cur_smb)
-            print(cur_smb)
             year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
 
 
@@ -1166,7 +1201,7 @@ class SMBManager(FileManager):
                     sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
                     sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
-                    print(sum_smb)
+                    #print(sum_smb)
 
                     cur_smb += sum_smb
                     dates.append(datetime.datetime(x, m, self.start_band_time.day))
@@ -1174,7 +1209,7 @@ class SMBManager(FileManager):
                     print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
                     print(e)
             year_sums.append(cur_smb)
-            print(cur_smb)
+            #print(cur_smb)
             year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
 
 
@@ -1230,7 +1265,7 @@ class SMBManager(FileManager):
         raster = rs.open(fname)
         stats = exact_extract(raster, zone, ['count', 'sum'])
 
-        print(stats)
+        #print(stats)
 
         return stats[0]['properties']
 
