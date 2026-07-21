@@ -70,8 +70,12 @@ class MBCalculation():
                 'DISCHARGE_SAMPLE.gpkg'
             )
 
+        vel_discharges = []
+        for v in range(len(vels['total_vel'])):
+            vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v]))
 
-        discharge = (vels['discharge_vel'] * thickness['thickness'] * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
+        #discharge = (vels['discharge_vel'] * thickness['thickness'] * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
+        discharge = (vel_discharges * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
         df['discharge'] = discharge
         print(vels['discharge_vel'])
         print(thickness['thickness'])
@@ -90,6 +94,29 @@ class MBCalculation():
         self.calculate_discharge()'''
 
         return np.nansum(discharge)
+    
+
+    def depth_adjusted_velocity_discharge(self, velocity, thickness, plot=False):
+        velocities = []
+        step_size = 1
+        n = 3
+
+        for x in range(round(thickness) // step_size):
+            s = (velocity * (1 - ((1 - (x / thickness)) ** (n+1)))) * step_size
+            velocities.append(s)
+
+        if plot:
+            fig, ax = plt.subplots()
+
+            ax.plot(velocities, list(range(round(thickness)//step_size)), label='Ice Speed')
+            plt.xlabel("Velocity (m/yr)")
+            plt.ylabel("Height (m)")
+            plt.title("Velocity by Depth")
+            fig.savefig('velocity_profile.png')
+            plt.close(fig)
+        
+        return sum(velocities)
+
     
 
     def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations'):
@@ -199,10 +226,8 @@ class VelocityFlux(FlowProfile):
         vel_df['total_vel'] = overall_velocity(vel_df['velx'], vel_df['vely'])
         vel_df['discharge_velx'] = np.cos(vel_df['vel_angle_diff']) * vel_df['velx']
         vel_df['discharge_vely'] = np.sin(vel_df['vel_angle_diff']) * vel_df['vely']
-        #vel_df['discharge_vel'] = vel_df['discharge_velx'] + vel_df['discharge_vely']
+        
         vel_df['discharge_vel'] = np.abs(np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel'])
-        #vel_df['discharge_vel'][vel_df['discharge_vel'] < 0] = 0 
-        #vel_df['discharge_vel2'] = np.sin(vel_df['vel_angle_diff']) * vel_df['total_vel']
         
         print(vel_df)
         return vel_df
@@ -219,8 +244,6 @@ class ThicknessCalculation(FlowProfile):
                           'ocean')
         self.FIRNAIR = 20
         pass
-
-
 
 
     def get_thickness(self, gdp):
