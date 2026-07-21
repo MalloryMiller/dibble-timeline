@@ -97,6 +97,7 @@ class MBCalculation():
 
         smb_df = self.SMB.get_surface_balance_df()
 
+        plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB')
 
         for id in ids:
             self.vels = []
@@ -133,7 +134,6 @@ class MBCalculation():
 
 
 
-        plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB')
         plt.legend()
         plt.xlabel('Date')
         plt.ylabel('Sum Total Mass (GT/yr)')

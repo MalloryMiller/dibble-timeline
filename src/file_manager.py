@@ -906,7 +906,7 @@ class AvgXVelManager(FileManager):
             data = self.data
         else:
             data = data_override
-        return [MEASURES_X_VELOCITY], [], []
+        return [COMPOSITE_VEL[self.flags.sources_v()[0]]['x']], [], []
 
 
 class AvgYVelManager(FileManager):
@@ -928,7 +928,7 @@ class AvgYVelManager(FileManager):
             data = self.data
         else:
             data = data_override
-        return [MEASURES_Y_VELOCITY], [], []
+        return [COMPOSITE_VEL[self.flags.sources_v()[0]]['y']], [], []
 
 
 class GeoidManager(FileManager):

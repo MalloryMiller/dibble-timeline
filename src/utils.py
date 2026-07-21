@@ -1,5 +1,6 @@
 from flags import *
 import time as t
+import numpy as np
 from numpy import abs # type: ignore
 from matplotlib.colors import ListedColormap
 
@@ -111,7 +112,7 @@ GL_PROFILE_LOCATION = {
             'fname': 'grounding_line_profile',
             'type': 'fl',
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-10, 40],
+            'point_range': [-10, 10],
             'point_spacing': 400
         },]
         }
@@ -264,8 +265,18 @@ BEDMAP_FILE = INPUT + 'bed/bedmachine_bed.tif'
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
 AVG_VEL_TIF_FORMAT = "shapefiles/velocities_measures.tif" # 0=year, 1=direction
-MEASURES_X_VELOCITY = INPUT + "velocities/measures_x_vel.tif"
-MEASURES_Y_VELOCITY = INPUT + "velocities/measures_y_vel.tif"
+
+COMPOSITE_VEL = {
+    'ItsLive': {
+        'x': INPUT + "velocities/itslive_x_vel.tif",
+        'y': INPUT + "velocities/itslive_y_vel.tif"
+    },
+    'Measures': {
+        'x': INPUT + "velocities/measures_x_vel.tif",
+        'y': INPUT + "velocities/measures_y_vel.tif"
+    }
+}
+
 
 REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_dem.tif"
 SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #
@@ -327,6 +338,46 @@ REMA_BACKGROUND_LEVEL = 0
 
 
 OPACITY_CMAP = [0,0,0]
+
+
+# Speed of light
+c = 3.0e8
+
+# Refractive index of ice
+ni = 1.78
+
+# These are numbers used by CReSIS to report ice thickness
+e_i = 3.15
+v_i = c / np.sqrt(e_i)
+
+
+def smooth(x, window_len=11):
+    """Hanning  window smoothing"""
+    s = np.r_[x[window_len - 1:0:-1], x, x[-1:-window_len:-1]]
+    w = np.hanning(window_len)
+    y = np.convolve(w / w.sum(), s, mode='valid')
+    return y[np.floor(window_len / 2.0):len(y) - np.floor(window_len / 2.0)]
+
+
+def cresis_H_to_t(H):
+    """Back out the twtt from CReSIS's stated ice thickness"""
+    t = 2 * H / v_i
+    return t
+
+
+def radar_t_to_H(t, firnair):
+    """Total ice thickness in terms of measured time
+    
+    From Jenkins and Doake, p798, after eq 5"""
+    H = (1 / ni) * ((t * c / 2) + (ni - 1) * firnair)
+    return H
+
+
+def cresis_H_to_better_H(H, FAC):
+    """Account for FAC rather than using a single dielectric constant"""
+    twtt = cresis_H_to_t(H)
+    return radar_t_to_H(twtt, FAC)
+
 
 def pointify(row):
     #Dr. Lilien code

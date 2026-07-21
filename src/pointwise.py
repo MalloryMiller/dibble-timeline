@@ -767,15 +767,17 @@ class FlowProfile(Pointwize):
         return final_elevations
 
 
-    def invert_equilibrium(self, elevations, FAC=20, sea_level_elevation=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
+    def invert_equilibrium(self, surface_elevation, IPR_thickness, FAC=20, sea_level_elevation=SEA_LEVEL_ELEVATION, from_geoid=False, to_geoid=True):
         '''
         Returns the estimated height of the ice at equilibrium based on the elevation of the ice bottom 
 
 
         Parameters
         ----------
-        elevations : List[Float]
-            List of ice bottom elevations
+        surface_elevation : List[Float]
+            List of ice surface elevations
+        IPR_thickness : List[Float]
+            Assumed thickness of ice at location
         FAC : Float | Integer | List[Float | Integer]
             Charactaristic FAC value or array of FAC values with same length as elevations
         sea_level_elevation : Float | Integer | List[Float | Integer]
@@ -793,6 +795,8 @@ class FlowProfile(Pointwize):
 
         if type(FAC) == list:
             FAC = np.array(FAC)
+
+        elevations = surface_elevation - IPR_thickness
 
         if not from_geoid:
             geoid_elevation = elevations - sea_level_elevation # from WSG-84 to relative local sea level
@@ -867,10 +871,10 @@ class FlowProfile(Pointwize):
             rema_vals['vals'] -= sea_level['vals']
         ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
-        '''
+        
         # ICESAT2 POINTS (take longer to plot)
 
-        general_sea_level = sea_level['vals'].mean()
+        '''general_sea_level = sea_level['vals'].mean()
         for x in self.dates:
             label = self.get_data(x)
             label = self.create_date_range_label(label)
@@ -907,22 +911,49 @@ class FlowProfile(Pointwize):
         out = out.merge(rema_vals, on='dists', how='inner', suffixes=('_sea_level', '_rema'))
 
         out_thick_col = 'THICK'
+        out_surface_col = 'vals_rema'
 
 
-        IPR_mirror1 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
-        IPR_mirror2 = self.invert_equilibrium(out['vals_rema'] - out[out_thick_col], FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror1 = self.invert_equilibrium(out[out_surface_col], cresis_H_to_better_H(out[out_thick_col], FAC1), FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror2 = self.invert_equilibrium(out[out_surface_col],  cresis_H_to_better_H(out[out_thick_col], FAC2), FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         
         print(FAC1)
         print(FAC2)
         
-        IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
-        IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
+        try:
+            IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
+        except:
+            pass
+        try:
+            IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
+        except:
+            pass
+        
         
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='lightgray', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
         
+        out_surface_col = 'atm_height'
+        IPR_mirror1 = self.invert_equilibrium(out[out_surface_col], cresis_H_to_better_H(out[out_thick_col], FAC1), FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        IPR_mirror2 = self.invert_equilibrium(out[out_surface_col],  cresis_H_to_better_H(out[out_thick_col], FAC2), FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
+        
+        print(FAC1)
+        print(FAC2)
+        
+        try:
+            IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
+        except:
+            pass
+        try:
+            IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
+        except:
+            pass
+        
+        
+        ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='red', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
+        
         IPR_mirror_med = out['atm_height']
         IPR_mirror_med_2 = out['guess_surface']
-        #ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='atm_height')
+        ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='ATM Height')
         #ax.plot(out['dist_from_grndline'], IPR_mirror_med_2, color='lightgray', label='guess_surface')
 
 
@@ -1217,9 +1248,73 @@ class PolyLine(PointSeries):
         return np.array(self.points), np.array(self.labels)
 
 
+class PolyFlowHybridLine(PointSeries) :
+    def __init__(self, xlims, ylims, flags, starting_poses, pt_label, step_dist = 50, fname="POLYLINE_TEST"):
+        super().__init__(xlims, ylims, flags, starting_poses)
+
+        self.step_dist = step_dist
+        self.main_pts = starting_poses
+        self.pt_label = pt_label
+        self.points = []
+        self.labels = []
+
+        temp = []
+        for p in self.main_pts:
+            temp.append(Point(p[1], p[0]))
+        df_ref = pd.DataFrame({'geometry':temp, 'labels':self.pt_label})
+        df_ref = gpd.GeoDataFrame(df_ref, geometry=temp, crs='EPSG:3031')
+        df_ref.to_file(fname + '.gpkg', driver="GPKG")
+
+    def distance(self, pos1, pos2):
+        return overall_velocity(pos1[0] - pos2[0], pos1[1] - pos2[1])
+
+    def interpolation(self, pos1, pos2, perc):
+        pos = []
+        for x in range(len(pos1)):
+
+            cur = pos1[x] + ((pos2[x] - pos1[x]) * perc)
+
+            pos.append(cur)
+
+        return pos
+    
+    
+    def two_point_array(self, p1, p2, cur_dist=0):
+        total_dist = self.distance(p1, p2)
+        percs = self.step_dist / total_dist
+        cur = -percs
+
+        while cur <= 1:
+            cur += percs
+            self.points.append(self.interpolation(p1, p2, cur))
+            self.labels.append((cur * total_dist) + cur_dist)
+
+        return total_dist
+
+
+    def get_points(self, overlap_ds=False, include_all=True, index='index'):
+        
+        cur_dist = 0
+        for x in range(1, len(self.main_pts)):
+            cur_dist += self.two_point_array(self.main_pts[x-1], self.main_pts[x], cur_dist=cur_dist)
+
+        if include_all:
+            points = []
+            for p in self.points:
+                points.append(Point(p[1], p[0]))
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.labels, 'vel_dates': self.labels}, geometry=points, crs='EPSG:3031')
+            gpd_df.to_file('POLYLINE_TEST.gpkg', driver='GPKG')
+            return np.array(self.points), np.array(self.labels), gpd_df
+
+        return np.array(self.points), np.array(self.labels)
+
+
+
 class StreamFlow(PointSeries):
     def __init__(self, xlims, ylims, flags, starting_pos, step_dist, step_num, date_steps = STREAM_PLOT_STEPS, max_dist = 500, label_type = 'dist', cmap='managua'):
         f = flags.copy()
+
+
         f.add('-itslive')
         self.fmx = VelocityManager(xlims, ylims, f, 'velx')
         self.fmy = VelocityManager(xlims, ylims, f, 'vely')

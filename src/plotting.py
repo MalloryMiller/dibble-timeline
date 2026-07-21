@@ -518,7 +518,7 @@ class Plotting:
             ax1.plot(dist, elevation, marker='o', linestyle='None', label=label, color=sm.to_rgba(color_key))
 
         padding = (max(elevation) - min(elevation)) * 0.3
-        padding_x = (max(elevation) - min(elevation)) * 0.15
+        padding_x = (max(elevation) - min(elevation)) * 0.3
         if change_lims:
             ax1.set_ylim(min(elevation) - padding, max(elevation) + padding)
             ax1.set_xlim(min(dist) - padding_x, max(dist) + padding_x)
