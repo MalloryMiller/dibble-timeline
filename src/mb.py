@@ -1,11 +1,12 @@
 from utils import * 
-from file_manager import IPRManager ,REMATileManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, AvgXVelManager, AvgYVelManager
+from file_manager import IPRManager ,REMATileManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, AvgXVelManager, AvgYVelManager, REMATileSlopeManager
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from pointwise import FlowProfile
+from pointwise import FlowProfile, PolyFlowHybridLine
 import math
 from shapely.ops import linemerge
+import shapely
 import datetime
 import matplotlib.pyplot as plt
 import rioxarray # used by xarray for some reason, must be first
@@ -32,6 +33,9 @@ Equilibrium:
 
 class MBCalculation():
     def __init__(self, xlims, ylims, flags, method='flux'):
+        self.xlims = xlims
+        self.ylims = ylims
+        self.flags = flags
 
         if method == 'flux':
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
@@ -39,11 +43,16 @@ class MBCalculation():
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
+        self.slope_manager = SlopeManager(xlims, ylims, flags)
         self.flags = flags
         if method == 'gl':
             self.results = gpd.read_file(GL_GPKG_manual)
         elif method == 'flux':
             self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
+
+        print(self.results)
+        print('\n'*20)
+            
 
         self.vels = []
         self.thickness = []
@@ -54,17 +63,32 @@ class MBCalculation():
         final_df = self.results
         return final_df
 
-    def get_discharge_results(self, id = 1, year = 2019):
+    def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False):
 
 
         df = self.results[self.results['id'] == id]
-        
+
+        if get_exclusion:
+            print("GETTING EXCLUSION")
+            try:
+                first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
+                last_vertex = shapely.get_coordinates(df.geometry.head(1))[1]
+            except:
+                return None, None
+            
+            
+            exclusion_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
+                                [list(reversed(first_vertex)),
+                                list(reversed(last_vertex))], [0, 1]).get_polygon()
+        else:
+            exclusion_mask = None
 
         thickness = self.thickness_calculator.get_thickness(df)
         vels = self.flux_calculator.get_velocity(df, year=year)
+        slopes = self.slope_manager.get_slopes(df)
 
         if type(vels) != gpd.GeoDataFrame:
-            return
+            return None, exclusion_mask
         if len(vels['velx'].dropna()) != 0:
             vels.to_file(
                 'DISCHARGE_SAMPLE.gpkg'
@@ -72,15 +96,11 @@ class MBCalculation():
 
         vel_discharges = []
         for v in range(len(vels['total_vel'])):
-            vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v]))
+            vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v]))
 
         #discharge = (vels['discharge_vel'] * thickness['thickness'] * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
         discharge = (vel_discharges * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
         df['discharge'] = discharge
-        print(vels['discharge_vel'])
-        print(thickness['thickness'])
-        print(thickness['lens'])
-        print(np.nansum(discharge))
 
         self.vels.append(np.nansum(vels['discharge_vel']))
         self.thickness.append(np.nansum(thickness['thickness']))
@@ -93,10 +113,13 @@ class MBCalculation():
         df['discharges_total_vel'] = discharges
         self.calculate_discharge()'''
 
-        return np.nansum(discharge)
+        return np.nansum(discharge), exclusion_mask
     
 
-    def depth_adjusted_velocity_discharge(self, velocity, thickness, plot=False):
+    def depth_adjusted_velocity_discharge(self, velocity, thickness, slope, plot=False):
+        '''
+        https://courses.washington.edu/ess431/LECTURES/LECTURE_2018/vertical_profile_ice_sheet_derivation.pdf
+        '''
         velocities = []
         step_size = 1
         n = 3
@@ -114,45 +137,109 @@ class MBCalculation():
             plt.title("Velocity by Depth")
             fig.savefig('velocity_profile.png')
             plt.close(fig)
+
+        discharge = sum(velocities)
         
-        return sum(velocities)
+        return discharge
+
+
+    def fast_depth_adjusted_velocity_discharge(self, velocity, thickness, slop, plot=False):
+        factor = 1.2505
+
+        return velocity*thickness / factor
 
     
 
-    def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations'):
+    def depth_adjusted_velocity_discharge_slip(self, velocity, thickness, slope, plot=False):
+        velocities = []
+        step_size = 1
+        n = 3
+        B = 1.62
+        angle = np.atan(slope)
+        A = 3.5e-26 # A(T=-25 deg.)
+        tau = GLACIAL_ICE_DENSITY * GRAVITY * (thickness / (sum(self.lengths) / 2)) * np.sin(angle)
+        if tau == np.inf or (not tau > 0 or not tau < 2):
+            tau = 1.5
+
+        K = ((GLACIAL_ICE_DENSITY * GRAVITY) / B) ** n
+
+        for x in range(round(thickness) // step_size):
+
+            stress = A * ((GLACIAL_ICE_DENSITY * GRAVITY * (thickness - x) * np.sin(angle)) ** n)
+
+            creep_speed = (2 * A * (tau**n)*thickness) / (n+1)
+            slip_speed = velocity - creep_speed
 
 
-        smb_df = self.SMB.get_surface_balance_df()
+            s = slip_speed + (creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))) * step_size #(slip_speed + ((creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))))) * step_size
+            velocities.append(s)
 
-        plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB')
+        if plot:
+            fig, ax = plt.subplots()
+
+            ax.plot(velocities, list(range(round(thickness)//step_size)), label='Ice Speed')
+            plt.xlabel("Velocity (m/yr)")
+            plt.ylabel("Height (m)")
+            plt.title("Velocity by Depth")
+            fig.savefig('velocity_profile.png')
+            plt.close(fig)
+        
+        return sum(velocities)
+
+    def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations', seperate=False):
+
+
+        smb_df = self.SMB.get_surface_balance_df(plot=True)
+
+        fig, ax = plt.subplots()
+        if not seperate:
+            ax.axhline(0, color='black', label='Equilibrium', linewidth=2)
+
 
         for id in ids:
+            print("ID:", id)
             self.vels = []
             self.thickness = []
             self.lengths = []
 
             discharges = []
             discharges_dt = []
+            first_run = True
+
             for dt in smb_df.dt:
-                dis = self.get_discharge_results(id=id, year = dt.year)
+                print("dt:", dt)
+                if first_run:
+                    dis, exclude = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
+                    first_run = exclude == None
+                else:
+                    dis, _ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
+
                 if dis == 0 or dis == None:
-                    #print(dt.year)
-                    #input(str(id))
+                    discharges.append(np.nan)
+                    discharges_dt.append(datetime.datetime(dt.year, 1, 1))
                     continue
                 discharges.append(dis)
                 discharges_dt.append(datetime.datetime(dt.year, 1, 1))
 
-            print()
-            print()
-            print()
-            print()
-            print(discharges)
+
             discharges = np.array(discharges)
+
+            print(discharges)
+            result = smb_df['smb'] - discharges
+            print(result)
+            result_dt = np.array(discharges_dt)[result != np.nan]
+            result = result[result != np.nan]
+            print(result)
+
             discharges_dt = np.array(discharges_dt)[discharges != np.nan]
             discharges = discharges[discharges != np.nan]
-            print(discharges)
             #input("WAITING FOR INPUT")
-            plt.plot(discharges_dt, discharges, label='Yearly Discharge, GL=' + str(id))
+            #plt.plot(discharges_dt, discharges, label='Yearly Discharge, ID=' + str(id))
+            smb_df = self.SMB.get_surface_balance_df(exclusion=exclude, plot=False)
+            print(smb_df)
+            #plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB, ID=' + str(id))
+
+            ax.plot(result_dt, result, label='Overall Mass Balance Change, ID=' + str(id))
 
 
             #plt.plot(discharges_dt, self.vels, label='Total Velocity')
@@ -161,17 +248,12 @@ class MBCalculation():
 
 
 
-        plt.legend()
-        plt.xlabel('Date')
-        plt.ylabel('Sum Total Mass (GT/yr)')
-        plt.title(title)
-        plt.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.png')
-
-
-
-        plt.savefig(
-            'MB_ALL.png'
-        )
+        ax.legend()
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Surface Mass Change (GT/yr)')
+        ax.grid()
+        ax.set_title(title)
+        fig.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.png')
 
         return
 
@@ -210,8 +292,6 @@ class VelocityFlux(FlowProfile):
         if type(out_y) != xr.Dataset or type(out_x) != xr.Dataset:
             #input("BAD")
             return
-        #print(out_y['band_data'])
-        #print(out_x['band_data'])
         
         avg_vel_df = gl_geotiff_s_join(avg_out_x, gdp, label='velx')
         avg_vel_df = avg_vel_df.merge(gl_geotiff_s_join(avg_out_y, gdp, label='vely'))
@@ -229,12 +309,26 @@ class VelocityFlux(FlowProfile):
         
         vel_df['discharge_vel'] = np.abs(np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel'])
         
-        print(vel_df)
         return vel_df
 
 
 
 
+class SlopeManager(FlowProfile):
+    def __init__(self, xlims, ylims, flags):
+        super().__init__(flags, xlims, ylims, 
+                         {'point': [0,0], 'type':'fl', 'point_range':[0,0], 'point_spacing': 0},
+                          'pink')
+        self.tile = REMATileSlopeManager(xlims, ylims, flags, 'ipr')
+        self.max_dist = 50
+
+    def __str__(self):
+        return 'slopes'
+
+    def get_slopes(self, gdp):
+        out = self.tile.get_ouput_files()
+        out = gl_geotiff_s_join(out, gdp, column_of_interest='band_data', label='slope')
+        return out
 
 
 class ThicknessCalculation(FlowProfile):
@@ -338,9 +432,8 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
         if type(out) == gpd.geodataframe.GeoDataFrame:
             poses_gdf = gpd.GeoDataFrame({'geometry': poses})
             poses_gdf = poses_gdf.set_crs('EPSG:3031')
-            print(gpd.sjoin_nearest(poses_gdf, out,how='left'))
+            
             values.extend(gpd.sjoin_nearest(poses_gdf, out, max_distance=line_spacing_m*4, how='left')[column_of_interest].astype(dtype=dtype)[1:-1])
-            print(len(values))
 
         for i, pos in enumerate(poses):
             if i == len(poses) - 1 or i == 0:

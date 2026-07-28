@@ -975,6 +975,27 @@ class REMATileManager(FileManager):
             data = data_override
         return [REMA_TILE_DEM], [], []
 
+class REMATileSlopeManager(FileManager):
+
+    def __init__(self, xlims, ylims, flags, data, label=''):
+        
+        ftype='tif'
+        super().__init__(xlims, ylims, flags, data, ftype,label=label)
+        
+    
+
+    def build_files(self):
+        return
+    
+
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [REMA_TILE_SLOPE], [], []
+
 
 class IPRManager(FileManager):
 
@@ -1152,7 +1173,7 @@ class SMBManager(FileManager):
                     cur.rio.to_raster(fname)
 
 
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
+                    #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
                     sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
 
@@ -1179,7 +1200,7 @@ class SMBManager(FileManager):
         
         self.close()
 
-    def get_surface_balance_df(self, yearly=True):
+    def get_surface_balance_df(self, yearly=True, exclusion=None, plot=False):
         dates = []
         sums = []
         year_dates = []
@@ -1198,8 +1219,8 @@ class SMBManager(FileManager):
                     cur = cur.rio.write_crs(self.crs_wkt)
                     
                     cur.rio.to_raster(fname)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
+                    #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins', exclusion=exclusion)['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
                     #print(sum_smb)
 
@@ -1212,14 +1233,14 @@ class SMBManager(FileManager):
             #print(cur_smb)
             year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
 
-
-        plt.plot(dates, np.array(sums), label='Monthly')
-        plt.plot(year_dates, np.array(year_sums), label='Yearly')
-        plt.legend()
-        plt.xlabel('Date')
-        plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
-        plt.savefig('SMBs.png')
-        plt.close()
+        if plot:
+            plt.plot(dates, np.array(sums), label='Monthly')
+            plt.plot(year_dates, np.array(year_sums), label='Yearly')
+            plt.legend()
+            plt.xlabel('Date')
+            plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
+            plt.savefig('SMBs.png')
+            plt.close()
 
 
         if yearly:
@@ -1240,7 +1261,7 @@ class SMBManager(FileManager):
         
         
 
-    def get_zonal_data(self, fname, mask):
+    def get_zonal_data(self, fname, mask, exclusion=None):
         '''
         dataset = rs.open(fname)
         arr = dataset.read(1)
@@ -1260,14 +1281,37 @@ class SMBManager(FileManager):
         zone = gpd.read_file(SHAPEFILES[mask])
         if zone.crs is None:
             zone = zone.set_crs('EPSG:3031')
+        raster = rs.open(fname)
+        bad = None
+
+        if exclusion != None:
+            try:
+                exclusion = exclusion.intersection(zone['geometry'].iloc[0])
+                exclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[exclusion], crs='EPSG:3031')
+                exclusion_df.to_file("CROPPED_ZONE.shp")
+                exclusion_df = exclusion_df.to_crs(self.crs_wkt)
+                bad = exact_extract(raster, exclusion_df, ['count', 'sum'])[-1]['properties']
+            except:
+                bad = None
+
+            '''zone1 = zone['geometry'].iloc[0]
+            zone2 = zone1.difference(exclusion)
+            zone = gpd.GeoDataFrame(geometry=[zone2])
+            zone = zone.set_crs('EPSG:3031')
+            zone.to_file("CROPPED_ZONE.shp")
+            print(zone1.equals(zone2))'''
+            
 
         zone = zone.to_crs(self.crs_wkt)
-        raster = rs.open(fname)
-        stats = exact_extract(raster, zone, ['count', 'sum'])
+
+        stats = exact_extract(raster, zone, ['count', 'sum'])[-1]['properties']
 
         #print(stats)
+        if bad != None:
+            for col in bad:
+                stats[col] -= bad[col]
 
-        return stats[0]['properties']
+        return stats
 
     def fnames(self):
 

@@ -5,7 +5,7 @@ from file_manager import GravimetryManager, ElevationManager, VelocityManager, I
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 import pandas as pd
 import numpy as np
 from matplotlib import cm
@@ -30,7 +30,6 @@ class Pointwize():
             self.title = ''
             self.trend_adjustment = 0
         self.points = points['point']
-        print(points)
 
         if type(self.points) ==list and type(self.points[0]) == list:
             temp = [str(self.points[0][0]), str(self.points[0][1])]
@@ -450,8 +449,6 @@ class Pointwize():
                 ax.plot([], [], label = s, marker= shapes_set[s], color=sm.to_rgba(0), linestyle='None')
 
 
-        print(self.results[p].columns)
-
         for j, p in enumerate(self.results.keys()):
             self.results[p] = self.results[p].dropna()
             ls = 'None'
@@ -680,13 +677,11 @@ class FlowProfile(Pointwize):
         self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
         
         if date != None:
-            print([date, date])
             if date not in self.results.keys():
                 self.results[date] = []
                 return [date, date]
             date_options = self.get_closest_existing_date(date, self.results[date]['gl'].dt.to_period('D').dt.to_timestamp().unique().copy())
             self.results[date] = []
-            print(date)
 
             closest = date_options[0]
             seeking = True
@@ -705,8 +700,6 @@ class FlowProfile(Pointwize):
                 except IndexError as e:
                     seeking |= seek
                     pass
-                
-                print(self.results[date])
                 
                 out = out[out['date'].dt.to_period('D').dt.to_timestamp() != closest]
                 if len(out) == 0:
@@ -805,7 +798,6 @@ class FlowProfile(Pointwize):
         
 
         proportion = 1 - ((WATER_DENSITY - GLACIAL_ICE_DENSITY) / (WATER_DENSITY))
-        print(proportion)
 
         total_height = np.abs(geoid_elevation) / proportion # Height is proportion% of total, so this obtains the total height
         
@@ -917,8 +909,6 @@ class FlowProfile(Pointwize):
         IPR_mirror1 = self.invert_equilibrium(out[out_surface_col], cresis_H_to_better_H(out[out_thick_col], FAC1), FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         IPR_mirror2 = self.invert_equilibrium(out[out_surface_col],  cresis_H_to_better_H(out[out_thick_col], FAC2), FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         
-        print(FAC1)
-        print(FAC2)
         
         try:
             IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
@@ -936,8 +926,6 @@ class FlowProfile(Pointwize):
         IPR_mirror1 = self.invert_equilibrium(out[out_surface_col], cresis_H_to_better_H(out[out_thick_col], FAC1), FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         IPR_mirror2 = self.invert_equilibrium(out[out_surface_col],  cresis_H_to_better_H(out[out_thick_col], FAC2), FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         
-        print(FAC1)
-        print(FAC2)
         
         try:
             IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
@@ -1087,8 +1075,6 @@ class FlowProfile(Pointwize):
                     continue
                 labels[dates] = self.create_date_range_label([dates, dates])
 
-        print(self.results.keys())
-        print(self.results[None])
         del self.results[None]
 
         full_track_length = 0
@@ -1187,6 +1173,8 @@ class PointSeries():
             return np.array(self.points), np.array(self.labels), gpd_df
         return np.array(self.points), np.array(self.labels)
 
+
+
 class PolyLine(PointSeries):
     def __init__(self, xlims, ylims, flags, starting_poses, pt_label, step_dist = 50, fname="POLYLINE_TEST"):
         super().__init__(xlims, ylims, flags, starting_poses)
@@ -1249,7 +1237,7 @@ class PolyLine(PointSeries):
 
 
 class PolyFlowHybridLine(PointSeries) :
-    def __init__(self, xlims, ylims, flags, starting_poses, pt_label, step_dist = 50, fname="POLYLINE_TEST"):
+    def __init__(self, xlims, ylims, flags, starting_poses, pt_label, step_dist = 50, fname="POLYLINE_FLOW_TEST"):
         super().__init__(xlims, ylims, flags, starting_poses)
 
         self.step_dist = step_dist
@@ -1257,6 +1245,7 @@ class PolyFlowHybridLine(PointSeries) :
         self.pt_label = pt_label
         self.points = []
         self.labels = []
+        self.flags = Flags()
 
         temp = []
         for p in self.main_pts:
@@ -1298,15 +1287,59 @@ class PolyFlowHybridLine(PointSeries) :
         for x in range(1, len(self.main_pts)):
             cur_dist += self.two_point_array(self.main_pts[x-1], self.main_pts[x], cur_dist=cur_dist)
 
+
         if include_all:
             points = []
-            for p in self.points:
-                points.append(Point(p[1], p[0]))
-            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': self.labels, 'vel_dates': self.labels}, geometry=points, crs='EPSG:3031')
-            gpd_df.to_file('POLYLINE_TEST.gpkg', driver='GPKG')
+            labels = []
+            flow_step_size = 140
+
+            beginning_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[0][0], self.points[0][1]], flow_step_size, [0, 500])
+            points_start, labels_start, df_start = beginning_flow.get_points(include_all=True)
+
+            end_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[-1][0], self.points[-1][1]], flow_step_size, [0, 500])
+            points_end, labels_end, df_end = end_flow.get_points(include_all=True)
+
+            
+            cur_lable = 0
+            p2 = []
+            for p in df_start:
+                p2.insert(0, Point(p[1], p[0]))
+                labels.append(cur_lable)
+                cur_lable += flow_step_size
+            for i, p in enumerate(self.points):
+                p2.append(Point(p[1], p[0]))
+                labels.append(self.labels[i] + cur_lable)
+            cur_lable = self.labels[-1] 
+            for p in df_end:
+                p2.append(Point(p[1], p[0]))
+                labels.append(cur_lable)
+                cur_lable += flow_step_size
+
+            points = p2
+
+
+
+            gpd_df = gpd.GeoDataFrame({'dist_from_grndline': labels, 'vel_dates': labels}, geometry=points, crs='EPSG:3031')
+            gpd_df.to_file('POLYLINE_FLOW_TEST_all.gpkg', driver='GPKG')
+            print("SAVED")
+        
+
+
             return np.array(self.points), np.array(self.labels), gpd_df
 
         return np.array(self.points), np.array(self.labels)
+
+    def get_polygon(self):
+        points, labels, all = self.get_points()
+
+        points = [[p.x, p.y] for p in all['geometry'].values]
+
+        p = Polygon(points)
+        gpd_df = gpd.GeoDataFrame({'feature': [0], 'geometry': [p]}, crs='EPSG:3031')
+
+        gpd_df.to_file("POLYLINE_FLOW_TEST_all.shp")
+
+        return p
 
 
 
@@ -1459,7 +1492,7 @@ class StreamFlow(PointSeries):
             
 
         if include_all:
-            return points, labels, all_p
+            return points, labels, points
 
 
         return points, labels

@@ -9,11 +9,11 @@ from shapely.geometry import Point
 AREAS = {
 
     'Dibble' : [
-        [1808883,1882493,],
-        [-1876131, -1744165]
+        [1799099, 1906106],
+        [-1872603, -1746770]
         
-    ],
-
+    ]
+,
     'DibbleSlowing': [
         [1852971,1861727],
         [-1859529, -1847206,]
@@ -279,6 +279,7 @@ COMPOSITE_VEL = {
 
 
 REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_dem.tif"
+REMA_TILE_SLOPE = REMA_RAW_LOCATION + "tiles/12_49_10m_v2.0_SLOPES.tif"
 SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #
 
 
@@ -349,6 +350,8 @@ ni = 1.78
 # These are numbers used by CReSIS to report ice thickness
 e_i = 3.15
 v_i = c / np.sqrt(e_i)
+
+GRAVITY = 9.8
 
 
 def smooth(x, window_len=11):
