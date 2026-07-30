@@ -39,8 +39,11 @@ class MBCalculation():
 
         if method == 'flux':
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
+            self.depth_correct_velocity = True
         else:
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
+            self.depth_correct_velocity = False
+
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
         self.slope_manager = SlopeManager(xlims, ylims, flags)
@@ -95,8 +98,13 @@ class MBCalculation():
             )
 
         vel_discharges = []
-        for v in range(len(vels['total_vel'])):
-            vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v]))
+        if self.depth_correct_velocity:
+            for v in range(len(vels['total_vel'])):
+                vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v], plot=len(vel_discharges)==0))
+        else:
+            for v in range(len(vels['total_vel'])):
+                vel_discharges.append(vels['discharge_vel'][v] * thickness['thickness'][v])
+
 
         #discharge = (vels['discharge_vel'] * thickness['thickness'] * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
         discharge = (vel_discharges * thickness['lens'] * GLACIAL_ICE_DENSITY) / 1e12
@@ -116,7 +124,7 @@ class MBCalculation():
         return np.nansum(discharge), exclusion_mask
     
 
-    def depth_adjusted_velocity_discharge(self, velocity, thickness, slope, plot=False):
+    def depth_adjusted_velocity_discharge_noslip(self, velocity, thickness, slope, plot=False):
         '''
         https://courses.washington.edu/ess431/LECTURES/LECTURE_2018/vertical_profile_ice_sheet_derivation.pdf
         '''
@@ -150,28 +158,38 @@ class MBCalculation():
 
     
 
-    def depth_adjusted_velocity_discharge_slip(self, velocity, thickness, slope, plot=False):
+    def depth_adjusted_velocity_discharge(self, velocity, thickness, slope, plot=False):
         velocities = []
         step_size = 1
-        n = 3
-        B = 1.62
-        angle = np.atan(slope)
-        A = 3.5e-26 # A(T=-25 deg.)
-        tau = GLACIAL_ICE_DENSITY * GRAVITY * (thickness / (sum(self.lengths) / 2)) * np.sin(angle)
-        if tau == np.inf or (not tau > 0 or not tau < 2):
-            tau = 1.5
 
-        K = ((GLACIAL_ICE_DENSITY * GRAVITY) / B) ** n
+        n = 3
+        shape_factor= 1#0.806 # https://books.google.com/books?hl=en&lr=&id=Jca2v1u1EKEC&oi=fnd&pg=PP1&ots=KOMQ32smmd&sig=DSxwoIBC_qXWTiShNp503GSLRHw#v=onepage&q=shape%20factor&f=false
+        
+        A = 38e-25 # A(T=0)
+
+        tau = shape_factor * GLACIAL_ICE_DENSITY * GRAVITY * thickness * slope
+
+        '''
+        velocity: 89.26762319651945 thickness: 1323.03 slope: 0.8546802401542664 tau: 6226166.467255807
+        creep: 0.6067160408266269
+        slip: 88.66090715569283
+        '''
+
+
+        print('velocity:', velocity, 'thickness:', thickness, 'slope:', slope, 'tau:', tau)
+
+        creep_speed = ((2 * A)  / (n+1)) * ((tau**n)*thickness)
+        slip_speed = velocity - creep_speed
+
+        if slip_speed < 0: #overestimated velocity, assume no slip
+            creep_speed = velocity
+            slip_speed = 0
+
+        print('creep:', creep_speed)
+        print('slip:', slip_speed)
 
         for x in range(round(thickness) // step_size):
-
-            stress = A * ((GLACIAL_ICE_DENSITY * GRAVITY * (thickness - x) * np.sin(angle)) ** n)
-
-            creep_speed = (2 * A * (tau**n)*thickness) / (n+1)
-            slip_speed = velocity - creep_speed
-
-
-            s = slip_speed + (creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))) * step_size #(slip_speed + ((creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))))) * step_size
+            s = (slip_speed + (creep_speed * (1 - ((1 - (x / thickness)) ** (n+1))))) * step_size #(slip_speed + ((creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))))) * step_size
             velocities.append(s)
 
         if plot:

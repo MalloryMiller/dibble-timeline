@@ -24,6 +24,7 @@ from osgeo_utils import gdal_calc
 from rasterstats import zonal_stats
 import rasterio as rs
 from exactextract import exact_extract
+from xrspatial import slope
 
 import xvec
 from dateutil.relativedelta import relativedelta
@@ -981,20 +982,35 @@ class REMATileSlopeManager(FileManager):
         
         ftype='tif'
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
+
+        self.fname = REMA_RAW_LOCATION + 'tiles/merged_slopes.tif'
         
     
 
     def build_files(self):
+        dem = xr.open_dataset(REMA_TILE_DEM).squeeze()
+        print('rolling out')
+        print(dem)
+        f = dem.coarsen(x=1500, y=1500, boundary="trim").mean()
+        print('rolled')
+        f = f.interp(x=dem.x, y=dem.y, method="cubic")
+        f = slope(f)
+        print('sloped')
+        f.rio.to_raster(self.fname)
         return
     
 
 
     def fnames(self, data_override=None):
+
+        if not Path(self.fname).is_file():
+            self.build_files()
+
         if data_override == None:
             data = self.data
         else:
             data = data_override
-        return [REMA_TILE_SLOPE], [], []
+        return [self.fname], [], []
 
 
 class IPRManager(FileManager):
