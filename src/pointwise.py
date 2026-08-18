@@ -1,6 +1,6 @@
 import datetime
 from utils import *
-from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager, FirnAirManager, REMATileManager
+from file_manager import GravimetryManager, ElevationManager, VelocityManager, IPRManager, FirnAirManager, REMATileManager, ATL15SMBManager
 
 import geopandas as gpd
 import rioxarray # used by xarray for some reason, must be first
@@ -19,7 +19,7 @@ import itertools
 from plotting import Plotting
 
 class Pointwize():
-    def __init__(self, flags, xlim, ylim, points, data, change=True, time_diff_year = 2020, cmap='managua'):
+    def __init__(self, flags, xlim, ylim, points, data, change=True, time_diff_year = 2020, cmap='managua', include_all=False):
         self.flags = flags
         self.xlim = xlim
         self.ylim = ylim
@@ -63,7 +63,7 @@ class Pointwize():
 
         
         e = ElevationManager(xlim, ylim, flags, 'elev')
-        if self.data == 'gl':
+        if self.data == 'gl' or include_all:
             self.points, self.labels, self.fl = s.get_points(e.sample_source, include_all=True)
         else:
             self.points, self.labels = s.get_points(e.sample_source)
@@ -145,7 +145,7 @@ class Pointwize():
         gdf['gl_xerr_max'] = gdf[date_cols].max(axis=1) - gdf['date']
         gdf['sources'] = [source_label] * len(gdf)
         
-
+        
         self.gpd_geom_match(gdf, self.fl, column_of_interest = 'dist_from_grndline', date_col='date', add_result=True)
         
         if '' not in self.results.keys():
@@ -172,14 +172,17 @@ class Pointwize():
         key = self.get_label(index)
         if force_index != False:
             key = force_index
-        
-        
-        if type(index) == int:
+
+        print(index, type(index))
+        if type(index) == int or type(index) == str:
             p = self.points[index]
             df_ref = self.create_point_df([p])
+        elif type(index) == list:
+            df_ref = self.create_point_df(index)
         else:
             df_ref = index
 
+        print(df_ref)
         
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
         
@@ -377,6 +380,14 @@ class Pointwize():
 
                 ref = data[time == ref_pre] + (dif * perc)
 
+        elif type(self.change) != bool and 'cumul' in self.change:
+            running = 0
+            temp = []
+            for x in data:
+                running += x
+                temp.append(running * (1/1e12))
+
+            data = np.array(temp)
         else:
             
             if type(self.time_diff_year) == int and type(time[0]) != int:
@@ -390,14 +401,14 @@ class Pointwize():
         
         if type(self.change) != bool and '%' in self.change:
             data = ((data - ref) / abs(ref)) * 100
-        else:
+        elif (type(self.change) != bool and 'cumul' not in self.change) or type(self.change) == bool:
             data = data - ref
 
         return time, data
 
 
 
-    def plot_time_series(self, fig, ax, rema=False, unified_line=True, plot_range=None):
+    def plot_time_series(self, fig, ax, rema=False, unified_line=True, plot_range=None, only_vertical_lines=False):
         if not self.results:
             self.get_data(rema)
         if not self.results:
@@ -420,6 +431,7 @@ class Pointwize():
         for p in self.results.keys():
             if p == list(self.results.keys())[0]:
                 continue
+            
             all_results_time =  np.concat([all_results_time, self.results[p]['time']])
             all_results_values = np.concat([all_results_values, self.results[p][self.data]])
 
@@ -438,18 +450,27 @@ class Pointwize():
             good_type.append(pd.to_datetime(all_results_time[x]))'''
         
 
-        self.set_range_only_in_frame(ax, all_results_time, all_results_values, plot_range, 'y')
-        ax.set_xlim((plot_range[0], plot_range[1]))
         
 
 
         if 'sources' in self.results[list(self.results.keys())[0]].columns:
             for i, s in enumerate(self.results[list(self.results.keys())[0]]['sources'].unique()):
                 shapes_set[s] = shapes[i]
+
+                if only_vertical_lines:
+                    sm = mpl.cm.ScalarMappable(norm=mcolors.Normalize(vmin=epoch_to_yearfrac(mdates.date2num(self.results[p]['time'].values[0])), 
+                                                                      vmax=epoch_to_yearfrac(mdates.date2num(self.results[p]['time'].values[-1]))), cmap=self.cmap)
+                    for i, x in enumerate(self.results[p][self.data].values):
+                        ax.axvline(x=x, color=sm.to_rgba(epoch_to_yearfrac(mdates.date2num(self.results[p]['time'][i]))), linewidth = 0.5)
+                    
+                    fig.colorbar(sm, ax=ax, label = 'Grounding Line Year')
+                    return
+                
                 ax.plot([], [], label = s, marker= shapes_set[s], color=sm.to_rgba(0), linestyle='None')
 
 
         for j, p in enumerate(self.results.keys()):
+            print(self.results[p]['time'])
             self.results[p] = self.results[p].dropna()
             ls = 'None'
             color = sm.to_rgba(self.labels[j])
@@ -495,7 +516,10 @@ class Pointwize():
                             fmt='none')
 
             if self.data == 'gl':
-                return
+                continue
+        self.set_range_only_in_frame(ax, all_results_time, all_results_values, plot_range, 'y')
+        ax.set_xlim((plot_range[0], plot_range[1]))
+        
 
 
     def get_dataset_display_range(self, dataset, padding=0.05):
@@ -599,6 +623,7 @@ class Pointwize():
             'grav': 'dm',
             'elev': 'elev',
             'firn': 'band_data',
+            'smb15': 'band_data',
         }
         
         fms = {
@@ -606,6 +631,7 @@ class Pointwize():
             'grav': GravimetryManager,
             'elev': ElevationManager,
             'firn': FirnAirManager,
+            'smb15': ATL15SMBManager,
         }
 
         if self.data == 'gl':
@@ -645,7 +671,7 @@ class Pointwize():
 
 class FlowProfile(Pointwize):
     def __init__(self, flags, xlim, ylim, points, cmap='winter', dates=False):
-        super().__init__(flags,xlim,ylim,points,'gl',cmap=cmap)
+        super().__init__(flags,xlim,ylim,points,'gl',cmap=cmap, include_all=True)
         self.change = False
         self.max_dist = 50
         self.specific_dates = dates
@@ -659,6 +685,11 @@ class FlowProfile(Pointwize):
             self.dates = [datetime.datetime(flags.YEARSTART, 1, 1), datetime.datetime(flags.YEAREND, 1, 1),]
         self.norm = mcolors.Normalize(vmin=mdates.date2num(self.dates[0]), vmax=mdates.date2num(self.dates[-1]))
         self.cmap = cmap
+
+        self.gl_info = Pointwize(flags, self.xlim, self.ylim, 
+                    points, data = 'gl', cmap='rainbow', change=False)
+        self.fl_df = self.fl #gpd.GeoDataFrame({'dist_from_grndline': self.labels, 'vel_dates': self.labels}, geometry=list(map(lambda pos: Point(pos[1], pos[0]), self.fl)), crs='EPSG:3031')
+                
         
 
     
@@ -674,7 +705,7 @@ class FlowProfile(Pointwize):
         if len(out) == 0:
             return []
 
-        self.gpd_geom_match(out, self.fl, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
+        self.gpd_geom_match(out, self.fl_df, column_of_interest='date', date_col='dist_from_grndline', add_result=False, force_index=date)
         
         if date != None:
             if date not in self.results.keys():
@@ -691,7 +722,7 @@ class FlowProfile(Pointwize):
             while seeking:
                 try:
                     out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == closest]
-                    ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
+                    ret = self.gpd_geom_match(out_temp, self.fl_df, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=date,closest_time=1000)
                     if len(ret) != 0:
                         if closest < date_range[0]:
                             date_range[0] = closest
@@ -716,7 +747,7 @@ class FlowProfile(Pointwize):
             
             for d in dates:
                 out_temp = out[out['date'].dt.to_period('D').dt.to_timestamp() == d]
-                ret = self.gpd_geom_match(out_temp, self.fl, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=d,closest_time=1000)
+                ret = self.gpd_geom_match(out_temp, self.fl_df, column_of_interest='elev', date_col='dist_from_grndline', add_result=True, force_index=d,closest_time=1000)
             date_range=[datetime.datetime(self.flags.YEARSTART, 1, 1), datetime.datetime(self.flags.YEAREND, 1, 1),]
                     
 
@@ -724,13 +755,21 @@ class FlowProfile(Pointwize):
 
         return date_range
     
-    def geotiff_s_join(self, out, points, column_of_interest = 'band_data', dist_col = 'dist_from_grndline'):
+    def geotiff_s_join(self, out, points, column_of_interest = 'band_data', dist_col = 'dist_from_grndline', max_dist=np.inf):
         dists = []
         values = []
+
+        p_list = points
+        if type(p_list) != list:
+            p_list = points.itertuples()
     
-        for pos in points.itertuples():
+        for pos in p_list:
             dists.append(pos.dist_from_grndline)
-            values.append(out.sel(x=pos.geometry.x, y=pos.geometry.y, method='nearest')[column_of_interest].values)
+            selected = out.sel(x=pos.geometry.x, y=pos.geometry.y, method='nearest')[column_of_interest]
+            if overall_velocity(selected.x - pos.geometry.x, selected.y - pos.geometry.y) > max_dist:
+                values.append(np.nan)
+                continue
+            values.append(selected.values)
 
         df = gpd.GeoDataFrame({
             "dists": dists,
@@ -852,13 +891,24 @@ class FlowProfile(Pointwize):
         p = Plotting()
 
         fig, ax = p.elevation_profile_plot_single()
+        self.gl_info.fl = self.fl
+        self.gl_info.plot_time_series(fig, ax, only_vertical_lines=True)
+        self.gl_info.fl.to_file("GL CHECK.gpkg")
+        self.fl.to_file("GL CHECK2.gpkg")
 
-        out = xr.open_dataset(SEA_LEVEL_TIF)
-        sea_level = self.geotiff_s_join(out, self.fl) # self.fl are the points along the profile
+
+        out = xr.open_dataset(SEA_LEVEL_TIF).squeeze()
+        print(out)
+        #out.rio.write_crs("EPSG:4326", inplace=True)
+        print(out)
+        #out.rio.reproject("EPSG:3031", inplace=True)
+        print(out)
+        print(self.fl_df)
+        sea_level = self.geotiff_s_join(out, self.fl_df) # self.fl are the points along the profile
 
         rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
         out = rema_fm.get_ouput_files()
-        rema_vals = self.geotiff_s_join(out, self.fl)
+        rema_vals = self.geotiff_s_join(out, self.fl_df)
         if geoid:
             rema_vals['vals'] -= sea_level['vals']
         ax.plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
@@ -866,7 +916,7 @@ class FlowProfile(Pointwize):
         
         # ICESAT2 POINTS (take longer to plot)
 
-        '''general_sea_level = sea_level['vals'].mean()
+        general_sea_level = sea_level['vals'].mean()
         for x in self.dates:
             label = self.get_data(x)
             label = self.create_date_range_label(label)
@@ -883,12 +933,12 @@ class FlowProfile(Pointwize):
                 self.results[x]['gl'] -= general_sea_level
             p.plot_elevation_data(fig, ax, self.cmap, self.norm,
                                 self.results[x]['time'], self.results[x]['gl'],
-                                label=str(label), color_key=mdates.date2num(x))'''
+                                label=str(label), color_key=mdates.date2num(x), change_lims=False)
         
 
         fm = IPRManager(self.xlim, self.ylim, self.flags, self.data, corrected=True)
         out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+        out = gpd.sjoin_nearest(self.fl_df, out, max_distance=self.max_dist*10)
         out.dropna(how='any')
 
         out = out.sort_values('dist_from_grndline')
@@ -918,15 +968,17 @@ class FlowProfile(Pointwize):
             IPR_mirror1 = list(itertools.chain.from_iterable(IPR_mirror1))
         except:
             pass
+        IPR_mirror1 = np.array(IPR_mirror1, dtype=float)
+        IPR_mirror2 = np.array(IPR_mirror2, dtype=float)
         
-        
+        print(IPR_mirror1, IPR_mirror2)
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='lightgray', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
         
         out_surface_col = 'atm_height'
         IPR_mirror1 = self.invert_equilibrium(out[out_surface_col], cresis_H_to_better_H(out[out_thick_col], FAC1), FAC1, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         IPR_mirror2 = self.invert_equilibrium(out[out_surface_col],  cresis_H_to_better_H(out[out_thick_col], FAC2), FAC2, sea_level_elevation=out['vals_sea_level'], from_geoid=True, to_geoid=geoid)
         
-        
+        '''
         try:
             IPR_mirror2 = list(itertools.chain.from_iterable(IPR_mirror2))
         except:
@@ -936,9 +988,12 @@ class FlowProfile(Pointwize):
         except:
             pass
         
+        IPR_mirror1 = np.array(IPR_mirror1, dtype=float)
+        IPR_mirror2 = np.array(IPR_mirror2, dtype=float)
         
+        print(IPR_mirror1, IPR_mirror2)
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='red', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
-        
+        '''
         IPR_mirror_med = out['atm_height']
         IPR_mirror_med_2 = out['guess_surface']
         ax.plot(out['dist_from_grndline'], IPR_mirror_med, color='darkgray', label='ATM Height')
@@ -950,6 +1005,8 @@ class FlowProfile(Pointwize):
             ax.set_ylabel('Elevation relative to Geoid (m)')
 
         ax.legend()
+        ax.grid(False)
+        ax.grid(axis='y')
         p.save_close(fig, ax, OUTPUT + fname + "_profile")
         
 
@@ -975,7 +1032,7 @@ class FlowProfile(Pointwize):
 
         rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
         out = rema_fm.get_ouput_files()
-        rema_vals = self.geotiff_s_join(out, self.fl)
+        rema_vals = self.geotiff_s_join(out, self.fl_df)
         ax[0].plot(rema_vals['dists'], rema_vals['vals'], ls='dotted', marker= 'None', label='REMA Surface')
         
 
@@ -989,7 +1046,7 @@ class FlowProfile(Pointwize):
         
         fm = IPRManager(self.xlim, self.ylim, self.flags, self.data)
         out = fm.get_ouput_files()
-        out = gpd.sjoin_nearest(self.fl, out, max_distance=self.max_dist*10)
+        out = gpd.sjoin_nearest(self.fl_df, out, max_distance=self.max_dist*10)
 
         out = out.sort_values('dist_from_grndline')
         bad_out = out.copy()
@@ -1281,7 +1338,7 @@ class PolyFlowHybridLine(PointSeries) :
         return total_dist
 
 
-    def get_points(self, overlap_ds=False, include_all=True, index='index'):
+    def get_points(self, overlap_ds=False, include_all=True, index='index', include_og_line=True):
         
         cur_dist = 0
         for x in range(1, len(self.main_pts)):
@@ -1293,24 +1350,25 @@ class PolyFlowHybridLine(PointSeries) :
             labels = []
             flow_step_size = 140
 
-            beginning_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[0][0], self.points[0][1]], flow_step_size, [0, 500])
+            beginning_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[0][0], self.points[0][1]], flow_step_size, self.pt_label)
             points_start, labels_start, df_start = beginning_flow.get_points(include_all=True)
 
-            end_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[-1][0], self.points[-1][1]], flow_step_size, [0, 500])
+            end_flow = StreamFlow(self.xlims, self.ylims, self.flags, [self.points[-1][0], self.points[-1][1]], flow_step_size, self.pt_label)
             points_end, labels_end, df_end = end_flow.get_points(include_all=True)
 
             
             cur_lable = 0
             p2 = []
-            for p in df_start:
+            for p in df_start[1:-1]:
                 p2.insert(0, Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size
-            for i, p in enumerate(self.points):
-                p2.append(Point(p[1], p[0]))
-                labels.append(self.labels[i] + cur_lable)
-            cur_lable = self.labels[-1] 
-            for p in df_end:
+            if include_og_line:
+                for i, p in enumerate(self.points[1:-1]):
+                    p2.append(Point(p[1], p[0]))
+                    labels.append(self.labels[i] + cur_lable)
+                cur_lable = self.labels[-1]
+            for p in df_end[1:-1]:
                 p2.append(Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size
@@ -1329,8 +1387,8 @@ class PolyFlowHybridLine(PointSeries) :
 
         return np.array(self.points), np.array(self.labels)
 
-    def get_polygon(self):
-        points, labels, all = self.get_points()
+    def get_polygon(self, include_og_line=False):
+        points, labels, all = self.get_points(include_og_line=include_og_line)
 
         points = [[p.x, p.y] for p in all['geometry'].values]
 
@@ -1443,11 +1501,17 @@ class StreamFlow(PointSeries):
         if self.step_range[0] < 0:
             self.get_stream(direction=-1, points=min(self.step_range[0], self.step_range[0]-self.step_range[1]))
 
+        self.dates = self.dates[::-1]
+        self.velocities = self.velocities[::-1]
+        self.dist = self.dist[::-1]
+        self.points = self.points[::-1]
+
         if self.step_range[1] > 0:
             self.get_stream(direction=1, points=min(self.step_range[1], self.step_range[1]-self.step_range[0]))
 
 
     def get_points(self, overlap_ds=False, include_all=False, index='dist'):
+        all_p = None
         if self.dist == []:
             self.run_experiment()
 
@@ -1492,7 +1556,9 @@ class StreamFlow(PointSeries):
             
 
         if include_all:
-            return points, labels, points
+            if all_p is None:
+                all_p = points
+            return points, labels, all_p
 
 
         return points, labels

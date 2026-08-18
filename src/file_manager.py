@@ -47,6 +47,9 @@ class FileManager:
         self.minlon =  ylims[0]
         self.maxlon =  ylims[1]
 
+        self.xlims = xlims
+        self.ylims = ylims
+
         self.label = label
         self.ftype = ftype
         self.data = data
@@ -842,28 +845,6 @@ class ElevationManager(FileManager):
 
 
 
-class GravimetryManager(FileManager):
-
-    def __init__(self, xlims, ylims, flags, data, label=''):
-        
-        ftype='tif'
-        super().__init__(xlims, ylims, flags, data, ftype,label=label)
-        
-    
-
-    def build_files(self):
-        return
-    
-
-
-    def fnames(self, data_override=None):
-        if data_override == None:
-            data = self.data
-        else:
-            data = data_override
-        return [GRAV_LOCATION], [], []
-
-
 
 class BedmapManager(FileManager):
 
@@ -989,13 +970,9 @@ class REMATileSlopeManager(FileManager):
 
     def build_files(self):
         dem = xr.open_dataset(REMA_TILE_DEM).squeeze()
-        print('rolling out')
-        print(dem)
         f = dem.coarsen(x=1500, y=1500, boundary="trim").mean()
-        print('rolled')
         f = f.interp(x=dem.x, y=dem.y, method="cubic")
         f = slope(f)
-        print('sloped')
         f.rio.to_raster(self.fname)
         return
     
@@ -1105,7 +1082,8 @@ class FirnAirManager(FileManager):
             sources.append(self.tif_source[self.source])
             
         return fnames, found_years, sources
-    
+
+
 class SMBManager(FileManager):
 
     def __init__(self, xlims, ylims, flags, data, label=''):
@@ -1115,10 +1093,13 @@ class SMBManager(FileManager):
 
         self.start_band_time = datetime.datetime(1979, 1, 16)
         self.band_steps = relativedelta(month=1)
+        band_steps2 = relativedelta(month=2)
+        self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
 
         self.source_file = SMB_FILE_LOCATION
-        self.mask_file = SMB_FILE_LOCATION
-        self.area_file = SMB_FILE_LOCATION
+        self.mask_file = SMB_MASK_LOCATION
+        self.area_file = SMB_AREA_LOCATION
+        self.area_conversion = 1000000 # If the area geotiff is in the wrong units
         self.tif_source = "RACMO SMB"
         self.crs_wkt = """GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]"""
         
@@ -1153,8 +1134,19 @@ class SMBManager(FileManager):
         sums = []
         year_dates = []
         year_sums = []
-        mask = rioxarray.open_rasterio(SMB_MASK_LOCATION)
-        area = rioxarray.open_rasterio(SMB_AREA_LOCATION)
+        if self.mask_file != None:
+            mask = rioxarray.open_rasterio(self.mask_file).squeeze()
+            if  mask.sizes.get("band", 1) > 1:
+                mask = mask.isel(band=1).squeeze()
+        else:
+            mask = None
+
+        if self.area_file != None:
+            area = rioxarray.open_rasterio(self.area_file).squeeze()
+            if  area.sizes.get("band", 1) > 1:
+                area = area.isel(band=1).squeeze()
+        else:
+            area = None
         
         #mask["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
         #mask.attrs["grid_mapping"] = "spatial_ref"
@@ -1162,20 +1154,42 @@ class SMBManager(FileManager):
         #area["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
         #area.attrs["grid_mapping"] = "spatial_ref"
 
-        mask *= (area * 1000000) # convert km2 to m2 and multiplty it w mask
-        
+        if not isinstance(mask, type(None)) and not isinstance(area, type(None)):
+            mask *= area
+        elif not isinstance(area, type(None)) and isinstance(mask, type(None)):
+            mask = area
+        else:
+            mask = 1
 
+        mask *= self.area_conversion
+
+        daily = False
+        
         for x in range(self.yearStart, self.yearEnd):
             cur_smb = 0
             
-            for m in range(1, 13):
-                if ((((x * 12) + m) - (self.start_band_time.year * 12))) < 0:
-                    pass
+            for m in range(1, self.snapshot_per_eyar + 1):
+                month = (m * round(12/self.snapshot_per_eyar) % 13)
+                day = self.start_band_time.day
+                if month == 0:
+                    daily = True
+                if daily:
+                    month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
+                    day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25)+1
+                    print(day)
+                    print(self.snapshot_per_eyar)
+                print(month)
+                print(m)
+                cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
+                if (cur_band) <= 0:
+                    year_sums.append(np.nan)
+                    year_dates.append(datetime.datetime(x, month, day))
+                    continue
                 try:
-                    self.get_temp_fname()
-                    fname = self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day))
-                    gdal.Translate( self.get_temp_fname(), self.source_file, bandList=[(((x * 12) + m) - (self.start_band_time.year * 12))])
-                    cur = rioxarray.open_rasterio(self.get_temp_fname(), masked=True)
+                    #self.get_temp_fname()
+                    fname = self.get_smb_fname(datetime.datetime(x, month, day))
+                    gdal.Translate(self.get_temp_fname(), self.source_file, bandList=[cur_band])
+                    cur = rioxarray.open_rasterio(self.get_temp_fname(), masked=True).squeeze()
 
                     cur["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
                     cur.attrs["grid_mapping"] = "spatial_ref"
@@ -1190,19 +1204,19 @@ class SMBManager(FileManager):
 
 
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins')['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, month, day)), 'dibblebasins')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
 
                     cur_smb += sum_smb
-                    dates.append(datetime.datetime(x, m, self.start_band_time.day))
+                    dates.append(datetime.datetime(x, month, day))
                 except RuntimeError as e:
-                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, month, day)))
                     print(e)
-            year_sums.append(cur_smb)
-            year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
+            #year_sums.append(cur_smb)
+            year_dates.append(datetime.datetime(x, 6, 1))
 
 
-        plt.plot(dates, np.array(sums), label='Monthly')
+        '''plt.plot(dates, np.array(sums), label='Monthly')
         plt.plot(year_dates, np.array(year_sums), label='Yearly')
         plt.legend()
         plt.xlabel('Date')
@@ -1212,42 +1226,72 @@ class SMBManager(FileManager):
 
         print("Mean (GT/yr): ", np.mean(sums))
         print("Std. Dev. (GT/yr): ", np.std(sums))
-        print("Median (GT/yr): ", np.median(sums))
+        print("Median (GT/yr): ", np.median(sums))'''
+
+        df = self.get_surface_balance_df()
         
         self.close()
+        return df
 
-    def get_surface_balance_df(self, yearly=True, exclusion=None, plot=False):
+
+
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count'], yearly_adjustment=None):
         dates = []
         sums = []
         year_dates = []
         year_sums = []
 
+        daily = False
+
         for x in range(self.yearStart, self.yearEnd):
             cur_smb = 0
+            complete_year = True
             
-            for m in range(1, 13):
-                if ((((x * 12) + m) - (self.start_band_time.year * 12))) < 0:
-                    pass
+            for m in range(1, self.snapshot_per_eyar + 1):
+                month = (m * round(12/self.snapshot_per_eyar) % 13)
+                day = self.start_band_time.day
+                if month == 0:
+                    daily = True
+                if daily:
+                    month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
+                    day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25)+1
+                    
+                cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
+                if (cur_band) <= 0:
+                    year_sums.append(np.nan)
+                    year_dates.append(datetime.datetime(x, month, day))
+                    continue
                 try:
-                    fname = self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day))
+                    fname = self.get_smb_fname(datetime.datetime(x, month, day))
+
+                    if not os.path.exists(fname):
+                        continue
+
                     cur = rioxarray.open_rasterio(fname, masked=True)
 
                     cur = cur.rio.write_crs(self.crs_wkt)
                     
                     cur.rio.to_raster(fname)
+
+                    if yearly_adjustment is not None:
+                        cur += yearly_adjustment[yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibblebasins', exclusion=exclusion)['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, month, day)), 'dibblebasins', 
+                                                  exclusion=exclusion, extra_mask=extra_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
                     sums.append(sum_smb * 12)
                     #print(sum_smb)
 
                     cur_smb += sum_smb
-                    dates.append(datetime.datetime(x, m, self.start_band_time.day))
+                    dates.append(datetime.datetime(x, month, day))
                 except RuntimeError as e:
-                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, m, self.start_band_time.day)))
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, month, day)))
                     print(e)
-            year_sums.append(cur_smb)
-            #print(cur_smb)
-            year_dates.append(datetime.datetime(x, 6, self.start_band_time.day))
+                    complete_year = False
+            year_dates.append(datetime.datetime(x, 6, 1))
+            if complete_year:
+                year_sums.append(cur_smb) # convert into yearly average based on however many months were snapshotted
+            else:
+                year_sums.append(np.nan)
 
         if plot:
             plt.plot(dates, np.array(sums), label='Monthly')
@@ -1255,7 +1299,7 @@ class SMBManager(FileManager):
             plt.legend()
             plt.xlabel('Date')
             plt.ylabel('Sum Surface Mass Balance for Basin (GT/yr)')
-            plt.savefig('SMBs.png')
+            plt.savefig('SMBs.pdf')
             plt.close()
 
 
@@ -1277,7 +1321,7 @@ class SMBManager(FileManager):
         
         
 
-    def get_zonal_data(self, fname, mask, exclusion=None):
+    def get_zonal_data(self, fname, mask, exclusion=None, extra_mask=None, stats_to_get=['sum', 'count']):
         '''
         dataset = rs.open(fname)
         arr = dataset.read(1)
@@ -1306,21 +1350,27 @@ class SMBManager(FileManager):
                 exclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[exclusion], crs='EPSG:3031')
                 exclusion_df.to_file("CROPPED_ZONE.shp")
                 exclusion_df = exclusion_df.to_crs(self.crs_wkt)
-                bad = exact_extract(raster, exclusion_df, ['count', 'sum'])[-1]['properties']
+                bad = exact_extract(raster, exclusion_df, stats_to_get)[-1]['properties']
             except:
                 bad = None
 
-            '''zone1 = zone['geometry'].iloc[0]
-            zone2 = zone1.difference(exclusion)
-            zone = gpd.GeoDataFrame(geometry=[zone2])
-            zone = zone.set_crs('EPSG:3031')
-            zone.to_file("CROPPED_ZONE.shp")
-            print(zone1.equals(zone2))'''
             
 
-        zone = zone.to_crs(self.crs_wkt)
+        if extra_mask != None:
+            try:
+                inclusion = extra_mask.intersection(zone['geometry'].iloc[0])
+                inclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[inclusion], crs='EPSG:3031')
+                inclusion_df.to_file("MASK_ZONE.shp")
+                inclusion_df = inclusion_df.to_crs(self.crs_wkt)
+                stats = exact_extract(raster, inclusion_df, stats_to_get)[-1]['properties']
+            except Exception as e:
+                print(e)
+                bad = None
 
-        stats = exact_extract(raster, zone, ['count', 'sum'])[-1]['properties']
+        else:
+            zone = zone.to_crs(self.crs_wkt)
+
+            stats = exact_extract(raster, zone, stats_to_get)[-1]['properties']
 
         #print(stats)
         if bad != None:
@@ -1347,3 +1397,139 @@ class SMBManager(FileManager):
 
             
         return fnames, found_years, sources
+
+
+
+class ATL15SMBManager(SMBManager):
+
+    def __init__(self, xlims, ylims, flags, data):
+
+        self.label='ATL15'
+        super().__init__(xlims, ylims, flags, data,label=self.label)
+
+        self.start_band_time = datetime.datetime(2019, 1, 1)
+
+        month_spacing = 3
+        self.band_steps = relativedelta(month= (month_spacing) / 12)
+
+        self.source_file = ICESAT_RATE_FILE_LOCATION
+        self.mask_file = None
+        self.area_file = ICESAT_AREA_LOCATION
+        self.area_conversion = GLACIAL_ICE_DENSITY * month_spacing/12
+
+        self.tif_source = "ATL15"
+        self.crs_wkt = """EPSG:3031"""
+
+        band_steps2 = relativedelta(month=month_spacing+1)
+
+        self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
+        
+
+
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
+
+        firn = SingleFirnSourceManager(self.xlims, self.ylims, self.flags)
+        firn_df = firn.get_surface_balance_df()
+        firn_df['smb'] = - firn_df['smb']
+        df = super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, yearly_adjustment=firn_df)
+
+
+
+        return df
+
+class SingleFirnSourceManager(SMBManager):
+
+    def __init__(self, xlims, ylims, flags):
+        
+        self.label='Firn'
+        super().__init__(xlims, ylims, flags, '1firn', label=self.label)
+
+        self.start_band_time = datetime.datetime(1980, 1, 1)
+        self.band_steps = relativedelta(day=5)
+        band_steps2 = relativedelta(day=6)
+        self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
+
+        self.source_file = INPUT + 'firn_air/FAC_flipped.tif'
+        self.mask_file = None
+        self.area_file = None
+        self.area_conversion = 1 # If the area geotiff is in the wrong units
+        self.tif_source = "Firn Air"
+        self.crs_wkt = """EPSG:3031"""
+        
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
+        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, gt_conversion=1, stats_to_get=['mean'])
+
+        years = df['dt'].values
+        trends = [0]
+        last_val = df['smb'].values[0]
+        for x in df['smb'].values[1:]:
+            trends.append(x - last_val)
+            last_val = x
+
+
+        df = pd.DataFrame(
+                    {
+                        "smb": trends,
+                        "dt": years,
+                    })
+
+        return df
+
+class CRYOSATgriddedSMBManager(SMBManager):
+
+    def __init__(self, xlims, ylims, flags, data):
+
+        self.label='ATL15'
+        super().__init__(xlims, ylims, flags, data,label=self.label)
+
+
+
+
+        self.source_file = ICESAT_RATE_FILE_LOCATION
+        self.mask_file = None
+        self.area_file = ICESAT_AREA_LOCATION
+
+    def build_files(self):
+        #return super().build_files()
+        return
+
+
+
+    
+class GravimetryManager(SMBManager):
+
+    def __init__(self, xlims, ylims, flags, data='grav'):
+        
+        ftype='tif'
+        self.label = "grav"
+        super().__init__(xlims, ylims, flags, data, ftype)
+        
+
+        self.start_band_time = datetime.datetime(1858, 11, 17)
+        self.band_steps = relativedelta(day=15)
+        band_steps2 = relativedelta(day=16)
+        self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
+
+        self.source_file = GRAV_LOCATION
+        self.mask_file = None
+        self.area_file = None
+        self.area_conversion = 1 # If the area geotiff is in the wrong units
+        self.tif_source = "GRACE Gravimetry"
+        self.crs_wkt = """EPSG:3031"""
+        
+
+    
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
+        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, gt_conversion=1, stats_to_get=['mean'])
+
+        print(df)
+
+        return df
+    
+
+    def fnames(self, data_override=None):
+        if data_override == None:
+            data = self.data
+        else:
+            data = data_override
+        return [GRAV_LOCATION], [], []

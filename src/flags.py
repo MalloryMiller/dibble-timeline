@@ -61,8 +61,11 @@ class Flags():
             '-rebuild:vely',
             '-rebuild:firn',
             '-rebuild:smb',
+            '-rebuild:smb15',
             '-rebuild:elev',
             '-rebuild:elev_old',
+            '-rebuild:1firn',
+            '-rebuild:grav'
             #'-rebuild:rema',
         ]
 

@@ -1,5 +1,5 @@
 from utils import * 
-from file_manager import IPRManager ,REMATileManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, AvgXVelManager, AvgYVelManager, REMATileSlopeManager
+from file_manager import IPRManager ,REMATileManager, GravimetryManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, ATL15SMBManager, SingleFirnSourceManager, AvgXVelManager, AvgYVelManager, REMATileSlopeManager
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import datetime
 import matplotlib.pyplot as plt
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
-
+import csv
 
 '''
 REMA & Bedmap:
@@ -40,12 +40,17 @@ class MBCalculation():
         if method == 'flux':
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
             self.depth_correct_velocity = True
+
+            print(self.depth_correct_velocity)
         else:
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
             self.depth_correct_velocity = False
 
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
+        self.atl_MB = ATL15SMBManager(xlims, ylims, flags, 'ATL15')
+        self.firn = SingleFirnSourceManager(xlims, ylims, flags)
+        self.grav = GravimetryManager(xlims, ylims, flags)
         self.slope_manager = SlopeManager(xlims, ylims, flags)
         self.flags = flags
         if method == 'gl':
@@ -54,9 +59,8 @@ class MBCalculation():
             self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
 
         print(self.results)
-        print('\n'*20)
             
-
+        self.method = method
         self.vels = []
         self.thickness = []
         self.lengths = []
@@ -66,13 +70,26 @@ class MBCalculation():
         final_df = self.results
         return final_df
 
-    def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False):
+    def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False, get_extra_mask=False):
 
 
         df = self.results[self.results['id'] == id]
 
+        if get_extra_mask:
+            try:
+                first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
+                last_vertex = shapely.get_coordinates(df.geometry.head(1))[1]
+            except:
+                return None, None
+            
+            
+            extra_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
+                                [list(reversed(first_vertex)),
+                                list(reversed(last_vertex))], [-2500, 500]).get_polygon(include_og_line=False)
+        else:
+            extra_mask = None
+
         if get_exclusion:
-            print("GETTING EXCLUSION")
             try:
                 first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
                 last_vertex = shapely.get_coordinates(df.geometry.head(1))[1]
@@ -82,7 +99,7 @@ class MBCalculation():
             
             exclusion_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
                                 [list(reversed(first_vertex)),
-                                list(reversed(last_vertex))], [0, 1]).get_polygon()
+                                list(reversed(last_vertex))], [0, 500]).get_polygon(include_og_line=True)
         else:
             exclusion_mask = None
 
@@ -91,7 +108,7 @@ class MBCalculation():
         slopes = self.slope_manager.get_slopes(df)
 
         if type(vels) != gpd.GeoDataFrame:
-            return None, exclusion_mask
+            return None, exclusion_mask, extra_mask
         if len(vels['velx'].dropna()) != 0:
             vels.to_file(
                 'DISCHARGE_SAMPLE.gpkg'
@@ -100,7 +117,7 @@ class MBCalculation():
         vel_discharges = []
         if self.depth_correct_velocity:
             for v in range(len(vels['total_vel'])):
-                vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v], plot=len(vel_discharges)==0))
+                vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v]))
         else:
             for v in range(len(vels['total_vel'])):
                 vel_discharges.append(vels['discharge_vel'][v] * thickness['thickness'][v])
@@ -121,13 +138,14 @@ class MBCalculation():
         df['discharges_total_vel'] = discharges
         self.calculate_discharge()'''
 
-        return np.nansum(discharge), exclusion_mask
+        return np.nansum(discharge), exclusion_mask, extra_mask
     
 
     def depth_adjusted_velocity_discharge_noslip(self, velocity, thickness, slope, plot=False):
         '''
         https://courses.washington.edu/ess431/LECTURES/LECTURE_2018/vertical_profile_ice_sheet_derivation.pdf
         '''
+
         velocities = []
         step_size = 1
         n = 3
@@ -143,7 +161,7 @@ class MBCalculation():
             plt.xlabel("Velocity (m/yr)")
             plt.ylabel("Height (m)")
             plt.title("Velocity by Depth")
-            fig.savefig('velocity_profile.png')
+            fig.savefig('velocity_profile.pdf')
             plt.close(fig)
 
         discharge = sum(velocities)
@@ -199,20 +217,32 @@ class MBCalculation():
             plt.xlabel("Velocity (m/yr)")
             plt.ylabel("Height (m)")
             plt.title("Velocity by Depth")
-            fig.savefig('velocity_profile.png')
+            print(thickness, velocity, slope)
+            fig.savefig('velocity_profile.pdf')
             plt.close(fig)
         
         return sum(velocities)
 
     def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations', seperate=False):
+        csv_text = 'title,σ SMB,SMB,D,σ D,'
+        for x in range(self.flags.YEARSTART, self.flags.YEAREND):
+            csv_text += str(x) + ','
+        csv_text += '\n'
 
 
-        smb_df = self.SMB.get_surface_balance_df(plot=True)
+        smb_df = self.SMB.get_surface_balance_df(plot=False)
+        elevation_mb = self.atl_MB.get_surface_balance_df(True)
+        grav_mb = self.grav.get_surface_balance_df(True)
+        firn_m = self.firn.get_surface_balance_df(True)
+        print(firn_m)
+        
 
         fig, ax = plt.subplots()
         if not seperate:
             ax.axhline(0, color='black', label='Equilibrium', linewidth=2)
-
+        print(elevation_mb)
+        ax.plot(elevation_mb['dt'], elevation_mb['smb'], label='ATL15-derived Total Mass Balance')
+        ax.plot(grav_mb['dt'], grav_mb['smb'], label='GRACE-derived Total Mass Balance')
 
         for id in ids:
             print("ID:", id)
@@ -224,27 +254,35 @@ class MBCalculation():
             discharges_dt = []
             first_run = True
 
+            smb_df = smb_df[smb_df['smb'] != 0]
+
             for dt in smb_df.dt:
                 print("dt:", dt)
                 if first_run:
-                    dis, exclude = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
+                    dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, get_extra_mask= first_run and self.method == 'flux')
                     first_run = exclude == None
                 else:
-                    dis, _ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
+                    dis, _, __ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
 
                 if dis == 0 or dis == None:
                     discharges.append(np.nan)
-                    discharges_dt.append(datetime.datetime(dt.year, 1, 1))
+                    discharges_dt.append(datetime.datetime(dt.year, 6, 1))
                     continue
                 discharges.append(dis)
-                discharges_dt.append(datetime.datetime(dt.year, 1, 1))
+                discharges_dt.append(datetime.datetime(dt.year, 6, 1))
 
 
             discharges = np.array(discharges)
 
+            if self.method == 'flux':
+                smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False)
+            else:
+                smb_df = self.SMB.get_surface_balance_df(exclusion=exclude, plot=False)
+            print(smb_df)
+            smb_df = smb_df[smb_df['smb'] != 0]
+
             print(discharges)
             result = smb_df['smb'] - discharges
-            print(result)
             result_dt = np.array(discharges_dt)[result != np.nan]
             result = result[result != np.nan]
             print(result)
@@ -253,11 +291,19 @@ class MBCalculation():
             discharges = discharges[discharges != np.nan]
             #input("WAITING FOR INPUT")
             #plt.plot(discharges_dt, discharges, label='Yearly Discharge, ID=' + str(id))
-            smb_df = self.SMB.get_surface_balance_df(exclusion=exclude, plot=False)
-            print(smb_df)
+
+            csv_text += title + " (" + str(id) + '),'
+            csv_text += str(np.nanstd(smb_df['smb'])) + ','
+            csv_text += str(np.nanmean(smb_df['smb'])) + ','
+            csv_text += str(np.nanmean(discharges)) + ','
+            csv_text += str(np.nanstd(discharges)) + ','
+            #for x in range(self.flags.YEARSTART, self.flags.YEAREND):
+            csv_text += str(','.join(list(discharges.astype(str)))).replace('nan', '') + ','
+            csv_text += '\n'
+
             #plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB, ID=' + str(id))
 
-            ax.plot(result_dt, result, label='Overall Mass Balance Change, ID=' + str(id))
+            ax.plot(result_dt, result, label='Total Mass Balance Change, ID=' + str(id))
 
 
             #plt.plot(discharges_dt, self.vels, label='Total Velocity')
@@ -265,12 +311,19 @@ class MBCalculation():
             #plt.plot(discharges_dt, self.lengths, label='Total length')
 
 
+        with open(MB_OUTPUT + title+'.csv', 'w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            to_write = csv_text.split('\n')
+            for i, l in enumerate(to_write):
+                to_write[i] = l.split(',')
+            writer.writerows(to_write)
 
         ax.legend()
         ax.set_xlabel('Date')
-        ax.set_ylabel('Surface Mass Change (GT/yr)')
+        ax.set_ylabel('Total Mass Change (GT/yr)')
         ax.grid()
         ax.set_title(title)
+        fig.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.pdf')
         fig.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.png')
 
         return
@@ -325,7 +378,7 @@ class VelocityFlux(FlowProfile):
         vel_df['discharge_velx'] = np.cos(vel_df['vel_angle_diff']) * vel_df['velx']
         vel_df['discharge_vely'] = np.sin(vel_df['vel_angle_diff']) * vel_df['vely']
         
-        vel_df['discharge_vel'] = np.abs(np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel'])
+        vel_df['discharge_vel'] = np.sin(np.deg2rad(vel_df['vel_angle_diff'])) * vel_df['total_vel']
         
         return vel_df
 

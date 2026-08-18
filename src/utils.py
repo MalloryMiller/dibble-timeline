@@ -26,11 +26,12 @@ AREAS = {
 POINT_LISTS = {
 
     'Dibble' : [
+        
         {
             'type': 'fl',
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-5, 5],
-            'point_spacing': 2000
+            'point_range': [-2, 4],
+            'point_spacing': 14000
         },
 
     ]
@@ -112,7 +113,7 @@ GL_PROFILE_LOCATION = {
             'fname': 'grounding_line_profile',
             'type': 'fl',
             'point': [-1806893.758, 1855363.783],
-            'point_range': [-10, 10],
+            'point_range': [-10, 12],
             'point_spacing': 400
         },]
         }
@@ -181,6 +182,12 @@ POINT_LISTS2 = {
             'point_range': [-2, 4],
             'point_spacing': 14000
         },
+        {
+            'type': 'fl',
+            'point': [-1806893.758, 1855363.783],
+            'point_range': [-5, 5],
+            'point_spacing': 2000
+        },
         #{
         #    'point': [-1806893.758, 1855363.783],
         #    'point_range': [-5, 5],
@@ -214,6 +221,7 @@ DEFAULT_AREA = 'Dibble'
 SEA_LEVEL_ELEVATION = -39
 
 GLACIAL_ICE_DENSITY = 917.0
+FIRN_DENSITY = 500.0
 WATER_DENSITY = 1028.0
 
 DIVERGENT_CMAP = 'Spectral'
@@ -279,8 +287,7 @@ COMPOSITE_VEL = {
 
 
 REMA_TILE_DEM = REMA_RAW_LOCATION + "tiles/merged.tif"
-REMA_TILE_SLOPE = REMA_RAW_LOCATION + "tiles/large_SLOPES.tif"
-SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #
+SEA_LEVEL_TIF = ELEVATION_H5_LOCATION + 'us_nga_egm2008_1_REPROJECTED.tif' #'height_anomaly_XGM2019e_2159_f493ce77ef4ef22fc1824b24391b107cb968c6f507d2ecdb42fbb391390fc0a7.tiff' #
 
 
 SMB_LOCATION = INPUT + 'smb/'
@@ -289,6 +296,10 @@ SMB_AREA_LOCATION = SMB_LOCATION + "ramco_areas.tif"
 SMB_MASK_LOCATION = SMB_LOCATION + "ramco_mask.tif"
 SMB_MASK_NC_LOCATION = SMB_LOCATION + "ANT11_masks.nc"
 SMB_NC_LOCATION = SMB_LOCATION + "smbgl_monthlyS_ANT11_RACMO2.4p1_ERA5_197901_202512.nc"
+
+
+ICESAT_RATE_FILE_LOCATION = ELEVATION_H5_LOCATION + "icesat2_rates.tif"
+ICESAT_AREA_LOCATION = ELEVATION_H5_LOCATION + "icesat2_areas.tif"
 
 
 MB_OUTPUT = OUTPUT + "mb/"
@@ -353,6 +364,9 @@ v_i = c / np.sqrt(e_i)
 
 GRAVITY = 9.8
 
+
+def epoch_to_yearfrac(epoch):
+    return 1970 + (epoch / 365.2425)
 
 def smooth(x, window_len=11):
     """Hanning  window smoothing"""

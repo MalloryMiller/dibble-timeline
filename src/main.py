@@ -4,7 +4,7 @@ import os
 from utils import *
 
 
-from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager, SMBManager, IPRManager, plt
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager, SMBManager, ATL15SMBManager, IPRManager, plt, SingleFirnSourceManager
 from elevation_errpr import ElevationError
 from pointwise import Pointwize, FlowProfile
 import matplotlib.pyplot as plt
@@ -166,11 +166,12 @@ class main():
 
         if self.flags.chart_type() == 'mb':
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='flux')
+            mb_manager.plot_MB(ids=[], title='ATL15-derived Total Mass Balance')
 
             #mb_manager.plot_MB(ids=[2], title='Inland IPR Location 2')
-            mb_manager.plot_MB(ids=[2, 0, 3], title='Inland IPR Location')
+            #mb_manager.plot_MB(ids=[2, 0, 3], title='Inland IPR Location')
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='gl')
-            mb_manager.plot_MB(ids=[1, 2, 3, 4, 5])
+            #mb_manager.plot_MB(ids=[1, 2, 3, 4, 5])
             #mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
             #mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
 
@@ -274,7 +275,7 @@ class main():
 
     
 
-    def get_points_timeline(self, point, data = ['gl', 'elev', 'vel'], change = True, rema=False, cmap='managua'): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
+    def get_points_timeline(self, point, data = ['elev', 'smb15', ], change = True, rema=False, cmap='managua'): #['vel', 'elev', 'grav'] #  'vel', 'elev', 'firn'
 
         a =  self.flags.point_panels() 
         
@@ -287,6 +288,7 @@ class main():
             'grav': 'Gravimetry Change since 2020 (kg/m²)',
             'gl': 'Grounding Line Change (m)',
             'firn': 'Firn Air Height (m)',
+            'smb15': 'ATL15-derived 10x10km Mass Change (Gt)',
         }
 
 
@@ -296,6 +298,7 @@ class main():
             'grav': True,
             'gl': False,
             'firn': False,
+            'smb15': 'cumul',
         }
 
         if not change:
@@ -384,8 +387,10 @@ class main():
             'elev': ElevationManager,
             'elev_old': ElevationManager,
             'firn': FirnAirManager,
+            '1firn': SingleFirnSourceManager,
             'grav': GravimetryManager,
             'smb': SMBManager,
+            'smb15': ATL15SMBManager,
         }
 
 
@@ -394,7 +399,7 @@ class main():
         else:
             flag = self.flags
         fm = managers[data](self.xlim, self.ylim, flag,
-                        data=data+dim)
+                            data=data+dim)
         if data == 'elev_old':
             return fm.build_supplementary_files()
         fm.build_files()
