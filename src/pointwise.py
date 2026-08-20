@@ -173,7 +173,6 @@ class Pointwize():
         if force_index != False:
             key = force_index
 
-        print(index, type(index))
         if type(index) == int or type(index) == str:
             p = self.points[index]
             df_ref = self.create_point_df([p])
@@ -182,7 +181,6 @@ class Pointwize():
         else:
             df_ref = index
 
-        print(df_ref)
         
         df_ref = gpd.sjoin(df_ref, out, distance=self.max_dist, predicate='dwithin')
         
@@ -470,7 +468,7 @@ class Pointwize():
 
 
         for j, p in enumerate(self.results.keys()):
-            print(self.results[p]['time'])
+            #print(self.results[p]['time'])
             self.results[p] = self.results[p].dropna()
             ls = 'None'
             color = sm.to_rgba(self.labels[j])
@@ -898,12 +896,11 @@ class FlowProfile(Pointwize):
 
 
         out = xr.open_dataset(SEA_LEVEL_TIF).squeeze()
-        print(out)
+        
         #out.rio.write_crs("EPSG:4326", inplace=True)
-        print(out)
+        
         #out.rio.reproject("EPSG:3031", inplace=True)
-        print(out)
-        print(self.fl_df)
+        
         sea_level = self.geotiff_s_join(out, self.fl_df) # self.fl are the points along the profile
 
         rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
@@ -926,7 +923,6 @@ class FlowProfile(Pointwize):
             if len(self.results[x]) == 0:
                 continue
 
-            print(label)
 
             self.results[x] = self.results[x].sort_values(by='time')
             if geoid:
@@ -971,7 +967,6 @@ class FlowProfile(Pointwize):
         IPR_mirror1 = np.array(IPR_mirror1, dtype=float)
         IPR_mirror2 = np.array(IPR_mirror2, dtype=float)
         
-        print(IPR_mirror1, IPR_mirror2)
         ax.fill_between(out['dist_from_grndline'], IPR_mirror1, IPR_mirror2, color='lightgray', alpha=0.5, label='IPR Floatation Height Range (' +str(round(FAC1)) + '-' + str(round(FAC2)) +" FAC)")
         
         out_surface_col = 'atm_height'

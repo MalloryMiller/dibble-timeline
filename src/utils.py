@@ -220,9 +220,9 @@ DEFAULT_AREA = 'Dibble'
 
 SEA_LEVEL_ELEVATION = -39
 
-GLACIAL_ICE_DENSITY = 917.0
-FIRN_DENSITY = 500.0
-WATER_DENSITY = 1028.0
+GLACIAL_ICE_DENSITY = 917.0 # kg/m3
+FIRN_DENSITY = 500.0 # kg/m3
+WATER_DENSITY = 1028.0 # kg/m3
 
 DIVERGENT_CMAP = 'Spectral'
 DIVERGENT_CMAP_FIT_LINES = 'Spectral'
@@ -237,6 +237,7 @@ INPUT = "input/"
 ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
 GRAV_LOCATION = INPUT + "grav/AIS_GMB_grid.tif"
+GRAV_NO_TIMES_LOCATION = INPUT + "grav/AIS_GMB_grid_no_extra.tif"
 ICESAT1_ELEVATION_RATE = INPUT + 'elevation/change_rates_crs_4326.tif'#INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
 ICESAT1_ELEVATION_RATE_FLOATING = INPUT + 'elevation/change_rates_crs_4326_floating.tif'#INPUT + 'elevation/ICESat1_ICESat2_mass_change_updated_2_2021/dhdt/ais_dhdt_grounded_filt.tif'
 

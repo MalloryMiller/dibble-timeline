@@ -41,7 +41,6 @@ class MBCalculation():
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
             self.depth_correct_velocity = True
 
-            print(self.depth_correct_velocity)
         else:
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
             self.depth_correct_velocity = False
@@ -57,8 +56,6 @@ class MBCalculation():
             self.results = gpd.read_file(GL_GPKG_manual)
         elif method == 'flux':
             self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
-
-        print(self.results)
             
         self.method = method
         self.vels = []
@@ -181,7 +178,7 @@ class MBCalculation():
         step_size = 1
 
         n = 3
-        shape_factor= 1#0.806 # https://books.google.com/books?hl=en&lr=&id=Jca2v1u1EKEC&oi=fnd&pg=PP1&ots=KOMQ32smmd&sig=DSxwoIBC_qXWTiShNp503GSLRHw#v=onepage&q=shape%20factor&f=false
+        shape_factor= 1 #0.806 # https://books.google.com/books?hl=en&lr=&id=Jca2v1u1EKEC&oi=fnd&pg=PP1&ots=KOMQ32smmd&sig=DSxwoIBC_qXWTiShNp503GSLRHw#v=onepage&q=shape%20factor&f=false
         
         A = 38e-25 # A(T=0)
 
@@ -203,8 +200,8 @@ class MBCalculation():
             creep_speed = velocity
             slip_speed = 0
 
-        print('creep:', creep_speed)
-        print('slip:', slip_speed)
+        #('creep:', creep_speed)
+        #print('slip:', slip_speed)
 
         for x in range(round(thickness) // step_size):
             s = (slip_speed + (creep_speed * (1 - ((1 - (x / thickness)) ** (n+1))))) * step_size #(slip_speed + ((creep_speed * (1 - ((1 - (x / thickness)) ** (n+1)))))) * step_size
@@ -217,7 +214,6 @@ class MBCalculation():
             plt.xlabel("Velocity (m/yr)")
             plt.ylabel("Height (m)")
             plt.title("Velocity by Depth")
-            print(thickness, velocity, slope)
             fig.savefig('velocity_profile.pdf')
             plt.close(fig)
         
@@ -233,14 +229,13 @@ class MBCalculation():
         smb_df = self.SMB.get_surface_balance_df(plot=False)
         elevation_mb = self.atl_MB.get_surface_balance_df(True)
         grav_mb = self.grav.get_surface_balance_df(True)
-        firn_m = self.firn.get_surface_balance_df(True)
-        print(firn_m)
+        #firn_m = self.firn.get_surface_balance_df(True)
         
 
         fig, ax = plt.subplots()
         if not seperate:
             ax.axhline(0, color='black', label='Equilibrium', linewidth=2)
-        print(elevation_mb)
+        #print(elevation_mb)
         ax.plot(elevation_mb['dt'], elevation_mb['smb'], label='ATL15-derived Total Mass Balance')
         ax.plot(grav_mb['dt'], grav_mb['smb'], label='GRACE-derived Total Mass Balance')
 
@@ -278,14 +273,14 @@ class MBCalculation():
                 smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False)
             else:
                 smb_df = self.SMB.get_surface_balance_df(exclusion=exclude, plot=False)
-            print(smb_df)
+            #print(smb_df)
             smb_df = smb_df[smb_df['smb'] != 0]
 
-            print(discharges)
+            #print(discharges)
             result = smb_df['smb'] - discharges
             result_dt = np.array(discharges_dt)[result != np.nan]
             result = result[result != np.nan]
-            print(result)
+            #print(result)
 
             discharges_dt = np.array(discharges_dt)[discharges != np.nan]
             discharges = discharges[discharges != np.nan]

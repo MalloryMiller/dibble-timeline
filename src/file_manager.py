@@ -1096,6 +1096,10 @@ class SMBManager(FileManager):
         band_steps2 = relativedelta(month=2)
         self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
 
+        self.yearly_adjustment = None
+        self.preset_band_times = None
+        self.custom_times = None
+
         self.source_file = SMB_FILE_LOCATION
         self.mask_file = SMB_MASK_LOCATION
         self.area_file = SMB_AREA_LOCATION
@@ -1154,9 +1158,9 @@ class SMBManager(FileManager):
         #area["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
         #area.attrs["grid_mapping"] = "spatial_ref"
 
-        if not isinstance(mask, type(None)) and not isinstance(area, type(None)):
+        if mask is not None and area is not None:
             mask *= area
-        elif not isinstance(area, type(None)) and isinstance(mask, type(None)):
+        elif area is not None and mask is None:
             mask = area
         else:
             mask = 1
@@ -1164,36 +1168,49 @@ class SMBManager(FileManager):
         mask *= self.area_conversion
 
         daily = False
+        cur_band = 0
         
         for x in range(self.yearStart, self.yearEnd):
             cur_smb = 0
+            if self.custom_times is None:
+                year_segments = range(1, self.snapshot_per_eyar + 1)
+            else:
+                year_segments = self.custom_times[self.custom_times.astype('datetime64[Y]') == np.datetime64(str(x))]
+                print(year_segments)
             
-            for m in range(1, self.snapshot_per_eyar + 1):
-                month = (m * round(12/self.snapshot_per_eyar) % 13)
-                day = self.start_band_time.day
-                if month == 0:
-                    daily = True
-                if daily:
-                    month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
-                    day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25)+1
-                    print(day)
-                    print(self.snapshot_per_eyar)
-                print(month)
-                print(m)
-                cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
+            for m in year_segments:
+                if self.custom_times is None:
+                    month = (m * round(12/self.snapshot_per_eyar) % 13)
+                    day = self.start_band_time.day
+                    if month == 0:
+                        daily = True
+                    if daily:
+                        month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
+                        day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25) + 1
+
+                    found_time = datetime.datetime(x, month, day)
+                    cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
+                    if (cur_band) <= 0:
+                        year_sums.append(np.nan)
+                        year_dates.append(found_time)
+                        continue
+                else:
+                    found_time = m
+                    cur_band += 1
+                    
+                #cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
                 if (cur_band) <= 0:
                     year_sums.append(np.nan)
-                    year_dates.append(datetime.datetime(x, month, day))
+                    year_dates.append(found_time)
                     continue
                 try:
                     #self.get_temp_fname()
-                    fname = self.get_smb_fname(datetime.datetime(x, month, day))
+                    fname = self.get_smb_fname(found_time)
                     gdal.Translate(self.get_temp_fname(), self.source_file, bandList=[cur_band])
                     cur = rioxarray.open_rasterio(self.get_temp_fname(), masked=True).squeeze()
 
                     cur["spatial_ref"] = xr.DataArray(0, attrs={"crs_wkt": self.crs_wkt, "spatial_ref": self.crs_wkt})
                     cur.attrs["grid_mapping"] = "spatial_ref"
-
                     cur.values *= mask
 
                     cur = cur.rio.write_crs(self.crs_wkt)
@@ -1204,13 +1221,13 @@ class SMBManager(FileManager):
 
 
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, month, day)), 'dibblebasins')['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), 'dibblebasins')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
 
                     cur_smb += sum_smb
-                    dates.append(datetime.datetime(x, month, day))
+                    dates.append(found_time)
                 except RuntimeError as e:
-                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, month, day)))
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(found_time))
                     print(e)
             #year_sums.append(cur_smb)
             year_dates.append(datetime.datetime(x, 6, 1))
@@ -1235,7 +1252,7 @@ class SMBManager(FileManager):
 
 
 
-    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count'], yearly_adjustment=None):
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count']):
         dates = []
         sums = []
         year_dates = []
@@ -1246,23 +1263,37 @@ class SMBManager(FileManager):
         for x in range(self.yearStart, self.yearEnd):
             cur_smb = 0
             complete_year = True
+
+            print(self.source_file)
+
+            if self.custom_times is None:
+                year_segments = range(1, self.snapshot_per_eyar + 1)
+            else:
+                year_segments = self.custom_times[self.custom_times.astype('datetime64[Y]') == np.datetime64(str(x))]
+                print(year_segments)
             
-            for m in range(1, self.snapshot_per_eyar + 1):
-                month = (m * round(12/self.snapshot_per_eyar) % 13)
-                day = self.start_band_time.day
-                if month == 0:
-                    daily = True
-                if daily:
-                    month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
-                    day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25)+1
+            for m in year_segments:
+                if self.custom_times is None:
+                    month = (m * round(12/self.snapshot_per_eyar) % 13)
+                    day = self.start_band_time.day
+                    if month == 0:
+                        daily = True
+                    if daily:
+                        month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
+                        day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25) + 1
+
+                    found_time = datetime.datetime(x, month, day)
+                else:
+                    found_time = m
+
                     
-                cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
+                '''cur_band = ((x * self.snapshot_per_eyar) + m) - (self.start_band_time.year * self.snapshot_per_eyar)
                 if (cur_band) <= 0:
                     year_sums.append(np.nan)
                     year_dates.append(datetime.datetime(x, month, day))
-                    continue
+                    continue'''
                 try:
-                    fname = self.get_smb_fname(datetime.datetime(x, month, day))
+                    fname = self.get_smb_fname(found_time)
 
                     if not os.path.exists(fname):
                         continue
@@ -1273,22 +1304,22 @@ class SMBManager(FileManager):
                     
                     cur.rio.to_raster(fname)
 
-                    if yearly_adjustment is not None:
-                        cur += yearly_adjustment[yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values
+                    if self.yearly_adjustment is not None:
+                        cur += np.mean(self.yearly_adjustment[self.yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values)
+                        
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, month, day)), 'dibblebasins', 
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), 'dibblebasins', 
                                                   exclusion=exclusion, extra_mask=extra_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
                     sums.append(sum_smb * 12)
-                    #print(sum_smb)
 
                     cur_smb += sum_smb
-                    dates.append(datetime.datetime(x, month, day))
+                    dates.append(found_time)
                 except RuntimeError as e:
-                    print("No SMB data for " + self.tif_source + " at datetime " + str(datetime.datetime(x, month, day)))
+                    print("No SMB data for " + self.tif_source + " at datetime " + str(found_time))
                     print(e)
                     complete_year = False
             year_dates.append(datetime.datetime(x, 6, 1))
-            if complete_year:
+            if complete_year and cur_smb != 0:
                 year_sums.append(cur_smb) # convert into yearly average based on however many months were snapshotted
             else:
                 year_sums.append(np.nan)
@@ -1315,6 +1346,7 @@ class SMBManager(FileManager):
                 "smb": sums,
                 "dt": dates,
             })
+
 
         return df
 
@@ -1423,15 +1455,19 @@ class ATL15SMBManager(SMBManager):
         band_steps2 = relativedelta(month=month_spacing+1)
 
         self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
+
+
+        firn = SingleFirnSourceManager(self.xlims, self.ylims, self.flags)
+        self.yearly_adjustment = firn.get_surface_balance_df()
+        
+        self.yearly_adjustment['smb'] = - self.yearly_adjustment['smb']
         
 
 
     def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
 
-        firn = SingleFirnSourceManager(self.xlims, self.ylims, self.flags)
-        firn_df = firn.get_surface_balance_df()
-        firn_df['smb'] = - firn_df['smb']
-        df = super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, yearly_adjustment=firn_df)
+        df = super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot)
+        df['smb']-=self.yearly_adjustment['smb']
 
 
 
@@ -1439,7 +1475,7 @@ class ATL15SMBManager(SMBManager):
 
 class SingleFirnSourceManager(SMBManager):
 
-    def __init__(self, xlims, ylims, flags):
+    def __init__(self, xlims, ylims, flags, data=''):
         
         self.label='Firn'
         super().__init__(xlims, ylims, flags, '1firn', label=self.label)
@@ -1452,12 +1488,12 @@ class SingleFirnSourceManager(SMBManager):
         self.source_file = INPUT + 'firn_air/FAC_flipped.tif'
         self.mask_file = None
         self.area_file = None
-        self.area_conversion = 1 # If the area geotiff is in the wrong units
+        self.area_conversion = 12000*12000 # If the area geotiff is in the wrong units
         self.tif_source = "Firn Air"
         self.crs_wkt = """EPSG:3031"""
         
     def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
-        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, gt_conversion=1, stats_to_get=['mean'])
+        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, stats_to_get=['mean'])
 
         years = df['dt'].values
         trends = [0]
@@ -1501,28 +1537,39 @@ class GravimetryManager(SMBManager):
     def __init__(self, xlims, ylims, flags, data='grav'):
         
         ftype='tif'
-        self.label = "grav"
         super().__init__(xlims, ylims, flags, data, ftype)
         
+        self.label = "Grav"
 
-        self.start_band_time = datetime.datetime(1858, 11, 17)
-        self.band_steps = relativedelta(day=15)
-        band_steps2 = relativedelta(day=16)
-        self.snapshot_per_eyar = round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
+        self.start_band_time = datetime.datetime(2002, 4, 18)
+        self.band_steps = relativedelta(month=1)
+        self.snapshot_per_eyar = 12 #round(1/(((self.start_band_time+band_steps2)-self.start_band_time).days / 365))
 
-        self.source_file = GRAV_LOCATION
+        self.source_file = GRAV_NO_TIMES_LOCATION
         self.mask_file = None
         self.area_file = None
-        self.area_conversion = 1 # If the area geotiff is in the wrong units
+        grav_pixel_width = 50000
+        self.area_conversion = GLACIAL_ICE_DENSITY * grav_pixel_width # If the area geotiff is in the wrong units
         self.tif_source = "GRACE Gravimetry"
         self.crs_wkt = """EPSG:3031"""
+        dts = xr.open_dataset(GRAV_LOCATION)
+        dts = dts['time'].values
+        datetimes = []
+
+        for x in dts:
+            datetimes.append(datetime.datetime(x.year, x.month, x.day))
+
+        self.custom_times = np.array(datetimes)
         
+
+
+    def build_files(self):
+        return self.build_smb_files()
 
     
     def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
-        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot, gt_conversion=1, stats_to_get=['mean'])
 
-        print(df)
+        df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot)
 
         return df
     
