@@ -4,6 +4,7 @@ import numpy as np
 from numpy import abs # type: ignore
 from matplotlib.colors import ListedColormap
 
+import csv
 from shapely.geometry import Point
 
 AREAS = {
@@ -259,10 +260,12 @@ SHAPEFILES = {
     'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.shp",
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
-    'dibblebasins': "shapefiles/DibbleBasin.shp",
+    'Dibblebasin': "shapefiles/DibbleBasin.shp",
     'dibble_large_basins': "shapefiles/dibble_large_basins.shp",
     'fluxgate': 'shapefiles/flux_gate.gpkg'
 }
+
+BASIN_TO_USE = 'Dibblebasin'
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
 GL_GPKG_manual = "shapefiles/Manual_grounding_lines.gpkg"

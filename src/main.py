@@ -166,12 +166,13 @@ class main():
 
         if self.flags.chart_type() == 'mb':
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='flux')
-            mb_manager.plot_MB(ids=[], title='ATL15-derived Total Mass Balance')
+            #mb_manager.plot_MB(ids=[], title='ATL15-derived Total Mass Balance')
 
             #mb_manager.plot_MB(ids=[2], title='Inland IPR Location 2')
             mb_manager.plot_MB(ids=[2, 0], title='Inland IPR Location')
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='gl')
             mb_manager.plot_MB(ids=[1, 2, 3, 4, 5])
+            #mb_manager.plot_MB(ids=[1, 2])
             #mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
             #mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
 

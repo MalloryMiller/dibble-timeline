@@ -39,7 +39,7 @@ class MBCalculation():
 
         if method == 'flux':
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
-            self.depth_correct_velocity = True
+            self.depth_correct_velocity = 'noslip'
 
         else:
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
@@ -67,36 +67,38 @@ class MBCalculation():
         final_df = self.results
         return final_df
 
-    def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False, get_extra_mask=False):
+    def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False, get_extra_mask=False, noslip=False, mask = None):
 
 
         df = self.results[self.results['id'] == id]
+        df = df.to_crs('EPSG:3031')
 
         if get_extra_mask:
             try:
                 first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
-                last_vertex = shapely.get_coordinates(df.geometry.head(1))[1]
+                last_vertex = shapely.get_coordinates(df.geometry.head(1))[-1]
             except:
                 return None, None
             
             
             extra_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
                                 [list(reversed(first_vertex)),
-                                list(reversed(last_vertex))], [-2500, 500]).get_polygon(include_og_line=False)
+                                list(reversed(last_vertex))], [-2500,0]).get_polygon(include_og_line=list(shapely.get_coordinates(df.geometry.head(1))), mask=mask)
         else:
             extra_mask = None
+
 
         if get_exclusion:
             try:
                 first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
-                last_vertex = shapely.get_coordinates(df.geometry.head(1))[1]
+                last_vertex = shapely.get_coordinates(df.geometry.head(1))[-1]
             except:
                 return None, None
             
             
             exclusion_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
                                 [list(reversed(first_vertex)),
-                                list(reversed(last_vertex))], [0, 500]).get_polygon(include_og_line=True)
+                                list(reversed(last_vertex))], [0, 500]).get_polygon(include_og_line=list(shapely.get_coordinates(df.geometry.head(1))), mask=mask)
         else:
             exclusion_mask = None
 
@@ -112,9 +114,11 @@ class MBCalculation():
             )
 
         vel_discharges = []
-        if self.depth_correct_velocity:
+        if self.depth_correct_velocity and not noslip:
             for v in range(len(vels['total_vel'])):
                 vel_discharges.append(self.depth_adjusted_velocity_discharge(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v]))
+        elif noslip:
+                vel_discharges.append(self.depth_adjusted_velocity_discharge_noslip(vels['discharge_vel'][v], thickness['thickness'][v], slopes['slope'][v]))
         else:
             for v in range(len(vels['total_vel'])):
                 vel_discharges.append(vels['discharge_vel'][v] * thickness['thickness'][v])
@@ -174,6 +178,8 @@ class MBCalculation():
     
 
     def depth_adjusted_velocity_discharge(self, velocity, thickness, slope, plot=False):
+        if self.depth_correct_velocity == 'noslip':
+            return self.depth_adjusted_velocity_discharge_noslip(velocity, thickness, slope, plot)
         velocities = []
         step_size = 1
 
@@ -254,10 +260,13 @@ class MBCalculation():
             for dt in smb_df.dt:
                 print("dt:", dt)
                 if first_run:
-                    dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, get_extra_mask= first_run and self.method == 'flux')
+                    mask = None
+                    if self.method != 'flux':
+                        mask = BASIN_TO_USE
+                    dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, get_extra_mask= first_run, mask=mask)
                     first_run = exclude == None
                 else:
-                    dis, _, __ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run)
+                    dis, _, __ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, mask=BASIN_TO_USE)
 
                 if dis == 0 or dis == None:
                     discharges.append(np.nan)
@@ -269,10 +278,7 @@ class MBCalculation():
 
             discharges = np.array(discharges)
 
-            if self.method == 'flux':
-                smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False)
-            else:
-                smb_df = self.SMB.get_surface_balance_df(exclusion=exclude, plot=False)
+            smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False, add_mask=self.method != 'flux')
             #print(smb_df)
             smb_df = smb_df[smb_df['smb'] != 0]
 
@@ -305,6 +311,7 @@ class MBCalculation():
             #plt.plot(discharges_dt, self.thickness, label='Total Thickness')
             #plt.plot(discharges_dt, self.lengths, label='Total length')
 
+        csv_text = csv_text.strip()
 
         with open(MB_OUTPUT + title+'.csv', 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)

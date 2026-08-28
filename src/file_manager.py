@@ -13,6 +13,7 @@ import xarray as xr
 import matplotlib.pyplot as plt
 
 from shapely.geometry import Point
+from shapely.validation import make_valid
 import pandas as pd
 import geopandas as gpd
 from functools import partial
@@ -1221,7 +1222,7 @@ class SMBManager(FileManager):
 
 
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), 'dibblebasins')['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE)['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
 
                     cur_smb += sum_smb
@@ -1252,7 +1253,7 @@ class SMBManager(FileManager):
 
 
 
-    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count']):
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count'], add_mask=False):
         dates = []
         sums = []
         year_dates = []
@@ -1270,7 +1271,6 @@ class SMBManager(FileManager):
                 year_segments = range(1, self.snapshot_per_eyar + 1)
             else:
                 year_segments = self.custom_times[self.custom_times.astype('datetime64[Y]') == np.datetime64(str(x))]
-                print(year_segments)
             
             for m in year_segments:
                 if self.custom_times is None:
@@ -1308,8 +1308,8 @@ class SMBManager(FileManager):
                         cur += np.mean(self.yearly_adjustment[self.yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values)
                         
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), 'dibblebasins', 
-                                                  exclusion=exclusion, extra_mask=extra_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE, 
+                                                  exclusion=exclusion, extra_mask=extra_mask, add_mask=add_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
                     sums.append(sum_smb * 12)
 
                     cur_smb += sum_smb
@@ -1353,7 +1353,7 @@ class SMBManager(FileManager):
         
         
 
-    def get_zonal_data(self, fname, mask, exclusion=None, extra_mask=None, stats_to_get=['sum', 'count']):
+    def get_zonal_data(self, fname, mask, exclusion=None, extra_mask=None, stats_to_get=['sum', 'count'], add_mask=False):
         '''
         dataset = rs.open(fname)
         arr = dataset.read(1)
@@ -1376,9 +1376,10 @@ class SMBManager(FileManager):
         raster = rs.open(fname)
         bad = None
 
+
         if exclusion != None:
             try:
-                exclusion = exclusion.intersection(zone['geometry'].iloc[0])
+                exclusion = make_valid(exclusion.buffer(0).intersection(zone['geometry'].iloc[0]))
                 exclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[exclusion], crs='EPSG:3031')
                 exclusion_df.to_file("CROPPED_ZONE.shp")
                 exclusion_df = exclusion_df.to_crs(self.crs_wkt)
@@ -1386,22 +1387,23 @@ class SMBManager(FileManager):
             except:
                 bad = None
 
-            
-
         if extra_mask != None:
             try:
-                inclusion = extra_mask.intersection(zone['geometry'].iloc[0])
+                if add_mask:
+                    inclusion = extra_mask.buffer(0).union(zone['geometry'].iloc[0]).buffer(0)
+                else:
+                    inclusion = extra_mask.buffer(0).intersection(zone['geometry'].iloc[0]).buffer(0)
                 inclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[inclusion], crs='EPSG:3031')
                 inclusion_df.to_file("MASK_ZONE.shp")
                 inclusion_df = inclusion_df.to_crs(self.crs_wkt)
                 stats = exact_extract(raster, inclusion_df, stats_to_get)[-1]['properties']
             except Exception as e:
                 print(e)
-                bad = None
+                zone = zone.to_crs(self.crs_wkt)
+                stats = exact_extract(raster, zone, stats_to_get)[-1]['properties']
 
         else:
             zone = zone.to_crs(self.crs_wkt)
-
             stats = exact_extract(raster, zone, stats_to_get)[-1]['properties']
 
         #print(stats)

@@ -1333,7 +1333,7 @@ class PolyFlowHybridLine(PointSeries) :
         return total_dist
 
 
-    def get_points(self, overlap_ds=False, include_all=True, index='index', include_og_line=True):
+    def get_points(self, overlap_ds=False, include_all=True, index='index', include_og_line=None):
         
         cur_dist = 0
         for x in range(1, len(self.main_pts)):
@@ -1354,16 +1354,16 @@ class PolyFlowHybridLine(PointSeries) :
             
             cur_lable = 0
             p2 = []
-            for p in df_start[1:-1]:
+            for p in df_start[0:-1]:
                 p2.insert(0, Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size
-            if include_og_line:
-                for i, p in enumerate(self.points[1:-1]):
-                    p2.append(Point(p[1], p[0]))
+            if include_og_line is not None:
+                for i, p in enumerate(include_og_line[0:-1]):
+                    p2.append(Point(p[0], p[1]))
                     labels.append(self.labels[i] + cur_lable)
                 cur_lable = self.labels[-1]
-            for p in df_end[1:-1]:
+            for p in df_end[0:-1]:
                 p2.append(Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size
@@ -1382,12 +1382,21 @@ class PolyFlowHybridLine(PointSeries) :
 
         return np.array(self.points), np.array(self.labels)
 
-    def get_polygon(self, include_og_line=False):
+    def get_polygon(self, include_og_line=False, mask=None):
         points, labels, all = self.get_points(include_og_line=include_og_line)
 
         points = [[p.x, p.y] for p in all['geometry'].values]
 
         p = Polygon(points)
+        
+        if mask is not None and not p.is_valid and self.pt_label[0] < 0:
+            mask_data =  gpd.read_file(SHAPEFILES[mask])
+            mask_polygon = mask_data['geometry'].iloc[0]
+            far_point_if_invalid = mask_polygon.centroid
+            print()
+            print('WAS INVALID', far_point_if_invalid)
+            points = include_og_line + [far_point_if_invalid]
+            p = Polygon(points)
         gpd_df = gpd.GeoDataFrame({'feature': [0], 'geometry': [p]}, crs='EPSG:3031')
 
         gpd_df.to_file("POLYLINE_FLOW_TEST_all.shp")
