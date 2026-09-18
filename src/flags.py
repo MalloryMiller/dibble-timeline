@@ -34,10 +34,11 @@ class Flags():
 
     def __init__(self):
         self.flags=[]
+        self.title = "Dibble"
 
         self.source_v_flags = [
             '-itslive',
-            '-measures'
+            '-measures',
         ]
         self.combo_flags = [
             '-weighted',
@@ -51,7 +52,7 @@ class Flags():
             '-pairprofile',
             '-elev-error',
             '-frame',
-            '-mb'
+            '-mb',
         ]
 
         self.rebuild_flags = [
@@ -65,7 +66,8 @@ class Flags():
             '-rebuild:elev',
             '-rebuild:elev_old',
             '-rebuild:1firn',
-            '-rebuild:grav'
+            '-rebuild:grav',
+            '-rebuild:cryo',
             #'-rebuild:rema',
         ]
 

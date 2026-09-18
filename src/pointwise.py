@@ -1354,16 +1354,16 @@ class PolyFlowHybridLine(PointSeries) :
             
             cur_lable = 0
             p2 = []
-            for p in df_start[0:-1]:
+            for p in df_start[1:-1]:
                 p2.insert(0, Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size
             if include_og_line is not None:
-                for i, p in enumerate(include_og_line[0:-1]):
+                for i, p in enumerate(include_og_line[1:-1]):
                     p2.append(Point(p[0], p[1]))
                     labels.append(self.labels[i] + cur_lable)
                 cur_lable = self.labels[-1]
-            for p in df_end[0:-1]:
+            for p in df_end[1:-1]:
                 p2.append(Point(p[1], p[0]))
                 labels.append(cur_lable)
                 cur_lable += flow_step_size

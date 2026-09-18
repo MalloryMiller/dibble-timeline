@@ -4,12 +4,12 @@ import os
 from utils import *
 
 
-from file_manager import VelocityManager, ElevationManager, GravimetryManager, FirnAirManager, SMBManager, ATL15SMBManager, IPRManager, plt, SingleFirnSourceManager
+from file_manager import VelocityManager, ElevationManager, GravimetryManager, CRYOSATgriddedSMBManager, FirnAirManager, SMBManager, ATL15SMBManager, IPRManager, plt, SingleFirnSourceManager
 from elevation_errpr import ElevationError
 from pointwise import Pointwize, FlowProfile
 import matplotlib.pyplot as plt
 from plotting import Plotting
-from mb import MBCalculation
+from mb import MBPlot
 
 
 class main():
@@ -77,6 +77,8 @@ class main():
             self.ylim = AREAS[DEFAULT_AREA][1]
             self.title = DEFAULT_AREA
             print('Default location being used: ' + DEFAULT_AREA)
+
+        self.flags.title = self.title
         
 
         valid = True
@@ -165,16 +167,24 @@ class main():
                 t.plot_diff(x['fname'])
 
         if self.flags.chart_type() == 'mb':
-            mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='flux')
+
+            mb_manager = MBPlot(self.xlim, self.ylim, self.flags, "Mass Balance Estimates_R2")
+            mb_manager.plot_MB()
+            '''mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='flux')
             #mb_manager.plot_MB(ids=[], title='ATL15-derived Total Mass Balance')
 
             #mb_manager.plot_MB(ids=[2], title='Inland IPR Location 2')
-            mb_manager.plot_MB(ids=[2, 0], title='Inland IPR Location')
+            mb_manager.plot_MB(ids={
+                                    0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'limegreen'},
+                                    2: {'label': 'Narrow IPR Flux Gate', 'color': 'dodgerblue'}, },
+                                    title='Mass Balance Using IPR Flux Gates')
             mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='gl')
-            mb_manager.plot_MB(ids=[1, 2, 3, 4, 5])
-            #mb_manager.plot_MB(ids=[1, 2])
+            #mb_manager.plot_MB(ids=[1, 2, 3, 4, 5])
+            mb_manager.plot_MB(ids={1: {'label': 'Inland GL', 'color': 'orangered'}, 
+                                    2: {'label': 'Offshore GL', 'color': 'gold'}},
+                                    title = 'Mass Balance Using Grounding Line estimates')
             #mb_manager.plot_MB(ids=[1, 3, 5], title='Inland GL Locations')
-            #mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')
+            #mb_manager.plot_MB(ids=[2, 4], title='Offshore GL Locations')'''
 
         if self.flags.chart_type() == 'elev-error':
             self.get_elevation_error()
@@ -392,6 +402,7 @@ class main():
             'grav': GravimetryManager,
             'smb': SMBManager,
             'smb15': ATL15SMBManager,
+            'cryo': CRYOSATgriddedSMBManager,
         }
 
 

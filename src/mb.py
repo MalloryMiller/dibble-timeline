@@ -1,8 +1,7 @@
 from utils import * 
-from file_manager import IPRManager ,REMATileManager, GravimetryManager, BedmapManager, GeoidManager, VelocityManager, SMBManager, ATL15SMBManager, SingleFirnSourceManager, AvgXVelManager, AvgYVelManager, REMATileSlopeManager
+from file_manager import IPRManager ,REMATileManager, GravimetryManager, CRYOSATgriddedSMBManager, SurfaceBalanceCSV, BedmapManager, GeoidManager, VelocityManager, SMBManager, ATL15SMBManager, SingleFirnSourceManager, AvgXVelManager, AvgYVelManager, REMATileSlopeManager
 import geopandas as gpd
 import numpy as np
-import pandas as pd
 from pointwise import FlowProfile, PolyFlowHybridLine
 import math
 from shapely.ops import linemerge
@@ -12,6 +11,7 @@ import matplotlib.pyplot as plt
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
 import csv
+from plotting import Plotting, extent
 
 '''
 REMA & Bedmap:
@@ -31,15 +31,178 @@ Equilibrium:
 4   5 2026-02-27 2026-02-28 2026-03-11  ...                        gl2.shp          True  MULTILINESTRING ((135.39282 -66.10375, 135.383...   17.807347
 '''
 
+
+
+class MBPlot():
+    def __init__(self, xlims, ylims, flags, title):
+        self.xlims = xlims
+        self.ylims = ylims
+
+        self.ref_colors = {
+            'GRACE-derived Total Mass Balance': 'black',
+            'ATL15-derived Total Mass Balance': 'navy',
+            'CryoSat-derived Total Mass Balance': 'mediumorchid',
+            'Rignot (2018)': 'gray',
+        }
+        self.ref_MBs = {
+            'GRACE-derived Total Mass Balance': GravimetryManager(xlims, ylims, flags),
+            'ATL15-derived Total Mass Balance': ATL15SMBManager(xlims, ylims, flags, 'ATL15'),
+            'CryoSat-derived Total Mass Balance': CRYOSATgriddedSMBManager(xlims, ylims, flags, 'CryoSat'),
+            'Rignot (2018)': SurfaceBalanceCSV(xlims, ylims, flags, 'Rignot, 2018', SMB_LOCATION + 'rignot_discharges.csv'),
+        }
+        
+        self.MB_ests = [MBCalculation(xlims, ylims, flags, 'flux', 
+                                    {0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'limegreen'},
+                                    2: {'label': 'Narrow IPR Flux Gate', 'color': 'dodgerblue'}},
+                                    title='Mass Balance Using IPR Flux Gates'),
+                        MBCalculation(xlims, ylims, flags, 'gl', 
+                                    {1: {'label': 'Inland GL', 'color': 'orangered'}, 
+                                    2: {'label': 'Offshore GL', 'color': 'gold'}},
+                                    title = 'Mass Balance Using Grounding Line estimates')]
+        self.flags = flags
+        self.title = title
+        
+
+
+        pass
+
+    def plot_MB(self, seperate=True):
+        
+        plotting = Plotting()
+
+        refs = {}
+        summaries = [['Method','Total Mass Balance', 'Average Mass Balance', 'CCC']]
+        ccc_ref = None
+        for x in self.ref_MBs.keys():
+            refs[x] = self.ref_MBs[x].get_surface_balance_df(True)
+            if ccc_ref is None:
+                ccc_ref = refs[x]
+            summaries.append([x] + list(self.ref_MBs[x].get_summaries(df=refs[x], baseline=ccc_ref)))
+
+        #firn_m = self.firn.get_surface_balance_df(True)
+
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        if seperate:
+            fig_seperate, ax_seperate = plt.subplots(figsize=(10, 5))
+            ax_seperate.plot([], [], label="Matching Surface Mass Balances", c='black', linestyle='dashed')
+
+        ax.axhline(0, color='black', label='Equilibrium', linewidth=2)
+        #print(elevation_mb)
+
+        for x in self.ref_MBs.keys():
+            ax.plot(refs[x]['dt'], refs[x]['smb'], label=x, c=self.ref_colors[x])
+
+        ref_guide = []
+
+
+        for method in self.MB_ests:
+
+            df = method.get_surface_balance_df()
+            if method.range:
+                method.depth_correct_velocity = method.range2
+                df2 = method.get_surface_balance_df()
+                method.depth_correct_velocity = True
+                df_med = method.get_surface_balance_df()
+                method.depth_correct_velocity = method.range1
+
+            for id in df['id'].unique():
+                ref_guide.append({'shape': method.results[method.results['id'] == id].to_crs('EPSG:3031').geometry.head(1),
+                                 'label':str(method.ids[id]['label']), 'color':method.ids[id]['color']})
+                        
+                df_cur = df[df['id'] == id]
+
+                if method.range:
+                    df2_cur = df2[df2['id'] == id]
+                    df_med_cur = df_med[df_med['id'] == id]
+                    ax.fill_between(df_cur['dt'], df_cur['smb'], df2_cur['smb'], color=method.ids[id]['color'], alpha=0.5)
+                    ax.plot(df_med_cur['dt'], df_med_cur['smb'], label=str(method.ids[id]['label']), c=method.ids[id]['color'])
+
+                else:     
+                    ax.plot(df_cur['dt'], df_cur['smb'], label=str(method.ids[id]['label']), c=method.ids[id]['color'])
+
+
+                summaries.append([str(method.ids[id]['label'])] + list(self.get_summaries(df=df_cur, baseline=ccc_ref)))
+
+                if seperate:
+                    ax_seperate.plot(df_cur['dt'], df_cur['output'], label=str(method.ids[id]['label']) + " Discharge", c=method.ids[id]['color'])
+                    ax_seperate.plot(df_cur['dt'], df_cur['input'], c=method.ids[id]['color'], linestyle='dashed')
+
+                
+
+
+            #plt.plot(discharges_dt, self.vels, label='Total Velocity')
+            #plt.plot(discharges_dt, self.thickness, label='Total Thickness')
+            #plt.plot(discharges_dt, self.lengths, label='Total length')
+
+        with open("output/mb/integrated_results.csv", "w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerows(summaries)
+        
+        ax.legend(bbox_to_anchor=(1.05, 0.5), loc="center left")
+        ax.set_xlabel('Date')
+        ax.set_ylabel('Total Mass Change (GT/yr)')
+        ax.grid()
+        ax.set_title(self.title)
+        fig.tight_layout() 
+        fig.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.pdf')
+        fig.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
+
+        if seperate:
+            ax_seperate.set_xlabel('Date')
+            ax_seperate.set_ylabel('Mass Change (GT/yr)')
+            ax_seperate.grid()
+            ax_seperate.set_title(self.title)
+            ax_seperate.legend(bbox_to_anchor=(1.05, 0.5), loc="center left")
+            fig_seperate.tight_layout() 
+            fig_seperate.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_SEPERATE_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
+
+        plt.close()
+        fig_ref, ax_ref = plotting.make_cartopy_plot()
+        plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=extent)
+        plotting.mask_outside(extent=extent)
+        plotting.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig_ref, ax_ref, vmax=800, vmin=0, label = "Velocity (m/yr)", cmap='BuPu_r',alpha=1)
+        
+        print(ref_guide)
+        for item in ref_guide:
+            item['shape'].plot(ax=ax_ref, autolim=False, label=str(item['label']), color=item['color'])
+
+        ax_ref.legend(loc="lower left", fontsize=11)
+        plotting.save_close(fig_ref, ax_ref, MB_OUTPUT + self.title + '_ref')
+        plotting.save_close(fig_ref, ax_ref, MB_OUTPUT + self.title + '_ref', ftype='.pdf')
+
+        
+
+        return
+
+    
+    def get_summaries(self, df, baseline=None):
+        yearfracs = epoch_to_yearfrac(mdates.date2num(df['dt']))
+        total = np.trapezoid(df['smb'], yearfracs)
+        average_mb = np.nanmean(df['smb'])
+
+        if baseline is not None:
+            ccc_result = agreement_stat_calc(baseline['smb'], df['smb'])
+            return total, average_mb, ccc_result
+        
+        return total, average_mb
+    
+
+
 class MBCalculation():
-    def __init__(self, xlims, ylims, flags, method='flux'):
+    def __init__(self, xlims, ylims, flags, method='flux', ids=None, title=''):
         self.xlims = xlims
         self.ylims = ylims
         self.flags = flags
 
+        self.range = False
+
         if method == 'flux':
             self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
             self.depth_correct_velocity = 'noslip'
+            self.range1 = 'noslip'
+            self.range2 = False
+            self.range = True
 
         else:
             self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
@@ -47,9 +210,7 @@ class MBCalculation():
 
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
-        self.atl_MB = ATL15SMBManager(xlims, ylims, flags, 'ATL15')
         self.firn = SingleFirnSourceManager(xlims, ylims, flags)
-        self.grav = GravimetryManager(xlims, ylims, flags)
         self.slope_manager = SlopeManager(xlims, ylims, flags)
         self.flags = flags
         if method == 'gl':
@@ -58,6 +219,8 @@ class MBCalculation():
             self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
             
         self.method = method
+        self.ids = ids
+        self.title = title
         self.vels = []
         self.thickness = []
         self.lengths = []
@@ -225,27 +388,24 @@ class MBCalculation():
         
         return sum(velocities)
 
-    def plot_MB(self, ids=[0, 1, 2, 3, 4, 5], title='All GL Locations', seperate=False):
+    def get_surface_balance_df(self):
+
         csv_text = 'title,σ SMB,SMB,D,σ D,'
         for x in range(self.flags.YEARSTART, self.flags.YEAREND):
             csv_text += str(x) + ','
         csv_text += '\n'
 
+        id_order = []
+        year_sums = []
+        year_dates = []
+        inputs = []
+        outputs = []
 
-        smb_df = self.SMB.get_surface_balance_df(plot=False)
-        elevation_mb = self.atl_MB.get_surface_balance_df(True)
-        grav_mb = self.grav.get_surface_balance_df(True)
-        #firn_m = self.firn.get_surface_balance_df(True)
+        smb_df = None #self.SMB.get_surface_balance_df()
+        #smb_df = smb_df[smb_df['smb'] != 0]
         
 
-        fig, ax = plt.subplots()
-        if not seperate:
-            ax.axhline(0, color='black', label='Equilibrium', linewidth=2)
-        #print(elevation_mb)
-        ax.plot(elevation_mb['dt'], elevation_mb['smb'], label='ATL15-derived Total Mass Balance')
-        ax.plot(grav_mb['dt'], grav_mb['smb'], label='GRACE-derived Total Mass Balance')
-
-        for id in ids:
+        for id in self.ids.keys():
             print("ID:", id)
             self.vels = []
             self.thickness = []
@@ -255,45 +415,59 @@ class MBCalculation():
             discharges_dt = []
             first_run = True
 
-            smb_df = smb_df[smb_df['smb'] != 0]
+            
 
-            for dt in smb_df.dt:
+            for dt in range(self.flags.YEARSTART, self.flags.YEAREND):
                 print("dt:", dt)
                 if first_run:
                     mask = None
                     if self.method != 'flux':
-                        mask = BASIN_TO_USE
-                    dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, get_extra_mask= first_run, mask=mask)
+                        mask = self.flags.title + 'basin'
+                    dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt, get_exclusion = first_run, get_extra_mask= first_run, mask=mask)
                     first_run = exclude == None
                 else:
-                    dis, _, __ = self.get_discharge_results(id=id, year = dt.year, get_exclusion = first_run, mask=BASIN_TO_USE)
+                    dis, _, __ = self.get_discharge_results(id=id, year = dt, get_exclusion = first_run, mask=self.flags.title + 'basin')
 
                 if dis == 0 or dis == None:
                     discharges.append(np.nan)
-                    discharges_dt.append(datetime.datetime(dt.year, 6, 1))
+                    discharges_dt.append(datetime.datetime(dt, 6, 1))
                     continue
                 discharges.append(dis)
-                discharges_dt.append(datetime.datetime(dt.year, 6, 1))
+                discharges_dt.append(datetime.datetime(dt, 6, 1))
 
 
             discharges = np.array(discharges)
 
+            print(smb_df)
+
             smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False, add_mask=self.method != 'flux')
-            #print(smb_df)
+            print(smb_df)
+            print(smb_df, len(smb_df))
+            print(discharges_dt, len(discharges_dt))
+            print(discharges, len(discharges))
+            smb_df['discharges'] = discharges
+            smb_df['dt'] = discharges_dt
             smb_df = smb_df[smb_df['smb'] != 0]
+            smb_df = smb_df.dropna()
 
             #print(discharges)
-            result = smb_df['smb'] - discharges
-            result_dt = np.array(discharges_dt)[result != np.nan]
-            result = result[result != np.nan]
+            result = smb_df['smb'] - smb_df['discharges']
+            result_dt = smb_df['dt'] #np.array(discharges_dt)[result != np.nan]
+            #result = result[result != np.nan]
             #print(result)
+
+            year_sums.extend(result)
+            year_dates.extend(result_dt)
+            inputs.extend(smb_df['smb'])
+            outputs.extend(smb_df['discharges'])
+            id_order.extend([id] * len(result))
 
             discharges_dt = np.array(discharges_dt)[discharges != np.nan]
             discharges = discharges[discharges != np.nan]
             #input("WAITING FOR INPUT")
             #plt.plot(discharges_dt, discharges, label='Yearly Discharge, ID=' + str(id))
 
-            csv_text += title + " (" + str(id) + '),'
+            csv_text += str(self.ids[id]['label']) +  ' ' + self.flags.sources_v()[0] + " (" + str(id) + '),'
             csv_text += str(np.nanstd(smb_df['smb'])) + ','
             csv_text += str(np.nanmean(smb_df['smb'])) + ','
             csv_text += str(np.nanmean(discharges)) + ','
@@ -304,32 +478,24 @@ class MBCalculation():
 
             #plt.plot(smb_df['dt'], smb_df['smb'], label='Yearly SMB, ID=' + str(id))
 
-            ax.plot(result_dt, result, label='Total Mass Balance Change, ID=' + str(id))
-
-
-            #plt.plot(discharges_dt, self.vels, label='Total Velocity')
-            #plt.plot(discharges_dt, self.thickness, label='Total Thickness')
-            #plt.plot(discharges_dt, self.lengths, label='Total length')
-
         csv_text = csv_text.strip()
 
-        with open(MB_OUTPUT + title+'.csv', 'w', newline='', encoding='utf-8') as file:
+        with open(MB_OUTPUT + self.title+'.csv', 'w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             to_write = csv_text.split('\n')
             for i, l in enumerate(to_write):
                 to_write[i] = l.split(',')
             writer.writerows(to_write)
 
-        ax.legend()
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Total Mass Change (GT/yr)')
-        ax.grid()
-        ax.set_title(title)
-        fig.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.pdf')
-        fig.savefig(MB_OUTPUT + title + self.flags.sources_v()[0][0] + '_' + str(self.thickness_calculator) +'_SMBs.png')
 
-        return
-
+        return  pd.DataFrame(
+            {
+                "smb": year_sums,
+                "dt": year_dates,
+                "input": inputs,
+                "output": outputs,
+                'id': id_order
+            })
 
 
 
@@ -427,7 +593,12 @@ class ThicknessIPR(ThicknessCalculation):
 
     def get_thickness(self, gdp):
         out = self.IPR.get_ouput_files()
+        out.to_crs('EPSG:3031')
         out = gl_geotiff_s_join(out, gdp, column_of_interest='THICK', label='thickness')
+        fig, ax = plt.subplots()
+        ax.plot(out['dists'], -out['thickness'])
+        fig.savefig('THICKNESS ALONG LINE.png')
+        plt.close(fig)
         return out
         
 

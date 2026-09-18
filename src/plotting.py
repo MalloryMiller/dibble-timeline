@@ -534,11 +534,11 @@ class Plotting:
                 ax[1].set_ylim(min(elevation) - padding, max(elevation) + padding)
 
 
-    def save_close(self, fig, ax, title):
+    def save_close(self, fig, ax, title, ftype='.png'):
 
         print("Saving image...")
-        plt.savefig(title + ".png", dpi=200)
-        print(title + ".png")
+        plt.savefig(title + ftype, dpi=200)
+        print(title + ftype)
         
         plt.close('all')
 

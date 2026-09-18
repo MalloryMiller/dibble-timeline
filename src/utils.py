@@ -6,6 +6,15 @@ from matplotlib.colors import ListedColormap
 
 import csv
 from shapely.geometry import Point
+import pandas as pd
+
+import torch
+from torchmetrics.regression import ConcordanceCorrCoef
+#from sklearn.metrics.pairwise import cosine_similarity
+
+
+import matplotlib.dates as mdates
+
 
 AREAS = {
 
@@ -18,6 +27,16 @@ AREAS = {
     'DibbleSlowing': [
         [1852971,1861727],
         [-1859529, -1847206,]
+
+    ],
+    'Totten': [
+        [2229400,2319054],
+        [-983895, -1223645,]
+
+    ],
+    'Mertz': [
+        [1377690,1491595],
+        [-2082152, -1946936,]
 
     ],
 
@@ -223,7 +242,7 @@ SEA_LEVEL_ELEVATION = -39
 
 GLACIAL_ICE_DENSITY = 917.0 # kg/m3
 FIRN_DENSITY = 500.0 # kg/m3
-WATER_DENSITY = 1028.0 # kg/m3
+WATER_DENSITY = 1027.0 # kg/m3
 
 DIVERGENT_CMAP = 'Spectral'
 DIVERGENT_CMAP_FIT_LINES = 'Spectral'
@@ -265,7 +284,6 @@ SHAPEFILES = {
     'fluxgate': 'shapefiles/flux_gate.gpkg'
 }
 
-BASIN_TO_USE = 'Dibblebasin'
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
 GL_GPKG_manual = "shapefiles/Manual_grounding_lines.gpkg"
@@ -367,6 +385,13 @@ e_i = 3.15
 v_i = c / np.sqrt(e_i)
 
 GRAVITY = 9.8
+
+def agreement_stat_calc(arr1, arr2):
+    df = pd.DataFrame({'arr1': arr1,
+                       'arr2': arr2})
+    df = df.dropna()
+
+    return np.corrcoef(df['arr1'], df['arr2'])[0][1] #cosine_similarity(df['arr1'], df['arr2']) #
 
 
 def epoch_to_yearfrac(epoch):

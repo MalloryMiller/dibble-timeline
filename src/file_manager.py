@@ -27,6 +27,7 @@ import rasterio as rs
 from exactextract import exact_extract
 from xrspatial import slope
 
+
 import xvec
 from dateutil.relativedelta import relativedelta
 
@@ -735,7 +736,7 @@ class ElevationManager(FileManager):
                 resolution=(-0.1, 0.1),
                 rasterize_function=rasterize_image,
             )
-            print(TIF_LOCATION + self.get_tif_elevation_fname(c))
+            
             to_tif['elev'].rio.to_raster(TIF_LOCATION + self.get_tif_elevation_fname(c))
 
 
@@ -1028,6 +1029,7 @@ class FirnAirManager(FileManager):
         self.tif_source = ["Historic (Veldhuijsen, 2024)", "SSP585 (Veldhuijsen, 2024)", "SSP126 (Veldhuijsen, 2024)"]
         self.source = source
         
+        
     
 
     def build_files(self):
@@ -1092,6 +1094,10 @@ class SMBManager(FileManager):
         ftype='csv'
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
 
+        self.average_mb = None
+        self.total = None
+        self.ccc_result = None
+
         self.start_band_time = datetime.datetime(1979, 1, 16)
         self.band_steps = relativedelta(month=1)
         band_steps2 = relativedelta(month=2)
@@ -1107,8 +1113,31 @@ class SMBManager(FileManager):
         self.area_conversion = 1000000 # If the area geotiff is in the wrong units
         self.tif_source = "RACMO SMB"
         self.crs_wkt = """GEOGCRS["Rotated_pole",BASEGEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],DERIVINGCONVERSION["Pole rotation (netCDF CF convention)",METHOD["Pole rotation (netCDF CF convention)"],PARAMETER["Grid north pole latitude (netCDF CF convention)",-185,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["Grid north pole longitude (netCDF CF convention)",-160,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],PARAMETER["North pole grid longitude (netCDF CF convention)",0,ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433,ID["EPSG",9122]]]]"""
+
         
-        
+    
+    def get_summaries(self, df = None, baseline=None):
+        if self.total is None:
+            if df is None:
+                df = self.get_surface_balance_df(self)
+            trap_df = df.copy()
+            trap_df['year'] = epoch_to_yearfrac(mdates.date2num(df['dt']))
+            trap_df = trap_df.dropna()
+            #yearfracs = epoch_to_yearfrac(mdates.date2num(df['dt']))
+            self.total = np.trapezoid(trap_df['smb'], trap_df['year'])
+            self.average_mb = np.nanmean(df['smb'])
+            
+        if baseline is None:
+            return self.total, self.average_mb
+
+        if self.ccc_result is None:
+            if df is None:
+                df = self.get_surface_balance_df(self)
+            self.ccc_result = agreement_stat_calc(baseline['smb'], df['smb'])
+
+            
+            
+        return self.total, self.average_mb, self.ccc_result
     
 
     def build_files(self):
@@ -1166,7 +1195,9 @@ class SMBManager(FileManager):
         else:
             mask = 1
 
+        print(mask)
         mask *= self.area_conversion
+        print(mask)
 
         daily = False
         cur_band = 0
@@ -1177,7 +1208,6 @@ class SMBManager(FileManager):
                 year_segments = range(1, self.snapshot_per_eyar + 1)
             else:
                 year_segments = self.custom_times[self.custom_times.astype('datetime64[Y]') == np.datetime64(str(x))]
-                print(year_segments)
             
             for m in year_segments:
                 if self.custom_times is None:
@@ -1222,7 +1252,7 @@ class SMBManager(FileManager):
 
 
                     #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins')['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE)['sum'] * (1/1e12)
+                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), self.flags.title + 'basin')['sum'] * (1/1e12)
                     sums.append(sum_smb * 12)
 
                     cur_smb += sum_smb
@@ -1265,7 +1295,6 @@ class SMBManager(FileManager):
             cur_smb = 0
             complete_year = True
 
-            print(self.source_file)
 
             if self.custom_times is None:
                 year_segments = range(1, self.snapshot_per_eyar + 1)
@@ -1292,32 +1321,32 @@ class SMBManager(FileManager):
                     year_sums.append(np.nan)
                     year_dates.append(datetime.datetime(x, month, day))
                     continue'''
-                try:
-                    fname = self.get_smb_fname(found_time)
+            
+                fname = self.get_smb_fname(found_time)
 
-                    if not os.path.exists(fname):
-                        continue
+                if not os.path.exists(fname):
+                    continue
 
-                    cur = rioxarray.open_rasterio(fname, masked=True)
+                cur = rioxarray.open_rasterio(fname, masked=True)
 
-                    cur = cur.rio.write_crs(self.crs_wkt)
+                cur = cur.rio.write_crs(self.crs_wkt)
+                
+                cur.rio.to_raster(fname)
+
+                if self.yearly_adjustment is not None:
+                    cur += np.mean(self.yearly_adjustment[self.yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values)
                     
-                    cur.rio.to_raster(fname)
+                #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
+                sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE, 
+                                                exclusion=exclusion, extra_mask=extra_mask, add_mask=add_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
+                sums.append(sum_smb * 12)
 
-                    if self.yearly_adjustment is not None:
-                        cur += np.mean(self.yearly_adjustment[self.yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values)
-                        
-                    #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
-                    sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE, 
-                                                  exclusion=exclusion, extra_mask=extra_mask, add_mask=add_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
-                    sums.append(sum_smb * 12)
-
-                    cur_smb += sum_smb
-                    dates.append(found_time)
-                except RuntimeError as e:
+                cur_smb += sum_smb
+                dates.append(found_time)
+                '''except RuntimeError as e:
                     print("No SMB data for " + self.tif_source + " at datetime " + str(found_time))
                     print(e)
-                    complete_year = False
+                    complete_year = False'''
             year_dates.append(datetime.datetime(x, 6, 1))
             if complete_year and cur_smb != 0:
                 year_sums.append(cur_smb) # convert into yearly average based on however many months were snapshotted
@@ -1373,7 +1402,7 @@ class SMBManager(FileManager):
         zone = gpd.read_file(SHAPEFILES[mask])
         if zone.crs is None:
             zone = zone.set_crs('EPSG:3031')
-        raster = rs.open(fname)
+        raster = xr.open_dataset(fname) #rs.open(fname)
         bad = None
 
 
@@ -1406,7 +1435,7 @@ class SMBManager(FileManager):
             zone = zone.to_crs(self.crs_wkt)
             stats = exact_extract(raster, zone, stats_to_get)[-1]['properties']
 
-        #print(stats)
+
         if bad != None:
             for col in bad:
                 stats[col] -= bad[col]
@@ -1490,7 +1519,7 @@ class SingleFirnSourceManager(SMBManager):
         self.source_file = INPUT + 'firn_air/FAC_flipped.tif'
         self.mask_file = None
         self.area_file = None
-        self.area_conversion = 12000*12000 # If the area geotiff is in the wrong units
+        self.area_conversion = 12000*12000
         self.tif_source = "Firn Air"
         self.crs_wkt = """EPSG:3031"""
         
@@ -1513,23 +1542,139 @@ class SingleFirnSourceManager(SMBManager):
 
         return df
 
-class CRYOSATgriddedSMBManager(SMBManager):
 
-    def __init__(self, xlims, ylims, flags, data):
+class SurfaceBalanceCSV(SMBManager):
+    def __init__(self, xlims, ylims, flags, data, fname):
 
-        self.label='ATL15'
+        self.label=data
         super().__init__(xlims, ylims, flags, data,label=self.label)
 
-
-
-
-        self.source_file = ICESAT_RATE_FILE_LOCATION
-        self.mask_file = None
-        self.area_file = ICESAT_AREA_LOCATION
+        self.fname = fname
 
     def build_files(self):
         #return super().build_files()
         return
+        
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
+
+        years = []
+        mbs = []
+        ids = []
+        cur_id = 0
+        print(self.fname)
+        with open(self.fname, mode='r', encoding='utf-8') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                for col in range(self.yearStart, self.yearEnd):
+                    years.append(datetime.datetime(int(col), 6, 1))
+                    ids.append(cur_id)
+
+                    if str(col) in row.keys() and row[str(col)].replace('.', '').replace('-', '').isnumeric():
+                        mbs.append(float(row['SMB']) - float(row[str(col)]))
+                    else:
+                        mbs.append(np.nan)
+                cur_id += 1
+
+        if cur_id > 1:
+            df = pd.DataFrame(
+                        {
+                            "smb": mbs,
+                            "dt": years,
+                            "id": ids
+                        })
+        else:
+            df = pd.DataFrame(
+                        {
+                            "smb": mbs,
+                            "dt": years,
+                        })
+
+        return df
+
+
+
+
+class CRYOSATgriddedSMBManager(ATL15SMBManager):
+
+    def __init__(self, xlims, ylims, flags, data):
+
+        super().__init__(xlims, ylims, flags, data)
+        self.label='cryo'
+
+        self.resolution = 2000
+        self.padding_pixels = 50
+
+        self.start_band_time = datetime.datetime(2019, 6, 1)
+
+        self.band_steps = relativedelta(year=1)
+
+        self.source_file = ICESAT_RATE_FILE_LOCATION
+        self.mask_file = None
+        self.area_file = None
+        self.area_conversion = GLACIAL_ICE_DENSITY * self.resolution * self.resolution
+
+        self.tif_source = self.label
+        self.crs_wkt = """EPSG:3031"""
+
+        self.snapshot_per_eyar = 1
+
+        self.custom_times = []
+        for y in range(self.yearStart, self.yearEnd):
+            self.custom_times.append(datetime.datetime(y, 6, 1))
+        self.custom_times = np.array(self.custom_times)
+
+
+        firn = SingleFirnSourceManager(self.xlims, self.ylims, self.flags)
+        self.yearly_adjustment = firn.get_surface_balance_df()
+        
+        self.yearly_adjustment['smb'] = - self.yearly_adjustment['smb']
+
+    def build_files(self, col='elevation'):
+        #return super().build_files()
+        prev_year = None
+        changes = []
+        years_found = []
+        for year in range(self.yearStart, self.yearEnd):
+            try:
+                gdf = gpd.read_file('input/cryosat/' + str(year) + '.gpkg')
+            except Exception as e:
+                print(e)
+                continue
+            
+
+            x_arr = np.arange(gdf['x'].min() - (self.resolution * self.padding_pixels), gdf['x'].max() + (self.resolution * self.padding_pixels), self.resolution) #  np.array(sorted(gdf['x'].unique().astype(int)))
+            y_arr = np.arange(gdf['y'].min() - (self.resolution * self.padding_pixels), gdf['y'].max() + (self.resolution * self.padding_pixels), self.resolution)#np.array(sorted(gdf['y'].unique().astype(int)))
+            data = np.full((len(y_arr), len(x_arr)), np.nan)
+            
+
+            da = xr.DataArray(data, 
+                              dims=("y", "x"), 
+                              coords={'x':x_arr,'y':y_arr},)
+
+            for i, x in enumerate(x_arr):
+                for j, y in enumerate(y_arr):
+                    cur = gdf[(gdf['x'] == x) & (gdf['y'] == y)][col].astype(float)
+                    if len(cur) > 0:
+                        da[j][i] = np.nanmean(cur)
+
+            da *= self.area_conversion
+            da = da.rio.write_crs('EPSG:3031')
+            
+            fname = OUTPUT+"cryosat/" + str(year) + col + '.tif'
+            self.chack_valid_path(fname)
+            da.rio.to_raster(fname)
+
+            if prev_year is not None:
+                fname_ch = self.get_smb_fname(datetime.datetime(year, 6, 1)) # OUTPUT+"cryosat/" + str(year) + col + '_change.tif'
+                self.chack_valid_path(fname_ch)
+                ch = (da - prev_year)
+                ch.rio.to_raster(fname_ch)
+                changes.append(ch.data)
+                years_found.append(years_found)
+            prev_year = da
+        df = self.get_surface_balance_df()
+        print(df)
+        return df
 
 
 
