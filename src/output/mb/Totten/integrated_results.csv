@@ -1,0 +1,4 @@
+Method,Total Mass Balance,Average Mass Balance,CCC
+GRACE-derived Total Mass Balance,-16.301306773565575,-0.38342538470921667,0.9999999999999999
+ATL15-derived Total Mass Balance,20.56169248630868,-2.3991091639678856,0.808203514587661
+CryoSat-derived Total Mass Balance,0.0,nan,nan

@@ -1,6 +1,6 @@
 import datetime
 import sys
-import os
+
 from utils import *
 
 
@@ -79,6 +79,7 @@ class main():
             print('Default location being used: ' + DEFAULT_AREA)
 
         self.flags.title = self.title
+        #OUTPUT = OUTPUT + self.title + '/'
         
 
         valid = True
@@ -133,7 +134,7 @@ class main():
 
 
         if self.flags.chart_type() == 'frame':
-            p = Plotting()
+            p = Plotting(self.flags)
             p.frame()
 
         if self.flags.chart_type() == 'points':
@@ -168,7 +169,7 @@ class main():
 
         if self.flags.chart_type() == 'mb':
 
-            mb_manager = MBPlot(self.xlim, self.ylim, self.flags, "Mass Balance Estimates_R2")
+            mb_manager = MBPlot(self.xlim, self.ylim, self.flags, "Overall Mass Balance Estimates")
             mb_manager.plot_MB()
             '''mb_manager = MBCalculation(self.xlim, self.ylim, self.flags, method='flux')
             #mb_manager.plot_MB(ids=[], title='ATL15-derived Total Mass Balance')
@@ -418,5 +419,4 @@ class main():
 
 
 
-    
 main()

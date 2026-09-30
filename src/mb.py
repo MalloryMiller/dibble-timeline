@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
 import csv
-from plotting import Plotting, extent
+from plotting import Plotting, EXTENTS, BASIN_EXTENTS
+
+
 
 '''
 REMA & Bedmap:
@@ -39,26 +41,25 @@ class MBPlot():
         self.ylims = ylims
 
         self.ref_colors = {
-            'GRACE-derived Total Mass Balance': 'black',
+            'GRACE-derived Total Mass Balance': 'darkred',
             'ATL15-derived Total Mass Balance': 'navy',
             'CryoSat-derived Total Mass Balance': 'mediumorchid',
-            'Rignot (2018)': 'gray',
+            'Rignot Total Mass Balance (2018)': 'gray',
         }
         self.ref_MBs = {
             'GRACE-derived Total Mass Balance': GravimetryManager(xlims, ylims, flags),
             'ATL15-derived Total Mass Balance': ATL15SMBManager(xlims, ylims, flags, 'ATL15'),
             'CryoSat-derived Total Mass Balance': CRYOSATgriddedSMBManager(xlims, ylims, flags, 'CryoSat'),
-            'Rignot (2018)': SurfaceBalanceCSV(xlims, ylims, flags, 'Rignot, 2018', SMB_LOCATION + 'rignot_discharges.csv'),
+            'Rignot Total Mass Balance (2018)': SurfaceBalanceCSV(xlims, ylims, flags, 'Rignot, 2018', SMB_LOCATION + 'rignot_discharges.csv'),
         }
-        
-        self.MB_ests = [MBCalculation(xlims, ylims, flags, 'flux', 
-                                    {0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'limegreen'},
-                                    2: {'label': 'Narrow IPR Flux Gate', 'color': 'dodgerblue'}},
-                                    title='Mass Balance Using IPR Flux Gates'),
-                        MBCalculation(xlims, ylims, flags, 'gl', 
-                                    {1: {'label': 'Inland GL', 'color': 'orangered'}, 
-                                    2: {'label': 'Offshore GL', 'color': 'gold'}},
-                                    title = 'Mass Balance Using Grounding Line estimates')]
+
+        self.MB_ests = []
+        for mb in MB_ESTS[flags.title]:
+            self.MB_ests.append(MBCalculation(xlims, ylims, flags, 
+                                              mb['est_type'], mb['lines'], mb['title'],
+                                              thickness_calc=mb['thickness']))
+
+
         self.flags = flags
         self.title = title
         
@@ -68,7 +69,7 @@ class MBPlot():
 
     def plot_MB(self, seperate=True):
         
-        plotting = Plotting()
+        plotting = Plotting(self.flags)
 
         refs = {}
         summaries = [['Method','Total Mass Balance', 'Average Mass Balance', 'CCC']]
@@ -102,21 +103,22 @@ class MBPlot():
             if method.range:
                 method.depth_correct_velocity = method.range2
                 df2 = method.get_surface_balance_df()
-                method.depth_correct_velocity = True
-                df_med = method.get_surface_balance_df()
                 method.depth_correct_velocity = method.range1
+                df1 = method.get_surface_balance_df()
+                method.depth_correct_velocity = method.range
 
             for id in df['id'].unique():
                 ref_guide.append({'shape': method.results[method.results['id'] == id].to_crs('EPSG:3031').geometry.head(1),
-                                 'label':str(method.ids[id]['label']), 'color':method.ids[id]['color']})
+                                 'label':str(method.ids[id]['label']), 'color':method.ids[id]['color'],
+                                 'mask_file': method.get_shp_file_fname(id)})
                         
                 df_cur = df[df['id'] == id]
 
                 if method.range:
                     df2_cur = df2[df2['id'] == id]
-                    df_med_cur = df_med[df_med['id'] == id]
-                    ax.fill_between(df_cur['dt'], df_cur['smb'], df2_cur['smb'], color=method.ids[id]['color'], alpha=0.5)
-                    ax.plot(df_med_cur['dt'], df_med_cur['smb'], label=str(method.ids[id]['label']), c=method.ids[id]['color'])
+                    df1_cur = df1[df1['id'] == id]
+                    ax.fill_between(df1_cur['dt'], df1_cur['smb'], df2_cur['smb'], color=method.ids[id]['color'], alpha=0.5)
+                    ax.plot(df_cur['dt'], df_cur['smb'], label=str(method.ids[id]['label']), c=method.ids[id]['color'])
 
                 else:     
                     ax.plot(df_cur['dt'], df_cur['smb'], label=str(method.ids[id]['label']), c=method.ids[id]['color'])
@@ -134,8 +136,9 @@ class MBPlot():
             #plt.plot(discharges_dt, self.vels, label='Total Velocity')
             #plt.plot(discharges_dt, self.thickness, label='Total Thickness')
             #plt.plot(discharges_dt, self.lengths, label='Total length')
-
-        with open("output/mb/integrated_results.csv", "w", newline="", encoding="utf-8") as file:
+        integrated_results_fname = "output/mb/" + self.flags.title + "/integrated_results.csv"
+        chack_valid_path(integrated_results_fname)
+        with open(integrated_results_fname, "w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
             writer.writerows(summaries)
         
@@ -145,8 +148,8 @@ class MBPlot():
         ax.grid()
         ax.set_title(self.title)
         fig.tight_layout() 
-        fig.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.pdf')
-        fig.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
+        fig.savefig(MB_OUTPUT + self.flags.title + "/" + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.pdf')
+        fig.savefig(MB_OUTPUT + self.flags.title + "/" + self.title + self.flags.sources_v()[0][0] + '_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
 
         if seperate:
             ax_seperate.set_xlabel('Date')
@@ -155,20 +158,34 @@ class MBPlot():
             ax_seperate.set_title(self.title)
             ax_seperate.legend(bbox_to_anchor=(1.05, 0.5), loc="center left")
             fig_seperate.tight_layout() 
-            fig_seperate.savefig(MB_OUTPUT + self.title + self.flags.sources_v()[0][0] + '_SEPERATE_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
+            fig_seperate.savefig(MB_OUTPUT + self.flags.title + "/" + self.title + self.flags.sources_v()[0][0] + '_SEPERATE_' + str(self.flags.sources_v()[0][0]) +'_SMBs.png')
 
         plt.close()
-        fig_ref, ax_ref = plotting.make_cartopy_plot()
-        plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=extent)
-        plotting.mask_outside(extent=extent)
-        plotting.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig_ref, ax_ref, vmax=800, vmin=0, label = "Velocity (m/yr)", cmap='BuPu_r',alpha=1)
+        fig_ref, ax_ref = plotting.make_cartopy_plot(figsize=(12, 6))
+        '''plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=EXTENTS[self.flags.title])
+        plotting.mask_outside(extent=EXTENTS[self.flags.title])'''
+        plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=BASIN_EXTENTS[self.flags.title])
+        plotting.mask_outside(extent=BASIN_EXTENTS[self.flags.title])
+        plotting.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig_ref, ax_ref, vmax=800, vmin=0, label = "Velocity (m/yr)", cmap='gray',alpha=1)
         
-        print(ref_guide)
+
+        i = 0
+        for method in self.MB_ests:
+            for id in df['id'].unique():
+                i += 1
+
         for item in ref_guide:
             item['shape'].plot(ax=ax_ref, autolim=False, label=str(item['label']), color=item['color'])
+            plotting.plot_shapefile(item['mask_file'],fill=True, color=item['color'], alpha=0.3, label = str(item['label']) + ' SMB Mask')
 
-        ax_ref.legend(loc="lower left", fontsize=11)
-        plotting.save_close(fig_ref, ax_ref, MB_OUTPUT + self.title + '_ref')
+
+        if len(ref_guide) == 0:
+            plotting.plot_shapefile(SHAPEFILES[self.flags.title + "basin"], fill=True, color='red', alpha=0.3, label = self.flags.title + ' Basin Mask')
+        
+
+        #ax_ref.legend(bbox_to_anchor=(1.4, 0.5), loc="center left")
+        fig_ref.tight_layout() 
+        fig_ref.savefig(MB_OUTPUT + self.flags.title + "/" + self.title + '_ref.png')
         plotting.save_close(fig_ref, ax_ref, MB_OUTPUT + self.title + '_ref', ftype='.pdf')
 
         
@@ -190,23 +207,33 @@ class MBPlot():
 
 
 class MBCalculation():
-    def __init__(self, xlims, ylims, flags, method='flux', ids=None, title=''):
+    def __init__(self, xlims, ylims, flags, method='flux', ids=None, title='', thickness_calc='bedmap'):
         self.xlims = xlims
         self.ylims = ylims
         self.flags = flags
 
         self.range = False
 
+
         if method == 'flux':
-            self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
-            self.depth_correct_velocity = 'noslip'
+            self.depth_correct_velocity = True
             self.range1 = 'noslip'
             self.range2 = False
             self.range = True
+            thickness_calc = 'ipr'
 
         else:
-            self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
             self.depth_correct_velocity = False
+
+
+        if thickness_calc == 'bedmap':
+            self.thickness_calculator = ThicknessBedmapREMA(xlims, ylims, flags)
+        elif thickness_calc == 'ipr':
+            self.thickness_calculator = ThicknessIPR(xlims, ylims, flags)
+        elif thickness_calc == 'equilibrium':
+            self.thickness_calculator = ThicknessEquilibrium(xlims, ylims, flags)
+
+
 
         self.flux_calculator = VelocityFlux(xlims, ylims, flags)
         self.SMB = SMBManager(xlims, ylims, flags, 'smb')
@@ -214,9 +241,9 @@ class MBCalculation():
         self.slope_manager = SlopeManager(xlims, ylims, flags)
         self.flags = flags
         if method == 'gl':
-            self.results = gpd.read_file(GL_GPKG_manual)
+            self.results = gpd.read_file(GROUNDING_LINE_FILES[self.flags.title])
         elif method == 'flux':
-            self.results = gpd.read_file(SHAPEFILES['fluxgate']) #
+            self.results = gpd.read_file(SHAPEFILES[self.flags.title + 'fluxgate']) #
             
         self.method = method
         self.ids = ids
@@ -226,6 +253,12 @@ class MBCalculation():
         self.lengths = []
         pass
 
+    def __str__(self):
+        return self.title + str(self.method)
+
+    def get_shp_file_fname(self, id):
+        return OUTPUT + 'masks/' + str(self) + str(id) +'.shp'
+
     def calculate_discharge(self):
         final_df = self.results
         return final_df
@@ -233,35 +266,33 @@ class MBCalculation():
     def get_discharge_results(self, id = 1, year = 2019, get_exclusion=False, get_extra_mask=False, noslip=False, mask = None):
 
 
+        print(self.results)
         df = self.results[self.results['id'] == id]
         df = df.to_crs('EPSG:3031')
+        print(df)
 
+        try:
+            point_array = shapely.get_coordinates(df.geometry.head(1))
+        except Exception as e:
+            point_array = list(df.geometry)
+            return None, None, None
+        print(point_array)
+        
+        first_vertex = point_array[0]
+        last_vertex = point_array[-1]
         if get_extra_mask:
-            try:
-                first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
-                last_vertex = shapely.get_coordinates(df.geometry.head(1))[-1]
-            except:
-                return None, None
-            
             
             extra_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
                                 [list(reversed(first_vertex)),
-                                list(reversed(last_vertex))], [-2500,0]).get_polygon(include_og_line=list(shapely.get_coordinates(df.geometry.head(1))), mask=mask)
+                                list(reversed(last_vertex))], [-2500,0]).get_polygon(include_og_line=list(point_array), mask=mask)
         else:
             extra_mask = None
 
-
         if get_exclusion:
-            try:
-                first_vertex = shapely.get_coordinates(df.geometry.head(1))[0]
-                last_vertex = shapely.get_coordinates(df.geometry.head(1))[-1]
-            except:
-                return None, None
-            
             
             exclusion_mask = PolyFlowHybridLine(self.xlims, self.ylims, self.flags, 
                                 [list(reversed(first_vertex)),
-                                list(reversed(last_vertex))], [0, 500]).get_polygon(include_og_line=list(shapely.get_coordinates(df.geometry.head(1))), mask=mask)
+                                list(reversed(last_vertex))], [0, 500]).get_polygon(include_og_line=list(point_array), mask=mask)
         else:
             exclusion_mask = None
 
@@ -272,6 +303,7 @@ class MBCalculation():
         if type(vels) != gpd.GeoDataFrame:
             return None, exclusion_mask, extra_mask
         if len(vels['velx'].dropna()) != 0:
+            vels['thick'] = thickness['thickness']
             vels.to_file(
                 'DISCHARGE_SAMPLE.gpkg'
             )
@@ -414,19 +446,21 @@ class MBCalculation():
             discharges = []
             discharges_dt = []
             first_run = True
-
+            extra_mask = None
+            exclude = None
+            mask = SHAPEFILES[self.flags.title + 'basin']
+            if os.path.isfile(self.get_shp_file_fname(id)):
+                mask = self.get_shp_file_fname(id)
+                first_run = False
             
 
             for dt in range(self.flags.YEARSTART, self.flags.YEAREND):
                 print("dt:", dt)
                 if first_run:
-                    mask = None
-                    if self.method != 'flux':
-                        mask = self.flags.title + 'basin'
                     dis, exclude, extra_mask = self.get_discharge_results(id=id, year = dt, get_exclusion = first_run, get_extra_mask= first_run, mask=mask)
                     first_run = exclude == None
                 else:
-                    dis, _, __ = self.get_discharge_results(id=id, year = dt, get_exclusion = first_run, mask=self.flags.title + 'basin')
+                    dis, _, __ = self.get_discharge_results(id=id, year = dt, get_exclusion = first_run, mask=mask)
 
                 if dis == 0 or dis == None:
                     discharges.append(np.nan)
@@ -438,13 +472,14 @@ class MBCalculation():
 
             discharges = np.array(discharges)
 
-            print(smb_df)
+            if os.path.isfile(self.get_shp_file_fname(id)):
 
-            smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False, add_mask=self.method != 'flux')
-            print(smb_df)
-            print(smb_df, len(smb_df))
-            print(discharges_dt, len(discharges_dt))
-            print(discharges, len(discharges))
+                extra_mask = gpd.read_file(self.get_shp_file_fname(id))
+                extra_mask = extra_mask['geometry'].iloc[0]
+                smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, plot=False, add_mask=False, mask_save_as= self.get_shp_file_fname(id))
+            else:
+                smb_df = self.SMB.get_surface_balance_df(extra_mask=extra_mask, exclusion=exclude, plot=False, add_mask=self.method != 'flux' and not first_run, mask_save_as= self.get_shp_file_fname(id))
+
             smb_df['discharges'] = discharges
             smb_df['dt'] = discharges_dt
             smb_df = smb_df[smb_df['smb'] != 0]
@@ -596,6 +631,7 @@ class ThicknessIPR(ThicknessCalculation):
         out.to_crs('EPSG:3031')
         out = gl_geotiff_s_join(out, gdp, column_of_interest='THICK', label='thickness')
         fig, ax = plt.subplots()
+        out['thickness'] -= self.FIRNAIR
         ax.plot(out['dists'], -out['thickness'])
         fig.savefig('THICKNESS ALONG LINE.png')
         plt.close(fig)
@@ -621,9 +657,12 @@ class ThicknessEquilibrium(ThicknessCalculation):
 
         surface_elevation['geoid'] = geoid_elevation['geoid']
         surface_elevation['elev'] -= self.FIRNAIR
-        surface_elevation['elev'] += geoid_elevation['geoid']
+        surface_elevation['elev'] -= geoid_elevation['geoid']
+
+
         
         surface_elevation['thickness'] = np.abs((surface_elevation['elev'] * WATER_DENSITY) / (WATER_DENSITY - GLACIAL_ICE_DENSITY))
+        surface_elevation.to_file(f'TEST DATAEQUILIBRIUM.gpkg')
         return surface_elevation
 
 
@@ -649,11 +688,12 @@ class ThicknessBedmapREMA(ThicknessCalculation):
         surface_elevation['thickness'] = np.abs(surface_elevation['elev'] - bed_elevations['bed'])
 
         surface_elevation['thickness'] -= self.FIRNAIR
+        surface_elevation.to_file(f'TEST DATABEDMAP.gpkg')
         return surface_elevation
 
 
 
-def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle = True, label='vals', dtype=float):
+def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle = True, label='vals', dtype=float, poses=None):
     
     dists = []
     values = []
@@ -662,7 +702,10 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
     lons = []
     lens = []
     angle = []
-    #out = out.to_crs('EPSG:4326')
+    print(type(out))
+    if type(out) == gpd.geodataframe.GeoDataFrame:
+        out = out.to_crs('EPSG:3031')
+        
     progress = LoadingBar()
     points = points.to_crs('EPSG:3031')
     line_spacing_m = 100
@@ -690,7 +733,7 @@ def gl_geotiff_s_join(out, points, column_of_interest='band_data', record_angle 
             ids.append(line.id)
             lats.append(pos.y)
             lons.append(pos.x)
-            lens.append(overall_velocity(next_pos.x - last_pos.x, next_pos.y - last_pos.y))
+            lens.append(overall_velocity(next_pos.x - last_pos.x, next_pos.y - last_pos.y) / 2) #divided by two because the calculated distance is from the last to the next, so half of that will be the dist for this point
             if record_angle:
                 angle.append(math.degrees(math.atan2(next_pos.y - last_pos.y, next_pos.x - last_pos.x))  % 360)
             last_pos = pos

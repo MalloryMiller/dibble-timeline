@@ -1,5 +1,5 @@
 from utils import *
-import os
+
 
 
 from pygeotools.lib import malib
@@ -30,7 +30,7 @@ class ElevationError():
         default_sample_size = 2
         self.sample_size = sample_size
         sample_factor = default_sample_size/self.sample_size
-        self.plotter = Plotting()
+        self.plotter = Plotting(Flags())
         
 
         self.fname = REMAfname

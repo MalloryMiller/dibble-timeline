@@ -7,6 +7,7 @@ from matplotlib.colors import ListedColormap
 import csv
 from shapely.geometry import Point
 import pandas as pd
+import os
 
 import torch
 from torchmetrics.regression import ConcordanceCorrCoef
@@ -31,7 +32,7 @@ AREAS = {
     ],
     'Totten': [
         [2229400,2319054],
-        [-983895, -1223645,]
+        [-1223645, -983895,]
 
     ],
     'Mertz': [
@@ -190,8 +191,6 @@ TO_FRAME = {
     },
 }
 
-GL_IPR_FRAME = 2019102408003
-
 
 POINT_LISTS2 = {
 
@@ -236,6 +235,59 @@ POINT_LISTS2 = {
 
 }
 
+OUTPUT = "output/"
+INPUT = "input/"
+
+GROUNDING_LINE_FILES = {
+    'Dibble': "shapefiles/Manual_grounding_lines.gpkg",
+}
+
+IPR_FRAME = {
+    'Dibble': 2019102408003,
+}
+
+IPR_FILES = {
+    'Dibble': INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg",
+}
+
+ADJUSTED_IPR_FILES = {
+    'Dibble': INPUT + "ipr/firnair_.gpkg",
+}
+
+ELEVATION_TRENDS = {
+    'Dibble': 'elevation/ATL11_trends_APS.gpkg',
+}
+
+MB_ESTS = {
+
+    'Dibble': [
+        {
+            'est_type': 'gl',
+            'lines': {1: {'label': 'Inland GL (Equilibrium Thickness)', 'color': 'limegreen'}, 
+                      2: {'label': 'Offshore GL (Equilibrium Thickness)', 'color': 'dodgerblue'},},
+            'title': 'Mass Balance Using Grounding Line estimate Equilibrium Thickness',
+            'thickness': 'equilibrium'
+        },
+        {
+            'est_type': 'gl',
+            'lines': {1: {'label': 'Inland GL (BedMap Thickness)', 'color': 'seagreen'}, 
+                      2: {'label': 'Offshore GL (BedMap Thickness)', 'color': 'royalblue'},},
+            'title': 'Mass Balance Using Grounding Line estimates BedMap Thickness',
+            'thickness': 'bedmap'
+        },
+        {
+            'est_type': 'flux',
+            'lines': {0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'orangered'},
+                      2: {'label': 'Narrow IPR Flux Gate', 'color': 'gold'}},
+            'title': 'Mass Balance Using IPR Flux Gates',
+            'thickness': 'ipr'
+        },
+    ],
+    'Totten': [],
+    'Mertz': [],
+}
+
+
 DEFAULT_AREA = 'Dibble'
 
 SEA_LEVEL_ELEVATION = -39
@@ -251,8 +303,6 @@ MINIMUM_COVERAGE = 2
 
 STREAM_PLOT_STEPS = 1/12
 
-OUTPUT = "output/"
-INPUT = "input/"
 
 ELEVATION_H5_LOCATION = INPUT + "elevation/"
 ELEVATION_LOCATION = INPUT + 'elevation/ATL11_trends_APS.gpkg'
@@ -279,18 +329,20 @@ SHAPEFILES = {
     'grounding': "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.shp",
     'oceanmask': "shapefiles/maskfile.shp",
     'basins': "shapefiles/a_lot_of_basins.shp",
+
     'Dibblebasin': "shapefiles/DibbleBasin.shp",
+    'Tottenbasin': "shapefiles/TottenBasin.shp",
+    'Mertzbasin': "shapefiles/MertzBasin.shp",
+
     'dibble_large_basins': "shapefiles/dibble_large_basins.shp",
-    'fluxgate': 'shapefiles/flux_gate.gpkg'
+
+    'Dibblefluxgate': 'shapefiles/flux_gate.gpkg' # "shapefiles/IPR_pts.gpkg" #
 }
 
 
 GL_GPKG_InSAR = "shapefiles/InSAR_GL_Antarctica_v1-1992-2025_reprojected.gpkg"
-GL_GPKG_manual = "shapefiles/Manual_grounding_lines.gpkg"
 GL_GPKG_radar = "shapefiles/radar_derived_grounding_line.gpkg"
 
-IPR_GPKG_LOCATION = INPUT + "ipr/radar_with_rema_elevation_mosaic.gpkg"
-ADJUSTED_IPR = INPUT + "ipr/firnair_.gpkg"
 BEDMAP_FILE = INPUT + 'bed/bedmachine_bed.tif'
 
 VEL_TIF_FORMAT = TIF_LOCATION + "{0}_{1}_v.tif" # 0=year, 1=direction
@@ -385,6 +437,12 @@ e_i = 3.15
 v_i = c / np.sqrt(e_i)
 
 GRAVITY = 9.8
+
+
+def chack_valid_path(fname):
+    if '.' in fname.split('/')[-1]:
+        fname = '/'.join(fname.split('/')[:-1])
+    os.makedirs(fname, exist_ok=True)
 
 def agreement_stat_calc(arr1, arr2):
     df = pd.DataFrame({'arr1': arr1,

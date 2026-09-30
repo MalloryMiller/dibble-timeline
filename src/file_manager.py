@@ -1,7 +1,7 @@
 import glob
 from utils import *
 from pathlib import Path
-import os
+
 import numpy as np
 import datetime
 
@@ -12,7 +12,7 @@ import rioxarray # used by xarray for some reason, must be first
 import xarray as xr
 import matplotlib.pyplot as plt
 
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 from shapely.validation import make_valid
 import pandas as pd
 import geopandas as gpd
@@ -40,9 +40,9 @@ class FileManager:
                  source_override = False, label='', further_processing = lambda x: x, 
                  base_drop_vars = []):
         
-        self.plotter = Plotting()
-
         self.flags = flags
+        self.plotter = Plotting(self.flags)
+
         
         self.minlat =  xlims[0]
         self.maxlat =  xlims[1]
@@ -243,6 +243,7 @@ class VelocityManager(FileManager):
         further_processing = VELOCITY_SPECIAL_PREP[None]
         ftype='tif'
         base_drop_vars = []
+
 
 
         if data == 'velx':
@@ -1012,8 +1013,8 @@ class IPRManager(FileManager):
 
     def fnames(self, data_override=None):
         if self.corrected:
-            return [ADJUSTED_IPR], [], []
-        return [IPR_GPKG_LOCATION], [], []
+            return [ADJUSTED_IPR_FILES[self.flags.title]], [], []
+        return [IPR_FILES[self.flags.title]], [], []
 
 
 class FirnAirManager(FileManager):
@@ -1092,6 +1093,7 @@ class SMBManager(FileManager):
     def __init__(self, xlims, ylims, flags, data, label=''):
         
         ftype='csv'
+        self.flags = flags
         super().__init__(xlims, ylims, flags, data, ftype,label=label)
 
         self.average_mb = None
@@ -1216,7 +1218,7 @@ class SMBManager(FileManager):
                     if month == 0:
                         daily = True
                     if daily:
-                        month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) %12) + 1
+                        month = (int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366) / 30)) % 12) + 1
                         day = int(np.ceil(((m * 365/self.snapshot_per_eyar) % 366)) % 25) + 1
 
                     found_time = datetime.datetime(x, month, day)
@@ -1283,7 +1285,7 @@ class SMBManager(FileManager):
 
 
 
-    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count'], add_mask=False):
+    def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False, gt_conversion = 1/1e12, stats_to_get=['sum', 'count'], add_mask=False, mask_save_as=OUTPUT + 'masks/ZONE.shp'):
         dates = []
         sums = []
         year_dates = []
@@ -1337,7 +1339,7 @@ class SMBManager(FileManager):
                     cur += np.mean(self.yearly_adjustment[self.yearly_adjustment['dt'] == datetime.datetime(x, 6, 1)]['smb'].values)
                     
                 #sum_smb = self.get_zonal_data(self.get_smb_fname(datetime.datetime(x, m, self.start_band_time.day)), 'dibble_large_basins', exclusion=exclusion)['sum'] * (1/1e12)
-                sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), BASIN_TO_USE, 
+                sum_smb = self.get_zonal_data(self.get_smb_fname(found_time), self.flags.title + 'basin', save_as=mask_save_as,
                                                 exclusion=exclusion, extra_mask=extra_mask, add_mask=add_mask, stats_to_get=stats_to_get)[stats_to_get[0]] * gt_conversion
                 sums.append(sum_smb * 12)
 
@@ -1382,7 +1384,7 @@ class SMBManager(FileManager):
         
         
 
-    def get_zonal_data(self, fname, mask, exclusion=None, extra_mask=None, stats_to_get=['sum', 'count'], add_mask=False):
+    def get_zonal_data(self, fname, mask, exclusion=None, extra_mask=None, stats_to_get=['sum', 'count'], add_mask=False, save_as=OUTPUT + 'masks/ZONE.shp'):
         '''
         dataset = rs.open(fname)
         arr = dataset.read(1)
@@ -1403,14 +1405,37 @@ class SMBManager(FileManager):
         if zone.crs is None:
             zone = zone.set_crs('EPSG:3031')
         raster = xr.open_dataset(fname) #rs.open(fname)
-        bad = None
+        cur_shape = zone['geometry'].iloc[0]
 
+        if extra_mask != None:
+            try:
+                if add_mask:
+                    cur_shape = extra_mask.buffer(0).union(cur_shape).buffer(0)
+                else:
+                    cur_shape = extra_mask.buffer(0).intersection(cur_shape).buffer(0)
+            except Exception as e:
+                print(e)
 
         if exclusion != None:
+            cur_shape = make_valid(cur_shape.difference(exclusion.buffer(0)))
+
+        if type(cur_shape) is not Polygon: # use biggest continuous shape if broken up
+            cur_shape = max(cur_shape.geoms, key=lambda p: p.area)
+        cur_shape = Polygon(cur_shape.exterior)
+
+
+        shape_df = gpd.GeoDataFrame({'id': [0]}, geometry=[cur_shape], crs='EPSG:3031')
+        
+        shape_df.to_file(save_as)
+        shape_df = shape_df.to_crs(self.crs_wkt)
+        
+        stats = exact_extract(raster, shape_df, stats_to_get)[-1]['properties']
+
+        '''if exclusion != None:
             try:
-                exclusion = make_valid(exclusion.buffer(0).intersection(zone['geometry'].iloc[0]))
+                
                 exclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[exclusion], crs='EPSG:3031')
-                exclusion_df.to_file("CROPPED_ZONE.shp")
+                exclusion_df.to_file(OUTPUT + "masks/CROPPED_ZONE.shp")
                 exclusion_df = exclusion_df.to_crs(self.crs_wkt)
                 bad = exact_extract(raster, exclusion_df, stats_to_get)[-1]['properties']
             except:
@@ -1423,7 +1448,7 @@ class SMBManager(FileManager):
                 else:
                     inclusion = extra_mask.buffer(0).intersection(zone['geometry'].iloc[0]).buffer(0)
                 inclusion_df = gpd.GeoDataFrame({'id': [0]}, geometry=[inclusion], crs='EPSG:3031')
-                inclusion_df.to_file("MASK_ZONE.shp")
+                inclusion_df.to_file(OUTPUT + 'masks/MASK_ZONE.shp")
                 inclusion_df = inclusion_df.to_crs(self.crs_wkt)
                 stats = exact_extract(raster, inclusion_df, stats_to_get)[-1]['properties']
             except Exception as e:
@@ -1438,7 +1463,7 @@ class SMBManager(FileManager):
 
         if bad != None:
             for col in bad:
-                stats[col] -= bad[col]
+                stats[col] -= bad[col]'''
 
         return stats
 
@@ -1717,6 +1742,14 @@ class GravimetryManager(SMBManager):
     def get_surface_balance_df(self, yearly=True, exclusion=None, extra_mask=None, plot=False):
 
         df =  super().get_surface_balance_df(yearly=yearly, exclusion=exclusion, extra_mask=extra_mask, plot=plot)
+
+        diff_values = [0]
+        last = df['smb'][0]
+        for x in df['smb'][1:]:
+            diff_values.append(x - last)
+            last = x
+
+        df['smb'] = diff_values
 
         return df
     

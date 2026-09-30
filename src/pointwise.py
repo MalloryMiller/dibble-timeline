@@ -11,7 +11,6 @@ import numpy as np
 from matplotlib import cm
 import matplotlib.colors as mcolors
 import matplotlib as mpl
-import matplotlib.dates as mdates
 from photutils.aperture import CircularAperture
 import itertools
 
@@ -114,7 +113,7 @@ class Pointwize():
 
 
     def save_point_df(self):
-        p = Plotting()
+        p = Plotting(self.flags)
         df = self.create_point_df()
         labels = []
         for x in range(len(self.points)):
@@ -634,7 +633,7 @@ class Pointwize():
 
         if self.data == 'gl':
             self.get_gl_set()
-            self.get_gl_set(GL_GPKG_manual, source_label='Manual Sentinel-1 selections, 2026')
+            self.get_gl_set(GROUNDING_LINE_FILES[self.flags.title], source_label='Manual Sentinel-1 selections, 2026')
             self.get_gl_set(GL_GPKG_radar, ['date'], 'Open Polar Radar, 2024')
             return 
 
@@ -886,7 +885,7 @@ class FlowProfile(Pointwize):
         -------
         None
         '''
-        p = Plotting()
+        p = Plotting(self.flags)
 
         fig, ax = p.elevation_profile_plot_single()
         self.gl_info.fl = self.fl
@@ -1022,7 +1021,7 @@ class FlowProfile(Pointwize):
         -------
         None
         '''
-        p = Plotting()
+        p = Plotting(self.flags)
         fig, ax = p.elevation_profile_plot()
 
         rema_fm = REMATileManager(self.xlim, self.ylim, self.flags, self.data, 'REMA')
@@ -1105,7 +1104,7 @@ class FlowProfile(Pointwize):
 
 
     def plot_diff(self, fname):
-        p = Plotting()
+        p = Plotting(self.flags)
         fig, ax = p.elevation_profile_plot_single()
         labels = {}
         
@@ -1390,7 +1389,7 @@ class PolyFlowHybridLine(PointSeries) :
         p = Polygon(points)
         
         if mask is not None and not p.is_valid and self.pt_label[0] < 0:
-            mask_data =  gpd.read_file(SHAPEFILES[mask])
+            mask_data =  gpd.read_file(mask)
             mask_polygon = mask_data['geometry'].iloc[0]
             far_point_if_invalid = mask_polygon.centroid
             print()

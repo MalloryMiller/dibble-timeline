@@ -6,7 +6,7 @@ import matplotlib.colors as colors
 import matplotlib as mp
 from matplotlib.lines import Line2D
 import rasterio as rs
-import os
+
 
 from utils import *
 from matplotlib import cm
@@ -21,20 +21,40 @@ from matplotlib_map_utils.core.north_arrow import NorthArrow, north_arrow
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
-gpgk_folder_name = 'gpkg_progress'
 
 velocity_trends_tif = "shapefiles/velocities_measures.tif"#"shapefiles/velocity_trends.tif"
 
-extent = [1.78e6, 1.92e6, -1.91e6,  -1.75e6]
-basin_extent = [1, 2.1e6, -2.1e6, -0.75]
+EXTENTS = {
+    'Dibble': [1.78e6, 1.92e6, -1.91e6,  -1.75e6],
+    'Totten': [1, 2.1e6, -2.1e6, -0.75], #East antarctica
+    'Mertz': [1, 2.1e6, -2.1e6, -0.75] #East antarctica
+}
+BASIN_EXTENTS = { 
+    'Dibble': [1570000, 1.92e6, -1.91e6, -1575000],
+    'Totten': [1, 2.1e6, -2.1e6, -0.75], #East antarctica
+    'Mertz': [1, 2.1e6, -2.1e6, -0.75] #East antarctica
+}
+
+'''
+plt.xlim(extent[0], extent[1])
+plt.ylim(extent[2],  extent[3])
+'''
+
+REGION_EXTENTS = { 
+    'Dibble': [1, 2.1e6, -2.1e6, -0.75], #East antarctica
+    'Totten': [1, 2.1e6, -2.1e6, -0.75], #East antarctica
+    'Mertz': [1, 2.1e6, -2.1e6, -0.75] #East antarctica
+}
 
 
 class Plotting:
-    def __init__(self, extent=extent, basin_extent=basin_extent, get_elevation = False):
+    def __init__(self, flags, get_elevation = False):
 
-        self.extent = extent
+        self.flags = flags
+        self.extent = EXTENTS[self.flags.title]
+        self.basin_extent = BASIN_EXTENTS[self.flags.title]
         self.crs = ccrs.SouthPolarStereo()
-        self.basin_extent = basin_extent
+
         if get_elevation:
             self.gdf = gpd.read_file(ELEVATION_LOCATION) #base for the elevation df size
         else:
@@ -206,16 +226,16 @@ class Plotting:
         plt.imshow(img, cmap=cmap, extent = extent, origin='upper', vmin=vmin, vmax=vmax, alpha=alpha, zorder=-10)
         
         
-    def plot_shapefile(self, fname, color, z_order = 15, fill=False, extra_xs=[], extra_ys=[]):
+    def plot_shapefile(self, fname, color, z_order = 15, fill=False, extra_xs=[], extra_ys=[], alpha=1, label=''):
         sf = shp.Reader(fname)
         for shape in sf.shapeRecords():
 
             x = [i[0] for i in shape.shape.points[:]] + extra_xs
             y = [i[1] for i in shape.shape.points[:]] + extra_ys
             if fill:
-                plt.fill(x, y, color=color)
+                plt.fill(x, y, color=color, alpha=alpha, label = label)
             else:
-                plt.scatter(x, y, color=color, zorder=z_order, marker='o', linewidths=0, s = 2)
+                plt.scatter(x, y, color=color, zorder=z_order, marker='o', linewidths=0, s = 2, alpha=alpha, label=label)
         
 
         
@@ -257,8 +277,8 @@ class Plotting:
         plt.close('all')
 
 
-    def make_cartopy_plot(self):
-        fig = plt.figure()
+    def make_cartopy_plot(self, figsize=(10, 5)):
+        fig = plt.figure(figsize=figsize)
         ax = plt.axes(projection=self.crs)
 
         return fig, ax
@@ -456,7 +476,7 @@ class Plotting:
 
         
     def frame(self):
-        p = Plotting()
+        p = Plotting(self.flags)
         for f in TO_FRAME.keys():
             if f.strip() == '':
                 p.plot_only_geotiff(INPUT + 'to_frame/' + f, TO_FRAME[f]['title'], TO_FRAME[f]['label'],
