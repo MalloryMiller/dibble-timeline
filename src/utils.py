@@ -3,6 +3,7 @@ import time as t
 import numpy as np
 from numpy import abs # type: ignore
 from matplotlib.colors import ListedColormap
+import matplotlib.colors as colors
 
 import csv
 from shapely.geometry import Point
@@ -263,30 +264,30 @@ MB_ESTS = {
     'Dibble': [
         {
             'est_type': 'gl',
-            'lines': {1: {'label': 'Inland GL (Equilibrium Thickness)', 'color': 'limegreen'}, 
-                      2: {'label': 'Offshore GL (Equilibrium Thickness)', 'color': 'dodgerblue'},},
+            'lines': {1: {'label': 'Input-output Method', 'color': 'limegreen'}, 
+                      },#2: {'label': 'Offshore GL (Equilibrium Thickness)', 'color': 'dodgerblue'},},
             'title': 'Mass Balance Using Grounding Line estimate Equilibrium Thickness',
             'thickness': 'equilibrium'
-        },
-        {
-            'est_type': 'gl',
-            'lines': {1: {'label': 'Inland GL (BedMap Thickness)', 'color': 'seagreen'}, 
-                      2: {'label': 'Offshore GL (BedMap Thickness)', 'color': 'royalblue'},},
-            'title': 'Mass Balance Using Grounding Line estimates BedMap Thickness',
-            'thickness': 'bedmap'
-        },
-        {
-            'est_type': 'flux',
-            'lines': {0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'orangered'},
-                      2: {'label': 'Narrow IPR Flux Gate', 'color': 'gold'}},
-            'title': 'Mass Balance Using IPR Flux Gates',
-            'thickness': 'ipr'
         },
     ],
     'Totten': [],
     'Mertz': [],
 }
 
+'''{
+    'est_type': 'gl',
+    'lines': {1: {'label': 'Inland GL (BedMap Thickness)', 'color': 'seagreen'}, 
+                2: {'label': 'Offshore GL (BedMap Thickness)', 'color': 'royalblue'},},
+    'title': 'Mass Balance Using Grounding Line estimates BedMap Thickness',
+    'thickness': 'bedmap'
+},
+{
+    'est_type': 'flux',
+    'lines': {0: {'label': 'Basin-wide IPR Flux Gate', 'color': 'orangered'},
+                2: {'label': 'Narrow IPR Flux Gate', 'color': 'gold'}},
+    'title': 'Mass Balance Using IPR Flux Gates',
+    'thickness': 'ipr'
+},'''
 
 DEFAULT_AREA = 'Dibble'
 
@@ -448,6 +449,7 @@ def agreement_stat_calc(arr1, arr2):
     df = pd.DataFrame({'arr1': arr1,
                        'arr2': arr2})
     df = df.dropna()
+
 
     return np.corrcoef(df['arr1'], df['arr2'])[0][1] #cosine_similarity(df['arr1'], df['arr2']) #
 

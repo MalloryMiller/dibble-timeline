@@ -48,7 +48,7 @@ class MBPlot():
         }
         self.ref_MBs = {
             'GRACE-derived Total Mass Balance': GravimetryManager(xlims, ylims, flags),
-            'ATL15-derived Total Mass Balance': ATL15SMBManager(xlims, ylims, flags, 'ATL15'),
+            #'ATL15-derived Total Mass Balance': ATL15SMBManager(xlims, ylims, flags, 'ATL15'),
             'CryoSat-derived Total Mass Balance': CRYOSATgriddedSMBManager(xlims, ylims, flags, 'CryoSat'),
             'Rignot Total Mass Balance (2018)': SurfaceBalanceCSV(xlims, ylims, flags, 'Rignot, 2018', SMB_LOCATION + 'rignot_discharges.csv'),
         }
@@ -164,9 +164,18 @@ class MBPlot():
         fig_ref, ax_ref = plotting.make_cartopy_plot(figsize=(12, 6))
         '''plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=EXTENTS[self.flags.title])
         plotting.mask_outside(extent=EXTENTS[self.flags.title])'''
-        plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=BASIN_EXTENTS[self.flags.title])
-        plotting.mask_outside(extent=BASIN_EXTENTS[self.flags.title])
-        plotting.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig_ref, ax_ref, vmax=800, vmin=0, label = "Velocity (m/yr)", cmap='gray',alpha=1)
+        plotting.add_cartopy_reference_info(fig_ref, ax_ref, extent=EXTENTS[self.flags.title])
+        
+        elev_trends = gpd.read_file(INPUT + 'elevation/ATL11_trends_APS.gpkg')
+        print(elev_trends)
+        elev_trends.to_crs("EPSG:3031")
+        elev_trends.plot(column='trend', vmax=1, vmin=-1, cmap='bwr_r', ax=ax_ref, markersize=2)
+        colorb = plt.cm.ScalarMappable(cmap='bwr_r', norm=colors.Normalize(vmin=-1, vmax=1))
+        fig.colorbar(colorb, orientation='vertical', label=' '.join("Elevation Trend (m/yr)"), ax=ax_ref)
+
+        plotting.mask_outside(extent=EXTENTS[self.flags.title], mask_color='black')   
+        #plotting.plot_col(, , 1, -1, 'bwr_r', "Elevation Trend (m/yr)", velocities=None)
+        #plotting.plot_geotiff("shapefiles/qantarctica_velocities.tif", fig_ref, ax_ref, vmax=800, vmin=0, label = "Velocity (m/yr)", cmap='gray',alpha=1)
         
 
         i = 0
@@ -176,11 +185,12 @@ class MBPlot():
 
         for item in ref_guide:
             item['shape'].plot(ax=ax_ref, autolim=False, label=str(item['label']), color=item['color'])
-            plotting.plot_shapefile(item['mask_file'],fill=True, color=item['color'], alpha=0.3, label = str(item['label']) + ' SMB Mask')
+            #gpd.read_fileitem['mask_file'].plot(ax=ax_ref, autolim=False, label=str(item['label']), color=item['color'])
+            plotting.plot_shapefile(item['mask_file'],fill=True, color=item['color'], alpha=0.2, label = str(item['label']) + ' SMB Mask')
 
 
         if len(ref_guide) == 0:
-            plotting.plot_shapefile(SHAPEFILES[self.flags.title + "basin"], fill=True, color='red', alpha=0.3, label = self.flags.title + ' Basin Mask')
+            plotting.plot_shapefile(SHAPEFILES[self.flags.title + "basin"], fill=False, color='red', alpha=0.3, label = self.flags.title + ' Basin Mask')
         
 
         #ax_ref.legend(bbox_to_anchor=(1.4, 0.5), loc="center left")
